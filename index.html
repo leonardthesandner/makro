@@ -171,8 +171,8 @@
         if (!SR) { setErr("Spracheingabe nicht unterstützt. Bitte Safari verwenden."); return; }
         if (listening) { recognitionRef.current?.stop(); setListening(false); return; }
         const r = new SR();
-        r.lang = "de-DE"; r.continuous = false; r.interimResults = false;
-        r.onresult = (e) => { const t = e.results[0][0].transcript; setText(p => p ? p + ", " + t : t); setListening(false); };
+        r.lang = "de-DE"; r.continuous = true; r.interimResults = false;
+        r.onresult = (e) => { const t = Array.from(e.results).map(r => r[0].transcript).join(", "); setText(p => p ? p + ", " + t : t); };
         r.onerror = () => { setListening(false); setErr("Spracheingabe fehlgeschlagen."); };
         r.onend = () => setListening(false);
         recognitionRef.current = r;
@@ -379,18 +379,19 @@
 
           {step === STEP.entering && (
             <Card accent style={{ display: "flex", flexDirection: "column" }}>
-              <div style={{ padding: "12px 14px 0", display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 6 }}>
-                <span style={{ fontFamily: "Syne", fontSize: 12, color: C.accent }}>Zutaten eingeben (roh, vor dem Kochen)</span>
-                <button onClick={toggleVoice} className={isListening ? "pulsing" : ""} style={{ background: isListening ? "#f59e0b22" : "none", border: isListening ? `1px solid ${C.accent}` : `1px solid #333`, borderRadius: 20, padding: "4px 10px", color: isListening ? C.accent : C.muted, fontFamily: "Syne", fontSize: 11, cursor: "pointer", display: "flex", alignItems: "center", gap: 4 }}>
-                  🎤 {isListening ? "Stopp" : "Sprache"}
-                </button>
-              </div>
+              <div style={{ padding: "12px 14px 0", fontFamily: "Syne", fontSize: 12, color: C.accent, marginBottom: 6 }}>Zutaten eingeben (roh, vor dem Kochen)</div>
               <textarea value={ingredientText} onChange={e => setIngredientText(e.target.value)}
                 placeholder={"1000g rohes Hühnchen\n1 Dose gehackte Tomaten\n1 EL Olivenöl\n1 Packung Sahne 20%\nSalz, Pfeffer, Knoblauch"}
                 style={{ width: "100%", minHeight: 140, background: "transparent", border: "none", outline: "none", padding: "8px 14px 12px", color: C.text, fontFamily: "Syne", fontSize: 15, lineHeight: 1.7 }} />
-              <div style={{ padding: "8px 12px 12px", display: "flex", gap: 8, borderTop: `1px solid ${C.border}` }}>
-                <Btn onClick={analyze} disabled={!ingredientText.trim()} small style={{ flex: 1 }}>Makros berechnen →</Btn>
-                <Btn onClick={cancel} small variant="ghost">Abbrechen</Btn>
+              <div style={{ padding: "8px 12px 12px", display: "flex", justifyContent: "space-between", alignItems: "center", borderTop: `1px solid ${C.border}`, gap: 8 }}>
+                <button onClick={toggleVoice} style={{ background: isListening ? "#f59e0b22" : "transparent", border: `1px solid ${isListening ? C.accent : C.border}`, borderRadius: 8, padding: "8px 12px", color: isListening ? C.accent : C.muted, display: "flex", alignItems: "center", gap: 6, flexShrink: 0 }}>
+                  <span className={isListening ? "pulsing" : ""} style={{ fontSize: 18 }}>🎙</span>
+                  {isListening && <Mono size={11} color={C.accent}>Höre zu…</Mono>}
+                </button>
+                <div style={{ display: "flex", gap: 8 }}>
+                  <Btn onClick={analyze} disabled={!ingredientText.trim()} small style={{ flex: 1 }}>Makros berechnen →</Btn>
+                  <Btn onClick={cancel} small variant="ghost">Abbrechen</Btn>
+                </div>
               </div>
             </Card>
           )}
