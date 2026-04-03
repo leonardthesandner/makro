@@ -1,0 +1,633 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+  <title>makro.</title>
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black" />
+  <meta name="apple-mobile-web-app-title" content="makro." />
+  <meta name="theme-color" content="#0c0c0c" />
+  <link rel="apple-touch-icon" href="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAALQAAAC0CAYAAAAjH0VRAAAACXBIWXMAAAsTAAALEwEAmpwYAAAF0WlUWHRYTUw6Y29tLmFkb2JlLnhtcAAAAAAAPD94cGFja2V0IGJlZ2luPSLvu78iIGlkPSJXNU0wTXBDZWhpSHpyZVN6TlRjemtjOWQiPz4gPHg6eG1wbWV0YSB4bWxuczp4PSJhZG9iZTpuczptZXRhLyIgeDp4bXB0az0iQWRvYmUgWE1QIENvcmUgOS4xLWMwMDEgNzkuMTQ2Mjg5OTc3NywgMjAyMy8wNi8yNS0yMzowMzoyNCAgICAgICAgIj4gPHJkZjpSREYgeG1sbnM6cmRmPSJodHRwOi8vd3d3LnczLm9yZy8xOTk5LzAyLzIyLXJkZi1zeW50YXgtbnMjIj4gPHJkZjpEZXNjcmlwdGlvbiByZGY6YWJvdXQ9IiIgeG1sbnM6eG1wPSJodHRwOi8vbnMuYWRvYmUuY29tL3hhcC8xLjAvIiB4bWxuczp4bXBNTT0iaHR0cDovL25zLmFkb2JlLmNvbS94YXAvMS4wL21tLyIgeG1sbnM6c3RSZWY9Imh0dHA6Ly9ucy5hZG9iZS5jb20veGFwLzEuMC9zVHlwZS9SZXNvdXJjZVJlZiMiIHhtcDpDcmVhdG9yVG9vbD0iQWRvYmUgUGhvdG9zaG9wIDI1LjAgKE1hY2ludG9zaCkiIHhtcE1NOkluc3RhbmNlSUQ9InhtcC5paWQ6MDAwMDAwMDEiIHhtcE1NOkRvY3VtZW50SUQ9InhtcC5kaWQ6MDAwMDAwMDEiPiA8eG1wTU06RGVyaXZlZEZyb20gc3RSZWY6aW5zdGFuY2VJRD0ieG1wLmlpZDowMDAwMDAwMCIgc3RSZWY6ZG9jdW1lbnRJRD0ieG1wLmRpZDowMDAwMDAwMCIvPiA8L3JkZjpEZXNjcmlwdGlvbj4gPC9yZGY6UkRGPiA8L3g6eG1wbWV0YT4gPD94cGFja2V0IGVuZD0iciI/PgH//v38+/r5+Pf29fTz8vHw7+7t7Ovq6ejn5uXk4+Lh4N/e3dzb2tnY19bV1NPS0dDPzs3My8rJyMfGxcTDwsHAv769vLu6ubi3trW0s7KxsK+urayrqqmop6alpKOioaCfnp2cm5qZmJeWlZSTkpGQj46NjIuKiYiHhoWEg4KBgH9+fXx7enl4d3Z1dHNycXBvbm1sa2ppaGdmZWRjYmFgX15dXFtaWVhXVlVUU1JRUE9OTUxLSklIR0ZFRENCQUA/Pj08Ozo5ODc2NTQzMjEwLy4tLCsqKSgnJiUkIyIhIB8eHRwbGhkYFxYVFBMSERAPDg0MCwoJCAcGBQQDAgEAACH5BAEAAAAALAAAAAAUABQAAAJShI+py+0Po5y02ouz3rz7D4biSJbmiabqyrbuC8fyTNf2jef6zvf+DwwKh8Si8YhMKpfMpvMJjUqn1Kr1is1qt9yu9wsOi8fksvmMTqvXBQA7" />
+  <link rel="manifest" href="manifest.json" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Syne:wght@400;600;700;800&display=swap" rel="stylesheet" />
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+    html, body, #root { height: 100%; height: -webkit-fill-available; background: #0c0c0c; }
+    body { overflow: hidden; }
+    textarea { resize: none; -webkit-appearance: none; }
+    input { -webkit-appearance: none; }
+    input[type=number]::-webkit-inner-spin-button { opacity: 0.4; }
+    ::-webkit-scrollbar { width: 3px; }
+    ::-webkit-scrollbar-thumb { background: #2a2a2a; border-radius: 2px; }
+    @keyframes fadeUp { from { opacity:0; transform:translateY(10px); } to { opacity:1; transform:translateY(0); } }
+    @keyframes pulse { 0%,100% { opacity:1; } 50% { opacity:0.3; } }
+    .fade-up { animation: fadeUp 0.25s ease forwards; }
+    .pulsing { animation: pulse 1.4s ease infinite; }
+  </style>
+</head>
+<body>
+  <div id="root"></div>
+
+  <script src="https://unpkg.com/react@18/umd/react.production.min.js" crossorigin></script>
+  <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js" crossorigin></script>
+  <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+
+  <script type="text/babel">
+    const { useState, useEffect, useRef } = React;
+
+    const C = {
+      bg: "#0c0c0c", card: "#161616", border: "#222", accent: "#f59e0b",
+      text: "#efefef", muted: "#555", soft: "#2a2a2a",
+      protein: "#60a5fa", carbs: "#34d399", fat: "#f87171", kcal: "#f59e0b",
+    };
+    const MACROS = ["kcal", "protein", "carbs", "fat"];
+    const LABELS = { kcal: "Kalorien", protein: "Eiweiß", carbs: "Kohlenhydrate", fat: "Fett" };
+    const UNITS = { kcal: "kcal", protein: "g", carbs: "g", fat: "g" };
+    const MC = { kcal: C.kcal, protein: C.protein, carbs: C.carbs, fat: C.fat };
+    const DEFAULT_TARGETS = { kcal: 2500, protein: 180, carbs: 250, fat: 80 };
+
+    const todayStr = () => new Date().toISOString().split("T")[0];
+    const dayKey = (d) => `mk_day_${d}`;
+
+    const store = {
+      get: (k) => { try { const v = localStorage.getItem(k); return v ? JSON.parse(v) : null; } catch { return null; } },
+      set: (k, v) => { try { localStorage.setItem(k, JSON.stringify(v)); } catch {} },
+    };
+
+    // ── Backend-Konfiguration ──────────────────────────────────────
+    const BACKEND_URL    = "https://makro-backend-production.up.railway.app";
+    const BACKEND_SECRET = "e824810bc66e6e56ceb2ec780a3707e29652ccd71fac842a9b108bf113eea6ea";
+
+    async function apiCall(path, method = "GET", body = null) {
+      const opts = {
+        method,
+        headers: { "Content-Type": "application/json", "x-api-key": BACKEND_SECRET },
+      };
+      if (body) opts.body = JSON.stringify(body);
+      const res = await fetch(BACKEND_URL + path, opts);
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        throw new Error(err.error || `HTTP ${res.status}`);
+      }
+      return res.json();
+    }
+
+    // Freitext analysieren → Makros vom Backend
+    async function analyzeMeal(text, recipes) {
+      return apiCall("/api/analyze", "POST", { text, recipes });
+    }
+
+    // Rezept-Zutaten analysieren → Makros vom Backend
+    async function analyzeRecipe(text) {
+      return apiCall("/api/analyze-recipe", "POST", { text });
+    }
+
+    // Rezepte vom Server laden
+    async function loadRecipes(userId) {
+      return apiCall(`/api/recipes?user_id=${userId}`);
+    }
+
+    // Rezept auf Server speichern
+    async function saveRecipeToServer(userId, recipe) {
+      return apiCall("/api/recipes", "POST", { user_id: userId, ...recipe });
+    }
+
+    // Rezept vom Server löschen
+    async function deleteRecipeFromServer(userId, id) {
+      return apiCall(`/api/recipes/${id}`, "DELETE", { user_id: userId });
+    }
+
+    // Eindeutige User-ID generieren (einmalig, bleibt lokal gespeichert)
+    function getUserId() {
+      let id = localStorage.getItem("mk_user_id");
+      if (!id) {
+        id = "u_" + Math.random().toString(36).slice(2) + Date.now().toString(36);
+        localStorage.setItem("mk_user_id", id);
+      }
+      return id;
+    }
+
+    function sumEntries(entries) {
+      return entries.reduce((a, e) => ({
+        kcal: a.kcal + e.totals.kcal, protein: a.protein + e.totals.protein,
+        carbs: a.carbs + e.totals.carbs, fat: a.fat + e.totals.fat,
+      }), { kcal: 0, protein: 0, carbs: 0, fat: 0 });
+    }
+
+    const Mono = ({ children, size = 15, color = C.text, bold }) => (
+      <span style={{ fontFamily: "DM Mono, monospace", fontSize: size, color, fontWeight: bold ? 500 : 400 }}>
+        {children}
+      </span>
+    );
+
+    const MacroBar = ({ label, current, target, color, unit }) => {
+      const pct = Math.min((current / target) * 100, 100);
+      const over = current > target;
+      return (
+        <div style={{ marginBottom: 14 }}>
+          <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 5, alignItems: "baseline" }}>
+            <span style={{ fontFamily: "Syne", fontSize: 11, color: C.muted, textTransform: "uppercase", letterSpacing: 1 }}>{label}</span>
+            <div style={{ display: "flex", gap: 4, alignItems: "baseline" }}>
+              <Mono size={14} color={over ? C.fat : color} bold>{Math.round(current)}</Mono>
+              <Mono size={10} color={C.muted}> / {target}{unit}</Mono>
+            </div>
+          </div>
+          <div style={{ height: 3, background: "#1e1e1e", borderRadius: 2, overflow: "hidden" }}>
+            <div style={{ width: `${pct}%`, height: "100%", background: over ? C.fat : color, borderRadius: 2, transition: "width 0.5s ease" }} />
+          </div>
+        </div>
+      );
+    };
+
+    const Btn = ({ children, onClick, variant = "primary", disabled, small, full, style: sx }) => {
+      const base = { fontFamily: "Syne", fontWeight: 700, borderRadius: 8, border: "none", cursor: disabled ? "not-allowed" : "pointer", opacity: disabled ? 0.45 : 1, padding: small ? "8px 14px" : "12px 20px", fontSize: small ? 13 : 14, width: full ? "100%" : undefined, transition: "opacity 0.15s", ...sx };
+      const v = { primary: { background: C.accent, color: "#000" }, ghost: { background: "transparent", color: C.text, border: `1px solid ${C.border}` }, danger: { background: "transparent", color: C.fat, border: `1px solid #f8717128` } };
+      return <button onClick={onClick} disabled={disabled} style={{ ...base, ...v[variant] }}>{children}</button>;
+    };
+
+    const Card = ({ children, accent, style: sx }) => (
+      <div style={{ background: C.card, borderRadius: 12, border: `1px solid ${accent ? C.accent + "35" : C.border}`, ...sx }}>
+        {children}
+      </div>
+    );
+
+    const SectionLabel = ({ children }) => (
+      <div style={{ fontFamily: "Syne", fontSize: 10, color: C.muted, textTransform: "uppercase", letterSpacing: 1.2, marginBottom: 10 }}>{children}</div>
+    );
+
+    function InputTab({ recipes, onSave }) {
+      const [text, setText] = useState("");
+      const [loading, setLoading] = useState(false);
+      const [items, setItems] = useState([]);
+      const [err, setErr] = useState(null);
+      const [listening, setListening] = useState(false);
+      const recognitionRef = useRef(null);
+
+      const toggleVoice = () => {
+        const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+        if (!SR) { setErr("Spracheingabe nicht unterstützt. Bitte Safari verwenden."); return; }
+        if (listening) { recognitionRef.current?.stop(); setListening(false); return; }
+        const r = new SR();
+        r.lang = "de-DE"; r.continuous = false; r.interimResults = false;
+        r.onresult = (e) => { const t = e.results[0][0].transcript; setText(p => p ? p + ", " + t : t); setListening(false); };
+        r.onerror = () => { setListening(false); setErr("Spracheingabe fehlgeschlagen."); };
+        r.onend = () => setListening(false);
+        recognitionRef.current = r;
+        r.start(); setListening(true);
+      };
+
+      const analyze = async () => {
+        if (!text.trim()) return;
+        setLoading(true); setErr(null); setItems([]);
+        try {
+          const data = await analyzeMeal(text, recipes);
+          setItems(data.items || []);
+        } catch (e) { setErr("Analyse fehlgeschlagen: " + e.message); }
+        setLoading(false);
+      };
+
+      const update = (i, field, val) => setItems(p => p.map((it, idx) => idx === i ? { ...it, [field]: parseFloat(val) || 0 } : it));
+      const totals = items.reduce((a, it) => ({ kcal: a.kcal + (it.kcal || 0), protein: a.protein + (it.protein || 0), carbs: a.carbs + (it.carbs || 0), fat: a.fat + (it.fat || 0) }), { kcal: 0, protein: 0, carbs: 0, fat: 0 });
+
+      const save = () => {
+        onSave({ id: Date.now(), raw_input: text, items, totals, timestamp: new Date().toISOString() });
+        setText(""); setItems([]);
+      };
+
+      const inputStyle = { background: "#111", border: `1px solid ${C.border}`, borderRadius: 6, padding: "9px 10px", color: C.text, fontFamily: "Syne", fontSize: 14, outline: "none", width: "100%" };
+
+      return (
+        <div style={{ padding: 16, display: "flex", flexDirection: "column", gap: 14 }}>
+          <Card>
+            <textarea
+              value={text} onChange={e => setText(e.target.value)}
+              placeholder={"Was hast du gegessen?"}
+              style={{ width: "100%", minHeight: 120, background: "transparent", border: "none", outline: "none", padding: "16px", color: C.text, fontFamily: "Syne", fontSize: 15, lineHeight: 1.7 }}
+            />
+            <div style={{ padding: "8px 12px 12px", display: "flex", justifyContent: "space-between", alignItems: "center", borderTop: `1px solid ${C.border}`, gap: 8 }}>
+              <button onClick={toggleVoice} style={{ background: listening ? "#f59e0b22" : "transparent", border: `1px solid ${listening ? C.accent : C.border}`, borderRadius: 8, padding: "8px 12px", color: listening ? C.accent : C.muted, display: "flex", alignItems: "center", gap: 6, flexShrink: 0 }}>
+                <span className={listening ? "pulsing" : ""} style={{ fontSize: 18 }}>🎙</span>
+                {listening && <Mono size={11} color={C.accent}>Höre zu…</Mono>}
+              </button>
+              <Btn onClick={analyze} disabled={loading || !text.trim()} small>{loading ? "…" : "Analysieren →"}</Btn>
+            </div>
+          </Card>
+
+          {loading && <div className="pulsing" style={{ textAlign: "center", padding: 24, fontFamily: "Syne", fontSize: 14, color: C.muted }}>Claude analysiert deine Mahlzeit…</div>}
+          {err && <div style={{ background: "#f8717112", border: `1px solid #f8717128`, borderRadius: 8, padding: "10px 14px", color: C.fat, fontFamily: "Syne", fontSize: 13 }}>{err}</div>}
+
+          {items.length > 0 && (
+            <div className="fade-up" style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+              <SectionLabel>Erkannte Lebensmittel — tippen zum Bearbeiten</SectionLabel>
+              {items.map((item, i) => (
+                <Card key={i} style={{ padding: "12px 14px" }}>
+                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 10 }}>
+                    <span style={{ fontFamily: "Syne", fontSize: 14, fontWeight: 700, color: C.text, flex: 1 }}>{item.name_de || item.name}</span>
+                    <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+                      <span style={{ fontFamily: "DM Mono", fontSize: 10, padding: "2px 7px", borderRadius: 4, background: item.found ? "#34d39918" : "#f8717118", color: item.found ? C.carbs : C.fat }}>{item.source === "recipe" ? "rezept" : item.found ? "usda" : "?"}</span>
+                      <Mono size={11} color={C.muted}>{item.weight_g}g</Mono>
+                      <button onClick={() => setItems(p => p.filter((_, idx) => idx !== i))} style={{ background: "none", border: "none", color: "#f8717150", fontSize: 16, padding: "2px 4px" }}>✕</button>
+                    </div>
+                  </div>
+                  <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr 1fr", gap: 8 }}>
+                    {MACROS.map(m => (
+                      <div key={m}>
+                        <div style={{ fontFamily: "Syne", fontSize: 9, color: MC[m], textTransform: "uppercase", letterSpacing: 0.5, marginBottom: 3 }}>{m}</div>
+                        <input type="number" value={Math.round(item[m] * 10) / 10} onChange={e => update(i, m, e.target.value)} style={{ ...inputStyle, fontFamily: "DM Mono", fontSize: 13, color: MC[m], padding: "6px 8px" }} />
+                      </div>
+                    ))}
+                  </div>
+                </Card>
+              ))}
+              <Card accent style={{ padding: "12px 14px" }}>
+                <div style={{ fontFamily: "Syne", fontSize: 10, color: C.accent, textTransform: "uppercase", letterSpacing: 1, marginBottom: 10 }}>Gesamt</div>
+                <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 8 }}>
+                  {MACROS.map(m => (
+                    <div key={m} style={{ textAlign: "center" }}>
+                      <Mono size={18} color={MC[m]} bold>{Math.round(totals[m])}</Mono>
+                      <div style={{ fontFamily: "DM Mono", fontSize: 9, color: C.muted, marginTop: 2 }}>{UNITS[m]}</div>
+                    </div>
+                  ))}
+                </div>
+              </Card>
+              <Btn onClick={save} full>Eintrag speichern</Btn>
+            </div>
+          )}
+        </div>
+      );
+    }
+
+    function TodayTab({ entries, targets, onDelete }) {
+      const totals = sumEntries(entries);
+      const rest = Object.fromEntries(MACROS.map(m => [m, targets[m] - totals[m]]));
+      return (
+        <div style={{ padding: 16, display: "flex", flexDirection: "column", gap: 14 }}>
+          <Card style={{ padding: 16 }}>
+            <SectionLabel>Tagesfortschritt</SectionLabel>
+            {MACROS.map(m => <MacroBar key={m} label={LABELS[m]} current={totals[m]} target={targets[m]} color={MC[m]} unit={UNITS[m]} />)}
+          </Card>
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
+            {MACROS.map(m => (
+              <Card key={m} style={{ padding: "10px 12px" }}>
+                <div style={{ fontFamily: "Syne", fontSize: 9, color: C.muted, textTransform: "uppercase", letterSpacing: 0.5, marginBottom: 4 }}>Rest {LABELS[m]}</div>
+                <Mono size={20} color={rest[m] < 0 ? C.fat : MC[m]} bold>{rest[m] > 0 ? "+" : ""}{Math.round(rest[m])}</Mono>
+                <Mono size={10} color={C.muted}> {UNITS[m]}</Mono>
+              </Card>
+            ))}
+          </div>
+          <div>
+            <SectionLabel>Einträge heute ({entries.length})</SectionLabel>
+            {entries.length === 0
+              ? <div style={{ textAlign: "center", padding: 40, color: C.muted, fontFamily: "Syne", fontSize: 14, lineHeight: 1.8 }}>Noch keine Einträge.<br />Geh zur Eingabe ✦</div>
+              : <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+                  {[...entries].reverse().map(e => (
+                    <Card key={e.id} style={{ padding: "12px 14px" }}>
+                      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 8 }}>
+                        <div style={{ flex: 1, marginRight: 8 }}>
+                          <div style={{ fontFamily: "Syne", fontSize: 13, color: C.text, marginBottom: 3, lineHeight: 1.4 }}>{e.raw_input}</div>
+                          <Mono size={11} color={C.muted}>{new Date(e.timestamp).toLocaleTimeString("de-DE", { hour: "2-digit", minute: "2-digit" })} Uhr</Mono>
+                        </div>
+                        <button onClick={() => onDelete(e.id)} style={{ background: "none", border: "none", color: "#f8717140", fontSize: 18, padding: 4 }}>✕</button>
+                      </div>
+                      <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 6 }}>
+                        {MACROS.map(m => (
+                          <div key={m} style={{ textAlign: "center" }}>
+                            <Mono size={13} color={MC[m]} bold>{Math.round(e.totals[m])}</Mono>
+                            <div style={{ fontFamily: "DM Mono", fontSize: 9, color: C.muted }}>{UNITS[m]}</div>
+                          </div>
+                        ))}
+                      </div>
+                    </Card>
+                  ))}
+                </div>
+            }
+          </div>
+        </div>
+      );
+    }
+
+    function RecipesTab({ recipes, onAdd, onDelete }) {
+      const STEP = { idle: "idle", entering: "entering", analyzing: "analyzing", naming: "naming" };
+      const [step, setStep] = useState(STEP.idle);
+      const [ingredientText, setIngredientText] = useState("");
+      const [items, setItems] = useState([]);
+      const [recipeName, setRecipeName] = useState("");
+      const [cookedWeight, setCookedWeight] = useState("");
+      const [err, setErr] = useState(null);
+      const inputStyle = { background: "#111", border: `1px solid ${C.border}`, borderRadius: 6, padding: "9px 10px", color: C.text, fontFamily: "Syne", fontSize: 14, outline: "none", width: "100%" };
+
+      const analyze = async () => {
+        if (!ingredientText.trim()) return;
+        setStep(STEP.analyzing); setErr(null);
+        try {
+          const data = await analyzeRecipe(ingredientText);
+          setItems(data.items);
+          setCookedWeight(String(Math.round(data.raw_weight_g * 0.85)));
+          setStep(STEP.naming);
+        } catch (e) { setErr("Analyse fehlgeschlagen: " + e.message); setStep(STEP.entering); }
+      };
+
+      const updateItem = (i, field, val) => setItems(p => p.map((it, idx) => idx === i ? { ...it, [field]: parseFloat(val) || 0 } : it));
+      const totals = items.reduce((a, it) => ({ kcal: a.kcal + (it.kcal || 0), protein: a.protein + (it.protein || 0), carbs: a.carbs + (it.carbs || 0), fat: a.fat + (it.fat || 0) }), { kcal: 0, protein: 0, carbs: 0, fat: 0 });
+
+      const saveRecipe = () => {
+        if (!recipeName.trim() || !cookedWeight) return;
+        const tw = parseFloat(cookedWeight);
+        const r = { id: Date.now(), name: recipeName.trim(), total_weight: tw, kcal_total: Math.round(totals.kcal), protein_total: Math.round(totals.protein * 10) / 10, carbs_total: Math.round(totals.carbs * 10) / 10, fat_total: Math.round(totals.fat * 10) / 10, ingredients: ingredientText };
+        r.kcal_100 = r.kcal_total / tw * 100; r.protein_100 = r.protein_total / tw * 100;
+        r.carbs_100 = r.carbs_total / tw * 100; r.fat_100 = r.fat_total / tw * 100;
+        onAdd(r);
+        setStep(STEP.idle); setIngredientText(""); setItems([]); setRecipeName(""); setCookedWeight("");
+      };
+
+      const cancel = () => { setStep(STEP.idle); setIngredientText(""); setItems([]); setErr(null); };
+
+      return (
+        <div style={{ padding: 16, display: "flex", flexDirection: "column", gap: 12 }}>
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+            <SectionLabel>Meal Prep Rezepte</SectionLabel>
+            {step === STEP.idle && <Btn onClick={() => setStep(STEP.entering)} small variant="ghost">+ Neu kochen</Btn>}
+          </div>
+
+          {step === STEP.entering && (
+            <Card accent style={{ display: "flex", flexDirection: "column" }}>
+              <div style={{ padding: "12px 14px 0", fontFamily: "Syne", fontSize: 12, color: C.accent, marginBottom: 6 }}>Zutaten eingeben (roh, vor dem Kochen)</div>
+              <textarea value={ingredientText} onChange={e => setIngredientText(e.target.value)}
+                placeholder={"1000g rohes Hühnchen\n1 Dose gehackte Tomaten\n1 EL Olivenöl\n1 Packung Sahne 20%\nSalz, Pfeffer, Knoblauch"}
+                style={{ width: "100%", minHeight: 140, background: "transparent", border: "none", outline: "none", padding: "8px 14px 12px", color: C.text, fontFamily: "Syne", fontSize: 15, lineHeight: 1.7 }} />
+              <div style={{ padding: "8px 12px 12px", display: "flex", gap: 8, borderTop: `1px solid ${C.border}` }}>
+                <Btn onClick={analyze} disabled={!ingredientText.trim()} small style={{ flex: 1 }}>Makros berechnen →</Btn>
+                <Btn onClick={cancel} small variant="ghost">Abbrechen</Btn>
+              </div>
+            </Card>
+          )}
+
+          {step === STEP.analyzing && (
+            <div className="pulsing" style={{ textAlign: "center", padding: 32, fontFamily: "Syne", fontSize: 14, color: C.muted }}>Claude analysiert die Zutaten…</div>
+          )}
+
+          {err && <div style={{ background: "#f8717112", border: `1px solid #f8717128`, borderRadius: 8, padding: "10px 14px", color: C.fat, fontFamily: "Syne", fontSize: 13 }}>{err}</div>}
+
+          {step === STEP.naming && (
+            <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+              <SectionLabel>Erkannte Zutaten — tippen zum Korrigieren</SectionLabel>
+              {items.map((item, i) => (
+                <Card key={i} style={{ padding: "10px 12px" }}>
+                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
+                    <span style={{ fontFamily: "Syne", fontSize: 13, fontWeight: 700, color: C.text }}>{item.name_de || item.name}</span>
+                    <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
+                      <span style={{ fontFamily: "DM Mono", fontSize: 10, padding: "2px 6px", borderRadius: 4, background: item.confidence === "high" ? "#34d39918" : "#f59e0b18", color: item.confidence === "high" ? C.carbs : C.kcal }}>{item.confidence}</span>
+                      <Mono size={11} color={C.muted}>{item.weight_g}g</Mono>
+                    </div>
+                  </div>
+                  <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr 1fr", gap: 6 }}>
+                    {MACROS.map(m => (
+                      <div key={m}>
+                        <div style={{ fontFamily: "Syne", fontSize: 9, color: MC[m], textTransform: "uppercase", marginBottom: 2 }}>{m}</div>
+                        <input type="number" value={Math.round(item[m] * 10) / 10} onChange={e => updateItem(i, m, e.target.value)} style={{ ...inputStyle, fontFamily: "DM Mono", fontSize: 13, color: MC[m], padding: "6px 8px" }} />
+                      </div>
+                    ))}
+                  </div>
+                </Card>
+              ))}
+
+              <Card accent style={{ padding: "14px" }}>
+                <div style={{ fontFamily: "Syne", fontSize: 10, color: C.accent, textTransform: "uppercase", letterSpacing: 1, marginBottom: 10 }}>Gesamt Makros (alle Zutaten)</div>
+                <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 8, marginBottom: 14 }}>
+                  {MACROS.map(m => (
+                    <div key={m} style={{ textAlign: "center" }}>
+                      <Mono size={18} color={MC[m]} bold>{Math.round(totals[m])}</Mono>
+                      <div style={{ fontFamily: "DM Mono", fontSize: 9, color: C.muted, marginTop: 2 }}>{UNITS[m]}</div>
+                    </div>
+                  ))}
+                </div>
+                <div style={{ borderTop: `1px solid ${C.accent}25`, paddingTop: 12, display: "flex", flexDirection: "column", gap: 10 }}>
+                  <div>
+                    <div style={{ fontFamily: "Syne", fontSize: 10, color: C.muted, marginBottom: 4 }}>Name des Gerichts</div>
+                    <input placeholder="z.B. Hähnchen-Tomaten-Sahnesoße" value={recipeName} onChange={e => setRecipeName(e.target.value)} style={inputStyle} />
+                  </div>
+                  <div>
+                    <div style={{ fontFamily: "Syne", fontSize: 10, color: C.muted, marginBottom: 4 }}>Fertig gekochtes Gesamtgewicht (g) — bitte abwiegen!</div>
+                    <input type="number" placeholder="z.B. 1400" value={cookedWeight} onChange={e => setCookedWeight(e.target.value)} style={inputStyle} />
+                    <div style={{ fontFamily: "Syne", fontSize: 10, color: C.muted, marginTop: 4 }}>Basis für die anteilige Berechnung beim Tracken.</div>
+                  </div>
+                </div>
+              </Card>
+
+              {cookedWeight && recipeName && (
+                <div style={{ background: "#34d39910", borderRadius: 8, padding: "10px 14px", fontFamily: "Syne", fontSize: 12, color: C.carbs }}>
+                  Pro 100g: {Math.round(totals.kcal / parseFloat(cookedWeight) * 100)} kcal · {Math.round(totals.protein / parseFloat(cookedWeight) * 100 * 10) / 10}g E · {Math.round(totals.carbs / parseFloat(cookedWeight) * 100 * 10) / 10}g KH · {Math.round(totals.fat / parseFloat(cookedWeight) * 100 * 10) / 10}g F
+                </div>
+              )}
+
+              <div style={{ display: "flex", gap: 8 }}>
+                <Btn onClick={saveRecipe} disabled={!recipeName.trim() || !cookedWeight} style={{ flex: 1 }}>Rezept speichern</Btn>
+                <Btn onClick={cancel} variant="ghost">Abbrechen</Btn>
+              </div>
+            </div>
+          )}
+
+          {step === STEP.idle && recipes.length === 0 && (
+            <div style={{ textAlign: "center", padding: 40, color: C.muted, fontFamily: "Syne", fontSize: 14, lineHeight: 1.9 }}>
+              Noch keine Rezepte.<br />Koch ein Gericht vor, trag die Zutaten ein –<br />dann kannst du z.B. „300g Hähnchen-Soße"<br />in der täglichen Eingabe tracken.
+            </div>
+          )}
+
+          {step === STEP.idle && recipes.map(r => (
+            <Card key={r.id} style={{ padding: "12px 14px" }}>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 10 }}>
+                <div>
+                  <span style={{ fontFamily: "Syne", fontSize: 15, fontWeight: 700, color: C.text }}>{r.name}</span>
+                  <div style={{ fontFamily: "Syne", fontSize: 10, color: C.muted, marginTop: 2 }}>Gesamtgewicht: {r.total_weight}g</div>
+                </div>
+                <button onClick={() => onDelete(r.id)} style={{ background: "none", border: "none", color: "#f8717140", fontSize: 16, padding: 4 }}>✕</button>
+              </div>
+              <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 6, marginBottom: 8 }}>
+                {MACROS.map(m => (
+                  <div key={m} style={{ textAlign: "center" }}>
+                    <Mono size={14} color={MC[m]} bold>{Math.round(r[`${m}_total`])}</Mono>
+                    <div style={{ fontFamily: "DM Mono", fontSize: 9, color: C.muted }}>gesamt</div>
+                  </div>
+                ))}
+              </div>
+              <div style={{ fontFamily: "Syne", fontSize: 10, color: C.muted, borderTop: `1px solid ${C.border}`, paddingTop: 8 }}>
+                Pro 100g: {Math.round(r.kcal_100)} kcal · {Math.round(r.protein_100 * 10) / 10}g E · {Math.round(r.carbs_100 * 10) / 10}g KH · {Math.round(r.fat_100 * 10) / 10}g F
+              </div>
+              {r.ingredients && <div style={{ fontFamily: "Syne", fontSize: 10, color: "#444", borderTop: `1px solid ${C.border}`, paddingTop: 8, marginTop: 6, lineHeight: 1.5 }}>{r.ingredients}</div>}
+            </Card>
+          ))}
+        </div>
+      );
+    }
+
+    function HistoryTab({ targets }) {
+      const [days, setDays] = useState([]);
+      useEffect(() => {
+        const result = [];
+        for (let i = 0; i < 7; i++) {
+          const d = new Date(); d.setDate(d.getDate() - i);
+          const ds = d.toISOString().split("T")[0];
+          const entries = store.get(dayKey(ds)) || [];
+          result.push({ date: ds, entries: entries.length, totals: sumEntries(entries) });
+        }
+        setDays(result);
+      }, []);
+
+      const label = (ds) => {
+        const d = new Date(ds + "T12:00:00");
+        const t = new Date(); const y = new Date(); y.setDate(y.getDate() - 1);
+        if (d.toDateString() === t.toDateString()) return "Heute";
+        if (d.toDateString() === y.toDateString()) return "Gestern";
+        return d.toLocaleDateString("de-DE", { weekday: "long", day: "numeric", month: "short" });
+      };
+
+      return (
+        <div style={{ padding: 16, display: "flex", flexDirection: "column", gap: 10 }}>
+          <SectionLabel>Letzte 7 Tage</SectionLabel>
+          {days.map(day => {
+            const pct = Math.min((day.totals.kcal / targets.kcal) * 100, 100);
+            return (
+              <Card key={day.date} style={{ padding: "12px 14px", opacity: day.entries > 0 ? 1 : 0.4 }}>
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: day.entries > 0 ? 10 : 0 }}>
+                  <span style={{ fontFamily: "Syne", fontSize: 14, fontWeight: 700, color: C.text }}>{label(day.date)}</span>
+                  {day.entries > 0
+                    ? <div style={{ display: "flex", gap: 6, alignItems: "baseline" }}>
+                        <Mono size={14} color={C.kcal} bold>{Math.round(day.totals.kcal)}</Mono>
+                        <Mono size={10} color={C.muted}>kcal · {day.entries} Eintr.</Mono>
+                      </div>
+                    : <Mono size={11} color={C.muted}>keine Daten</Mono>
+                  }
+                </div>
+                {day.entries > 0 && (
+                  <>
+                    <div style={{ height: 3, background: "#1e1e1e", borderRadius: 2, marginBottom: 10 }}>
+                      <div style={{ width: `${pct}%`, height: "100%", background: pct >= 90 ? C.carbs : C.kcal, borderRadius: 2 }} />
+                    </div>
+                    <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 4 }}>
+                      {["protein", "carbs", "fat"].map(m => (
+                        <div key={m} style={{ textAlign: "center" }}>
+                          <Mono size={12} color={MC[m]}>{Math.round(day.totals[m])}g</Mono>
+                          <div style={{ fontFamily: "DM Mono", fontSize: 9, color: C.muted }}>{LABELS[m]}</div>
+                        </div>
+                      ))}
+                    </div>
+                  </>
+                )}
+              </Card>
+            );
+          })}
+        </div>
+      );
+    }
+
+    function SettingsModal({ targets, onSave, onClose }) {
+      const [form, setForm] = useState({ ...targets });
+      const inputStyle = { background: "#111", border: `1px solid ${C.border}`, borderRadius: 6, padding: "9px 10px", color: C.text, fontFamily: "DM Mono", fontSize: 14, outline: "none", flex: 1 };
+      return (
+        <div onClick={onClose} style={{ position: "fixed", inset: 0, background: "#000c", display: "flex", alignItems: "flex-end", zIndex: 100 }}>
+          <div onClick={e => e.stopPropagation()} style={{ background: "#181818", borderRadius: "20px 20px 0 0", padding: "20px 16px", width: "100%", border: `1px solid ${C.border}`, paddingBottom: "calc(20px + env(safe-area-inset-bottom))" }}>
+            <div style={{ fontFamily: "Syne", fontSize: 17, fontWeight: 800, color: C.text, marginBottom: 20 }}>Tagesziele</div>
+            <div style={{ display: "flex", flexDirection: "column", gap: 10, marginBottom: 20 }}>
+              {MACROS.map(m => (
+                <div key={m} style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                  <span style={{ fontFamily: "Syne", fontSize: 13, color: MC[m], width: 115, flexShrink: 0 }}>{LABELS[m]}</span>
+                  <input type="number" value={form[m]} onChange={e => setForm(p => ({ ...p, [m]: parseFloat(e.target.value) || 0 }))} style={inputStyle} />
+                  <Mono size={11} color={C.muted} style={{ width: 32 }}> {UNITS[m]}</Mono>
+                </div>
+              ))}
+            </div>
+            <div style={{ display: "flex", gap: 8 }}>
+              <Btn onClick={() => { onSave(form); onClose(); }} style={{ flex: 1 }}>Speichern</Btn>
+              <Btn onClick={onClose} variant="ghost">Abbrechen</Btn>
+            </div>
+          </div>
+        </div>
+      );
+    }
+
+    const TABS = [
+      { id: "input", label: "Eingabe", sym: "✦" },
+      { id: "today", label: "Heute", sym: "◉" },
+      { id: "recipes", label: "Rezepte", sym: "⬡" },
+      { id: "history", label: "Verlauf", sym: "◈" },
+    ];
+
+    function App() {
+      const [tab, setTab] = useState("input");
+      const [targets, setTargets] = useState(() => store.get("mk_targets") || DEFAULT_TARGETS);
+      const [entries, setEntries] = useState(() => store.get(dayKey(todayStr())) || []);
+      const [recipes, setRecipes] = useState([]);
+      const [settings, setSettings] = useState(false);
+      const userId = getUserId();
+
+      // Rezepte beim Start vom Server laden
+      useEffect(() => {
+        loadRecipes(userId)
+          .then(r => setRecipes(r))
+          .catch(() => setRecipes(store.get("mk_recipes") || []));
+      }, []);
+
+      useEffect(() => { store.set(dayKey(todayStr()), entries); }, [entries]);
+
+      const addRecipe = async (recipe) => {
+        try {
+          const saved = await saveRecipeToServer(userId, recipe);
+          setRecipes(p => [...p, saved]);
+        } catch {
+          // Fallback: lokal speichern
+          const local = { ...recipe, id: Date.now() };
+          setRecipes(p => [...p, local]);
+          store.set("mk_recipes", [...recipes, local]);
+        }
+      };
+
+      const removeRecipe = async (id) => {
+        setRecipes(p => p.filter(r => r.id !== id));
+        deleteRecipeFromServer(userId, id).catch(() => {});
+      };
+
+      return (
+        <div style={{ height: "100vh", height: "-webkit-fill-available", background: C.bg, display: "flex", flexDirection: "column", color: C.text, maxWidth: 500, margin: "0 auto" }}>
+          <div style={{ height: "env(safe-area-inset-top)", background: C.bg, flexShrink: 0 }} />
+          <div style={{ padding: "12px 16px 10px", display: "flex", justifyContent: "space-between", alignItems: "center", borderBottom: `1px solid ${C.border}`, flexShrink: 0 }}>
+            <div>
+              <div style={{ fontFamily: "Syne", fontSize: 22, fontWeight: 800, letterSpacing: -1, color: C.text }}>
+                makro<span style={{ color: C.accent }}>.</span>
+              </div>
+              <Mono size={10} color={C.muted}>{new Date().toLocaleDateString("de-DE", { weekday: "long", day: "numeric", month: "long" })}</Mono>
+            </div>
+            <button onClick={() => setSettings(true)} style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 10, padding: "8px 12px", color: C.muted, fontSize: 16 }}>⚙</button>
+          </div>
+          <div style={{ flex: 1, overflowY: "auto", WebkitOverflowScrolling: "touch" }}>
+            {tab === "input"   && <InputTab recipes={recipes} onSave={e => { setEntries(p => [...p, e]); setTab("today"); }} />}
+            {tab === "today"   && <TodayTab entries={entries} targets={targets} onDelete={id => setEntries(p => p.filter(e => e.id !== id))} />}
+            {tab === "recipes" && <RecipesTab recipes={recipes} onAdd={addRecipe} onDelete={removeRecipe} />}
+            {tab === "history" && <HistoryTab targets={targets} />}
+          </div>
+          <div style={{ display: "flex", borderTop: `1px solid ${C.border}`, background: C.bg, flexShrink: 0, paddingBottom: "env(safe-area-inset-bottom)" }}>
+            {TABS.map(t => (
+              <button key={t.id} onClick={() => setTab(t.id)} style={{ flex: 1, padding: "10px 0 12px", background: "none", border: "none", display: "flex", flexDirection: "column", alignItems: "center", gap: 3 }}>
+                <span style={{ fontSize: 16, color: tab === t.id ? C.accent : C.soft }}>{t.sym}</span>
+                <span style={{ fontFamily: "Syne", fontSize: 9, fontWeight: tab === t.id ? 700 : 400, color: tab === t.id ? C.accent : C.muted, textTransform: "uppercase", letterSpacing: 0.6 }}>{t.label}</span>
+              </button>
+            ))}
+          </div>
+          {settings && <SettingsModal targets={targets} onSave={t => { setTargets(t); store.set("mk_targets", t); }} onClose={() => setSettings(false)} />}
+        </div>
+      );
+    }
+
+    const root = ReactDOM.createRoot(document.getElementById("root"));
+    root.render(<App />);
+  </script>
+
+  <script>
+    if ("serviceWorker" in navigator) {
+      navigator.serviceWorker.register("sw.js").catch(() => {});
+    }
+  </script>
+</body>
+</html>
