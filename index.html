@@ -204,7 +204,7 @@
           <Card>
             <textarea
               value={text} onChange={e => setText(e.target.value)}
-              placeholder={"Was hast du gegessen?"}
+              placeholder={"2 Eier, 1 Breze, 30g Butter\n200g Hähnchen mit Reis\nLeberkässemmel\n250g meiner Tomatensoße"}
               style={{ width: "100%", minHeight: 120, background: "transparent", border: "none", outline: "none", padding: "16px", color: C.text, fontFamily: "Syne", fontSize: 15, lineHeight: 1.7 }}
             />
             <div style={{ padding: "8px 12px 12px", display: "flex", justifyContent: "space-between", alignItems: "center", borderTop: `1px solid ${C.border}`, gap: 8 }}>
@@ -317,6 +317,8 @@
       const [recipeName, setRecipeName] = useState("");
       const [cookedWeight, setCookedWeight] = useState("");
       const [err, setErr] = useState(null);
+      const [isListening, setIsListening] = useState(false);
+      const recogRef = useRef(null);
       const inputStyle = { background: "#111", border: `1px solid ${C.border}`, borderRadius: 6, padding: "9px 10px", color: C.text, fontFamily: "Syne", fontSize: 14, outline: "none", width: "100%" };
 
       const analyze = async () => {
@@ -345,6 +347,29 @@
 
       const cancel = () => { setStep(STEP.idle); setIngredientText(""); setItems([]); setErr(null); };
 
+      const toggleVoice = () => {
+        const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+        if (!SR) { alert("Spracherkennung wird von diesem Browser nicht unterstützt."); return; }
+        if (isListening) {
+          recogRef.current && recogRef.current.stop();
+          setIsListening(false);
+        } else {
+          const r = new SR();
+          r.lang = "de-DE";
+          r.continuous = true;
+          r.interimResults = false;
+          r.onresult = (e) => {
+            const transcript = Array.from(e.results).map(res => res[0].transcript).join("\n");
+            setIngredientText(prev => (prev.trim() ? prev.trim() + "\n" + transcript : transcript));
+          };
+          r.onend = () => setIsListening(false);
+          r.onerror = () => setIsListening(false);
+          r.start();
+          recogRef.current = r;
+          setIsListening(true);
+        }
+      };
+
       return (
         <div style={{ padding: 16, display: "flex", flexDirection: "column", gap: 12 }}>
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
@@ -354,9 +379,14 @@
 
           {step === STEP.entering && (
             <Card accent style={{ display: "flex", flexDirection: "column" }}>
-              <div style={{ padding: "12px 14px 0", fontFamily: "Syne", fontSize: 12, color: C.accent, marginBottom: 6 }}>Zutaten eingeben (roh, vor dem Kochen)</div>
+              <div style={{ padding: "12px 14px 0", display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 6 }}>
+                <span style={{ fontFamily: "Syne", fontSize: 12, color: C.accent }}>Zutaten eingeben (roh, vor dem Kochen)</span>
+                <button onClick={toggleVoice} className={isListening ? "pulsing" : ""} style={{ background: isListening ? "#f59e0b22" : "none", border: isListening ? `1px solid ${C.accent}` : `1px solid #333`, borderRadius: 20, padding: "4px 10px", color: isListening ? C.accent : C.muted, fontFamily: "Syne", fontSize: 11, cursor: "pointer", display: "flex", alignItems: "center", gap: 4 }}>
+                  🎤 {isListening ? "Stopp" : "Sprache"}
+                </button>
+              </div>
               <textarea value={ingredientText} onChange={e => setIngredientText(e.target.value)}
-                placeholder={"Eingabe"}
+                placeholder={"1000g rohes Hühnchen\n1 Dose gehackte Tomaten\n1 EL Olivenöl\n1 Packung Sahne 20%\nSalz, Pfeffer, Knoblauch"}
                 style={{ width: "100%", minHeight: 140, background: "transparent", border: "none", outline: "none", padding: "8px 14px 12px", color: C.text, fontFamily: "Syne", fontSize: 15, lineHeight: 1.7 }} />
               <div style={{ padding: "8px 12px 12px", display: "flex", gap: 8, borderTop: `1px solid ${C.border}` }}>
                 <Btn onClick={analyze} disabled={!ingredientText.trim()} small style={{ flex: 1 }}>Makros berechnen →</Btn>
