@@ -172,7 +172,7 @@
         if (listening) { recognitionRef.current?.stop(); setListening(false); return; }
         const r = new SR();
         r.lang = "de-DE"; r.continuous = true; r.interimResults = false;
-        r.onresult = (e) => { const t = Array.from(e.results).map(r => r[0].transcript).join(", "); setText(p => p ? p + ", " + t : t); };
+        r.onresult = (e) => { const t = Array.from(e.results).slice(e.resultIndex).map(r => r[0].transcript).join(", "); setText(p => p ? p + ", " + t : t); };
         r.onerror = () => { setListening(false); setErr("Spracheingabe fehlgeschlagen."); };
         r.onend = () => setListening(false);
         recognitionRef.current = r;
@@ -190,7 +190,7 @@
       };
 
       const update = (i, field, val) => setItems(p => p.map((it, idx) => idx === i ? { ...it, [field]: parseFloat(val) || 0 } : it));
-      const totals = items.reduce((a, it) => ({ kcal: a.kcal + (it.kcal || 0), protein: a.protein + (it.protein || 0), carbs: a.carbs + (it.carbs || 0), fat: a.fat + (it.fat || 0) }), { kcal: 0, protein: 0, carbs: 0, fat: 0 });
+      const totals = items.reduce((a, it) => ({ kcal: a.kcal + (it.kcal || it.calories || 0), protein: a.protein + (it.protein || 0), carbs: a.carbs + (it.carbs || it.carbohydrates || 0), fat: a.fat + (it.fat || 0) }), { kcal: 0, protein: 0, carbs: 0, fat: 0 });
 
       const save = () => {
         onSave({ id: Date.now(), raw_input: text, items, totals, timestamp: new Date().toISOString() });
@@ -333,7 +333,7 @@
       };
 
       const updateItem = (i, field, val) => setItems(p => p.map((it, idx) => idx === i ? { ...it, [field]: parseFloat(val) || 0 } : it));
-      const totals = items.reduce((a, it) => ({ kcal: a.kcal + (it.kcal || 0), protein: a.protein + (it.protein || 0), carbs: a.carbs + (it.carbs || 0), fat: a.fat + (it.fat || 0) }), { kcal: 0, protein: 0, carbs: 0, fat: 0 });
+      const totals = items.reduce((a, it) => ({ kcal: a.kcal + (it.kcal || it.calories || 0), protein: a.protein + (it.protein || 0), carbs: a.carbs + (it.carbs || it.carbohydrates || 0), fat: a.fat + (it.fat || 0) }), { kcal: 0, protein: 0, carbs: 0, fat: 0 });
 
       const saveRecipe = () => {
         if (!recipeName.trim() || !cookedWeight) return;
@@ -359,7 +359,7 @@
           r.continuous = true;
           r.interimResults = false;
           r.onresult = (e) => {
-            const transcript = Array.from(e.results).map(res => res[0].transcript).join("\n");
+            const transcript = Array.from(e.results).slice(e.resultIndex).map(res => res[0].transcript).join("\n");
             setIngredientText(prev => (prev.trim() ? prev.trim() + "\n" + transcript : transcript));
           };
           r.onend = () => setIsListening(false);
