@@ -219,6 +219,18 @@
           {loading && <div className="pulsing" style={{ textAlign: "center", padding: 24, fontFamily: "Syne", fontSize: 14, color: C.muted }}>Claude analysiert deine Mahlzeit…</div>}
           {err && <div style={{ background: "#f8717112", border: `1px solid #f8717128`, borderRadius: 8, padding: "10px 14px", color: C.fat, fontFamily: "Syne", fontSize: 13 }}>{err}</div>}
 
+          {recipes.length > 0 && items.length === 0 && !loading && (
+            <div style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center" }}>
+              <span style={{ fontFamily: "Syne", fontSize: 10, color: C.muted, textTransform: "uppercase", letterSpacing: 1 }}>Mealprep:</span>
+              {recipes.map(r => (
+                <button key={r.id} onClick={() => setText(p => p ? p + "\n" + r.name : r.name)}
+                  style={{ fontFamily: "Syne", fontSize: 12, fontWeight: 600, padding: "5px 12px", borderRadius: 20, background: C.card, border: `1px solid ${C.border}`, color: C.text, cursor: "pointer" }}>
+                  {r.name}
+                </button>
+              ))}
+            </div>
+          )}
+
           {items.length > 0 && (
             <div className="fade-up" style={{ display: "flex", flexDirection: "column", gap: 10 }}>
               <SectionLabel>Erkannte Lebensmittel — tippen zum Bearbeiten</SectionLabel>
@@ -309,12 +321,13 @@
       );
     }
 
-    function RecipesTab({ recipes, onAdd, onDelete }) {
+    function MealprepTab({ recipes, onAdd, onDelete, onArchive, archive }) {
       const STEP = { idle: "idle", entering: "entering", analyzing: "analyzing", naming: "naming" };
       const [step, setStep] = useState(STEP.idle);
+      const [subTab, setSubTab] = useState("aktiv");
       const [ingredientText, setIngredientText] = useState("");
       const [items, setItems] = useState([]);
-      const [recipeName, setRecipeName] = useState("");
+      const [mealName, setMealName] = useState("");
       const [cookedWeight, setCookedWeight] = useState("");
       const [err, setErr] = useState(null);
       const [isListening, setIsListening] = useState(false);
@@ -333,163 +346,182 @@
       };
 
       const updateItem = (i, field, val) => setItems(p => p.map((it, idx) => idx === i ? { ...it, [field]: parseFloat(val) || 0 } : it));
-      const totals = items.reduce((a, it) => ({ kcal: a.kcal + (it.kcal || it.calories || 0), protein: a.protein + (it.protein || 0), carbs: a.carbs + (it.carbs || it.carbohydrates || 0), fat: a.fat + (it.fat || 0) }), { kcal: 0, protein: 0, carbs: 0, fat: 0 });
+      const totals = items.reduce((a, it) => ({ kcal: a.kcal + (it.kcal || 0), protein: a.protein + (it.protein || 0), carbs: a.carbs + (it.carbs || 0), fat: a.fat + (it.fat || 0) }), { kcal: 0, protein: 0, carbs: 0, fat: 0 });
 
-      const saveRecipe = () => {
-        if (!recipeName.trim() || !cookedWeight) return;
+      const saveMealprep = () => {
+        if (!mealName.trim() || !cookedWeight) return;
         const tw = parseFloat(cookedWeight);
-        const r = { id: Date.now(), name: recipeName.trim(), total_weight: tw, kcal_total: Math.round(totals.kcal), protein_total: Math.round(totals.protein * 10) / 10, carbs_total: Math.round(totals.carbs * 10) / 10, fat_total: Math.round(totals.fat * 10) / 10, ingredients: ingredientText };
+        const r = { id: Date.now(), name: mealName.trim(), total_weight: tw, kcal_total: Math.round(totals.kcal), protein_total: Math.round(totals.protein * 10) / 10, carbs_total: Math.round(totals.carbs * 10) / 10, fat_total: Math.round(totals.fat * 10) / 10, ingredients: ingredientText };
         r.kcal_100 = r.kcal_total / tw * 100; r.protein_100 = r.protein_total / tw * 100;
         r.carbs_100 = r.carbs_total / tw * 100; r.fat_100 = r.fat_total / tw * 100;
         onAdd(r);
-        setStep(STEP.idle); setIngredientText(""); setItems([]); setRecipeName(""); setCookedWeight("");
+        setStep(STEP.idle); setIngredientText(""); setItems([]); setMealName(""); setCookedWeight("");
       };
 
-      const cancel = () => { setStep(STEP.idle); setIngredientText(""); setItems([]); setErr(null); };
+      const cancel = () => { setStep(STEP.idle); setIngredientText(""); setItems([]); setErr(null); setMealName(""); };
+
+      const recookFromArchive = (archived) => {
+        setSubTab("aktiv");
+        setIngredientText(archived.ingredients || "");
+        setMealName(archived.name);
+        setStep(STEP.entering);
+      };
 
       const toggleVoice = () => {
         const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
-        if (!SR) { alert("Spracherkennung wird von diesem Browser nicht unterstützt."); return; }
-        if (isListening) {
-          recogRef.current && recogRef.current.stop();
-          setIsListening(false);
-        } else {
-          const r = new SR();
-          r.lang = "de-DE";
-          r.continuous = true;
-          r.interimResults = false;
-          r.onresult = (e) => {
-            const transcript = Array.from(e.results).slice(e.resultIndex).map(res => res[0].transcript).join("\n");
-            setIngredientText(prev => (prev.trim() ? prev.trim() + "\n" + transcript : transcript));
-          };
-          r.onend = () => setIsListening(false);
-          r.onerror = () => setIsListening(false);
-          r.start();
-          recogRef.current = r;
-          setIsListening(true);
-        }
+        if (!SR) { alert("Spracherkennung wird nicht unterstützt."); return; }
+        if (isListening) { recogRef.current && recogRef.current.stop(); setIsListening(false); return; }
+        const r = new SR();
+        r.lang = "de-DE"; r.continuous = true; r.interimResults = false;
+        r.onresult = (e) => { const t = Array.from(e.results).slice(e.resultIndex).map(res => res[0].transcript).join("\n"); setIngredientText(prev => prev.trim() ? prev.trim() + "\n" + t : t); };
+        r.onend = () => setIsListening(false);
+        r.onerror = () => setIsListening(false);
+        r.start(); recogRef.current = r; setIsListening(true);
       };
 
       return (
         <div style={{ padding: 16, display: "flex", flexDirection: "column", gap: 12 }}>
-          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-            <SectionLabel>Meal Prep Rezepte</SectionLabel>
-            {step === STEP.idle && <Btn onClick={() => setStep(STEP.entering)} small variant="ghost">+ Neu kochen</Btn>}
+          <div style={{ display: "flex", gap: 0, background: C.card, borderRadius: 10, padding: 3, border: `1px solid ${C.border}` }}>
+            {[["aktiv", "Aktiv"], ["archiv", `Archiv (${archive.length})`]].map(([id, label]) => (
+              <button key={id} onClick={() => setSubTab(id)} style={{ flex: 1, padding: "7px 0", borderRadius: 8, border: "none", background: subTab === id ? C.accent : "transparent", color: subTab === id ? "#000" : C.muted, fontFamily: "Syne", fontSize: 12, fontWeight: 700, cursor: "pointer", textTransform: "uppercase", letterSpacing: 0.5 }}>
+                {label}
+              </button>
+            ))}
           </div>
 
-          {step === STEP.entering && (
-            <Card accent style={{ display: "flex", flexDirection: "column" }}>
-              <div style={{ padding: "12px 14px 0", fontFamily: "Syne", fontSize: 12, color: C.accent, marginBottom: 6 }}>Zutaten eingeben (roh, vor dem Kochen)</div>
-              <textarea value={ingredientText} onChange={e => setIngredientText(e.target.value)}
-                placeholder={"1000g rohes Hühnchen\n1 Dose gehackte Tomaten\n1 EL Olivenöl\n1 Packung Sahne 20%\nSalz, Pfeffer, Knoblauch"}
-                style={{ width: "100%", minHeight: 140, background: "transparent", border: "none", outline: "none", padding: "8px 14px 12px", color: C.text, fontFamily: "Syne", fontSize: 15, lineHeight: 1.7 }} />
-              <div style={{ padding: "8px 12px 12px", display: "flex", justifyContent: "space-between", alignItems: "center", borderTop: `1px solid ${C.border}`, gap: 8 }}>
-                <button onClick={toggleVoice} style={{ background: isListening ? "#f59e0b22" : "transparent", border: `1px solid ${isListening ? C.accent : C.border}`, borderRadius: 8, padding: "8px 12px", color: isListening ? C.accent : C.muted, display: "flex", alignItems: "center", gap: 6, flexShrink: 0 }}>
-                  <span className={isListening ? "pulsing" : ""} style={{ fontSize: 18 }}>🎙</span>
-                  {isListening && <Mono size={11} color={C.accent}>Höre zu…</Mono>}
-                </button>
-                <div style={{ display: "flex", gap: 8 }}>
-                  <Btn onClick={analyze} disabled={!ingredientText.trim()} small style={{ flex: 1 }}>Makros berechnen →</Btn>
-                  <Btn onClick={cancel} small variant="ghost">Abbrechen</Btn>
-                </div>
-              </div>
-            </Card>
-          )}
+          {subTab === "aktiv" && <>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+              <SectionLabel>Aktive Mealpreps ({recipes.length})</SectionLabel>
+              {step === STEP.idle && <Btn onClick={() => setStep(STEP.entering)} small variant="ghost">+ Neu kochen</Btn>}
+            </div>
 
-          {step === STEP.analyzing && (
-            <div className="pulsing" style={{ textAlign: "center", padding: 32, fontFamily: "Syne", fontSize: 14, color: C.muted }}>Claude analysiert die Zutaten…</div>
-          )}
-
-          {err && <div style={{ background: "#f8717112", border: `1px solid #f8717128`, borderRadius: 8, padding: "10px 14px", color: C.fat, fontFamily: "Syne", fontSize: 13 }}>{err}</div>}
-
-          {step === STEP.naming && (
-            <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-              <SectionLabel>Erkannte Zutaten — tippen zum Korrigieren</SectionLabel>
-              {items.map((item, i) => (
-                <Card key={i} style={{ padding: "10px 12px" }}>
-                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
-                    <span style={{ fontFamily: "Syne", fontSize: 13, fontWeight: 700, color: C.text }}>{item.name_de || item.name}</span>
-                    <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
-                      <span style={{ fontFamily: "DM Mono", fontSize: 10, padding: "2px 6px", borderRadius: 4, background: item.confidence === "high" ? "#34d39918" : "#f59e0b18", color: item.confidence === "high" ? C.carbs : C.kcal }}>{item.confidence}</span>
-                      <Mono size={11} color={C.muted}>{item.weight_g}g</Mono>
-                    </div>
-                  </div>
-                  <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr 1fr", gap: 6 }}>
-                    {MACROS.map(m => (
-                      <div key={m}>
-                        <div style={{ fontFamily: "Syne", fontSize: 9, color: MC[m], textTransform: "uppercase", marginBottom: 2 }}>{m}</div>
-                        <input type="number" value={Math.round(item[m] * 10) / 10} onChange={e => updateItem(i, m, e.target.value)} style={{ ...inputStyle, fontFamily: "DM Mono", fontSize: 13, color: MC[m], padding: "6px 8px" }} />
-                      </div>
-                    ))}
-                  </div>
-                </Card>
-              ))}
-
-              <Card accent style={{ padding: "14px" }}>
-                <div style={{ fontFamily: "Syne", fontSize: 10, color: C.accent, textTransform: "uppercase", letterSpacing: 1, marginBottom: 10 }}>Gesamt Makros (alle Zutaten)</div>
-                <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 8, marginBottom: 14 }}>
-                  {MACROS.map(m => (
-                    <div key={m} style={{ textAlign: "center" }}>
-                      <Mono size={18} color={MC[m]} bold>{Math.round(totals[m])}</Mono>
-                      <div style={{ fontFamily: "DM Mono", fontSize: 9, color: C.muted, marginTop: 2 }}>{UNITS[m]}</div>
-                    </div>
-                  ))}
-                </div>
-                <div style={{ borderTop: `1px solid ${C.accent}25`, paddingTop: 12, display: "flex", flexDirection: "column", gap: 10 }}>
-                  <div>
-                    <div style={{ fontFamily: "Syne", fontSize: 10, color: C.muted, marginBottom: 4 }}>Name des Gerichts</div>
-                    <input placeholder="z.B. Hähnchen-Tomaten-Sahnesoße" value={recipeName} onChange={e => setRecipeName(e.target.value)} style={inputStyle} />
-                  </div>
-                  <div>
-                    <div style={{ fontFamily: "Syne", fontSize: 10, color: C.muted, marginBottom: 4 }}>Fertig gekochtes Gesamtgewicht (g) — bitte abwiegen!</div>
-                    <input type="number" placeholder="z.B. 1400" value={cookedWeight} onChange={e => setCookedWeight(e.target.value)} style={inputStyle} />
-                    <div style={{ fontFamily: "Syne", fontSize: 10, color: C.muted, marginTop: 4 }}>Basis für die anteilige Berechnung beim Tracken.</div>
+            {step === STEP.entering && (
+              <Card accent style={{ display: "flex", flexDirection: "column" }}>
+                <div style={{ padding: "12px 14px 0", fontFamily: "Syne", fontSize: 12, color: C.accent, marginBottom: 6 }}>Zutaten eingeben (roh, vor dem Kochen)</div>
+                <textarea value={ingredientText} onChange={e => setIngredientText(e.target.value)}
+                  placeholder={"1000g rohes Hühnchen\n1 Dose gehackte Tomaten\n1 EL Olivenöl\n1 Packung Sahne 20%\nSalz, Pfeffer, Knoblauch"}
+                  style={{ width: "100%", minHeight: 140, background: "transparent", border: "none", outline: "none", padding: "8px 14px 12px", color: C.text, fontFamily: "Syne", fontSize: 15, lineHeight: 1.7 }} />
+                <div style={{ padding: "8px 12px 12px", display: "flex", justifyContent: "space-between", alignItems: "center", borderTop: `1px solid ${C.border}`, gap: 8 }}>
+                  <button onClick={toggleVoice} style={{ background: isListening ? "#f59e0b22" : "transparent", border: `1px solid ${isListening ? C.accent : C.border}`, borderRadius: 8, padding: "8px 12px", color: isListening ? C.accent : C.muted, display: "flex", alignItems: "center", gap: 6, flexShrink: 0 }}>
+                    <span className={isListening ? "pulsing" : ""} style={{ fontSize: 18 }}>🎙</span>
+                    {isListening && <Mono size={11} color={C.accent}>Höre zu…</Mono>}
+                  </button>
+                  <div style={{ display: "flex", gap: 8 }}>
+                    <Btn onClick={analyze} disabled={!ingredientText.trim()} small>Makros berechnen →</Btn>
+                    <Btn onClick={cancel} small variant="ghost">Abbrechen</Btn>
                   </div>
                 </div>
               </Card>
+            )}
 
-              {cookedWeight && recipeName && (
-                <div style={{ background: "#34d39910", borderRadius: 8, padding: "10px 14px", fontFamily: "Syne", fontSize: 12, color: C.carbs }}>
-                  Pro 100g: {Math.round(totals.kcal / parseFloat(cookedWeight) * 100)} kcal · {Math.round(totals.protein / parseFloat(cookedWeight) * 100 * 10) / 10}g E · {Math.round(totals.carbs / parseFloat(cookedWeight) * 100 * 10) / 10}g KH · {Math.round(totals.fat / parseFloat(cookedWeight) * 100 * 10) / 10}g F
-                </div>
-              )}
+            {step === STEP.analyzing && <div className="pulsing" style={{ textAlign: "center", padding: 32, fontFamily: "Syne", fontSize: 14, color: C.muted }}>Claude analysiert die Zutaten…</div>}
+            {err && <div style={{ background: "#f8717112", border: `1px solid #f8717128`, borderRadius: 8, padding: "10px 14px", color: C.fat, fontFamily: "Syne", fontSize: 13 }}>{err}</div>}
 
-              <div style={{ display: "flex", gap: 8 }}>
-                <Btn onClick={saveRecipe} disabled={!recipeName.trim() || !cookedWeight} style={{ flex: 1 }}>Rezept speichern</Btn>
-                <Btn onClick={cancel} variant="ghost">Abbrechen</Btn>
-              </div>
-            </div>
-          )}
-
-          {step === STEP.idle && recipes.length === 0 && (
-            <div style={{ textAlign: "center", padding: 40, color: C.muted, fontFamily: "Syne", fontSize: 14, lineHeight: 1.9 }}>
-              Noch keine Rezepte.<br />Koch ein Gericht vor, trag die Zutaten ein –<br />dann kannst du z.B. „300g Hähnchen-Soße"<br />in der täglichen Eingabe tracken.
-            </div>
-          )}
-
-          {step === STEP.idle && recipes.map(r => (
-            <Card key={r.id} style={{ padding: "12px 14px" }}>
-              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 10 }}>
-                <div>
-                  <span style={{ fontFamily: "Syne", fontSize: 15, fontWeight: 700, color: C.text }}>{r.name}</span>
-                  <div style={{ fontFamily: "Syne", fontSize: 10, color: C.muted, marginTop: 2 }}>Gesamtgewicht: {r.total_weight}g</div>
-                </div>
-                <button onClick={() => onDelete(r.id)} style={{ background: "none", border: "none", color: "#f8717140", fontSize: 16, padding: 4 }}>✕</button>
-              </div>
-              <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 6, marginBottom: 8 }}>
-                {MACROS.map(m => (
-                  <div key={m} style={{ textAlign: "center" }}>
-                    <Mono size={14} color={MC[m]} bold>{Math.round(r[`${m}_total`])}</Mono>
-                    <div style={{ fontFamily: "DM Mono", fontSize: 9, color: C.muted }}>gesamt</div>
-                  </div>
+            {step === STEP.naming && (
+              <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+                <SectionLabel>Erkannte Zutaten — tippen zum Korrigieren</SectionLabel>
+                {items.map((item, i) => (
+                  <Card key={i} style={{ padding: "10px 12px" }}>
+                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
+                      <span style={{ fontFamily: "Syne", fontSize: 13, fontWeight: 700, color: C.text }}>{item.name_de || item.name}</span>
+                      <Mono size={11} color={C.muted}>{item.weight_g}g</Mono>
+                    </div>
+                    <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr 1fr", gap: 6 }}>
+                      {MACROS.map(m => (
+                        <div key={m}>
+                          <div style={{ fontFamily: "Syne", fontSize: 9, color: MC[m], textTransform: "uppercase", marginBottom: 2 }}>{m}</div>
+                          <input type="number" value={Math.round(item[m] * 10) / 10} onChange={e => updateItem(i, m, e.target.value)} style={{ ...inputStyle, fontFamily: "DM Mono", fontSize: 13, color: MC[m], padding: "6px 8px" }} />
+                        </div>
+                      ))}
+                    </div>
+                  </Card>
                 ))}
+                <Card accent style={{ padding: "14px" }}>
+                  <div style={{ fontFamily: "Syne", fontSize: 10, color: C.accent, textTransform: "uppercase", letterSpacing: 1, marginBottom: 10 }}>Gesamt</div>
+                  <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 8, marginBottom: 14 }}>
+                    {MACROS.map(m => (
+                      <div key={m} style={{ textAlign: "center" }}>
+                        <Mono size={18} color={MC[m]} bold>{Math.round(totals[m])}</Mono>
+                        <div style={{ fontFamily: "DM Mono", fontSize: 9, color: C.muted, marginTop: 2 }}>{UNITS[m]}</div>
+                      </div>
+                    ))}
+                  </div>
+                  <div style={{ borderTop: `1px solid ${C.accent}25`, paddingTop: 12, display: "flex", flexDirection: "column", gap: 10 }}>
+                    <div>
+                      <div style={{ fontFamily: "Syne", fontSize: 10, color: C.muted, marginBottom: 4 }}>Name des Mealpreps</div>
+                      <input placeholder="z.B. Hähnchen-Tomaten-Sahnesoße" value={mealName} onChange={e => setMealName(e.target.value)} style={inputStyle} />
+                    </div>
+                    <div>
+                      <div style={{ fontFamily: "Syne", fontSize: 10, color: C.muted, marginBottom: 4 }}>Fertig gekochtes Gesamtgewicht (g) — bitte abwiegen!</div>
+                      <input type="number" placeholder="z.B. 1400" value={cookedWeight} onChange={e => setCookedWeight(e.target.value)} style={inputStyle} />
+                    </div>
+                  </div>
+                </Card>
+                {cookedWeight && mealName && (
+                  <div style={{ background: "#34d39910", borderRadius: 8, padding: "10px 14px", fontFamily: "Syne", fontSize: 12, color: C.carbs }}>
+                    Pro 100g: {Math.round(totals.kcal / parseFloat(cookedWeight) * 100)} kcal · {Math.round(totals.protein / parseFloat(cookedWeight) * 100 * 10) / 10}g E · {Math.round(totals.carbs / parseFloat(cookedWeight) * 100 * 10) / 10}g KH · {Math.round(totals.fat / parseFloat(cookedWeight) * 100 * 10) / 10}g F
+                  </div>
+                )}
+                <div style={{ display: "flex", gap: 8 }}>
+                  <Btn onClick={saveMealprep} disabled={!mealName.trim() || !cookedWeight} style={{ flex: 1 }}>Mealprep speichern</Btn>
+                  <Btn onClick={cancel} variant="ghost">Abbrechen</Btn>
+                </div>
               </div>
-              <div style={{ fontFamily: "Syne", fontSize: 10, color: C.muted, borderTop: `1px solid ${C.border}`, paddingTop: 8 }}>
-                Pro 100g: {Math.round(r.kcal_100)} kcal · {Math.round(r.protein_100 * 10) / 10}g E · {Math.round(r.carbs_100 * 10) / 10}g KH · {Math.round(r.fat_100 * 10) / 10}g F
+            )}
+
+            {step === STEP.idle && recipes.length === 0 && (
+              <div style={{ textAlign: "center", padding: 40, color: C.muted, fontFamily: "Syne", fontSize: 14, lineHeight: 1.9 }}>
+                Noch keine Mealpreps.<br />Koch ein Gericht vor und trag die Zutaten ein –<br />dann kannst du z.B. „300g Hähnchen-Soße"<br />in der täglichen Eingabe tracken.
               </div>
-              {r.ingredients && <div style={{ fontFamily: "Syne", fontSize: 10, color: "#444", borderTop: `1px solid ${C.border}`, paddingTop: 8, marginTop: 6, lineHeight: 1.5 }}>{r.ingredients}</div>}
-            </Card>
-          ))}
+            )}
+
+            {step === STEP.idle && recipes.map(r => (
+              <Card key={r.id} style={{ padding: "12px 14px" }}>
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 10 }}>
+                  <div style={{ flex: 1 }}>
+                    <span style={{ fontFamily: "Syne", fontSize: 15, fontWeight: 700, color: C.text }}>{r.name}</span>
+                    <div style={{ fontFamily: "Syne", fontSize: 10, color: C.muted, marginTop: 2 }}>Gesamtgewicht: {r.total_weight}g</div>
+                  </div>
+                  <button onClick={() => onDelete(r.id)} style={{ background: "none", border: "none", color: "#f8717140", fontSize: 16, padding: 4 }}>✕</button>
+                </div>
+                <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 6, marginBottom: 8 }}>
+                  {MACROS.map(m => (
+                    <div key={m} style={{ textAlign: "center" }}>
+                      <Mono size={14} color={MC[m]} bold>{Math.round(r[`${m}_total`])}</Mono>
+                      <div style={{ fontFamily: "DM Mono", fontSize: 9, color: C.muted }}>gesamt</div>
+                    </div>
+                  ))}
+                </div>
+                <div style={{ fontFamily: "Syne", fontSize: 10, color: C.muted, borderTop: `1px solid ${C.border}`, paddingTop: 8, marginBottom: 10 }}>
+                  Pro 100g: {Math.round(r.kcal_100)} kcal · {Math.round(r.protein_100 * 10) / 10}g E · {Math.round(r.carbs_100 * 10) / 10}g KH · {Math.round(r.fat_100 * 10) / 10}g F
+                </div>
+                {r.ingredients && <div style={{ fontFamily: "Syne", fontSize: 10, color: "#444", borderTop: `1px solid ${C.border}`, paddingTop: 8, marginBottom: 10, lineHeight: 1.5 }}>{r.ingredients}</div>}
+                <Btn onClick={() => onArchive(r)} full variant="ghost" small>Aufgegessen ✓</Btn>
+              </Card>
+            ))}
+          </>}
+
+          {subTab === "archiv" && <>
+            <SectionLabel>Archiv — aufgegessene Mealpreps</SectionLabel>
+            {archive.length === 0 ? (
+              <div style={{ textAlign: "center", padding: 40, color: C.muted, fontFamily: "Syne", fontSize: 14, lineHeight: 1.9 }}>
+                Noch nichts im Archiv.<br />Wenn ein Mealprep aufgegessen ist,<br />klick auf „Aufgegessen ✓".
+              </div>
+            ) : [...archive].reverse().map((r, i) => (
+              <Card key={i} style={{ padding: "12px 14px", opacity: 0.85 }}>
+                <div style={{ marginBottom: 6 }}>
+                  <span style={{ fontFamily: "Syne", fontSize: 15, fontWeight: 700, color: C.text }}>{r.name}</span>
+                  <div style={{ fontFamily: "Syne", fontSize: 10, color: C.muted, marginTop: 2 }}>
+                    {new Date(r.archived_at).toLocaleDateString("de-DE", { day: "numeric", month: "short", year: "numeric" })} · {r.total_weight}g
+                  </div>
+                </div>
+                <div style={{ fontFamily: "Syne", fontSize: 10, color: C.muted, marginBottom: 12 }}>
+                  Pro 100g: {Math.round(r.kcal_100)} kcal · {Math.round(r.protein_100 * 10) / 10}g E · {Math.round(r.carbs_100 * 10) / 10}g KH · {Math.round(r.fat_100 * 10) / 10}g F
+                </div>
+                <Btn onClick={() => recookFromArchive(r)} full small>Neu kochen →</Btn>
+              </Card>
+            ))}
+          </>}
         </div>
       );
     }
@@ -580,10 +612,10 @@
     }
 
     const TABS = [
-      { id: "input", label: "Eingabe", sym: "✦" },
-      { id: "today", label: "Heute", sym: "◉" },
-      { id: "recipes", label: "Rezepte", sym: "⬡" },
-      { id: "history", label: "Verlauf", sym: "◈" },
+      { id: "input",    label: "Eingabe",  sym: "✦" },
+      { id: "today",    label: "Heute",    sym: "◉" },
+      { id: "mealprep", label: "Mealprep", sym: "⬡" },
+      { id: "history",  label: "Verlauf",  sym: "◈" },
     ];
 
     function App() {
@@ -591,10 +623,10 @@
       const [targets, setTargets] = useState(() => store.get("mk_targets") || DEFAULT_TARGETS);
       const [entries, setEntries] = useState(() => store.get(dayKey(todayStr())) || []);
       const [recipes, setRecipes] = useState([]);
+      const [archive, setArchive] = useState(() => store.get("mk_mealprep_archive") || []);
       const [settings, setSettings] = useState(false);
       const userId = getUserId();
 
-      // Rezepte beim Start vom Server laden
       useEffect(() => {
         loadRecipes(userId)
           .then(r => setRecipes(r))
@@ -602,13 +634,13 @@
       }, []);
 
       useEffect(() => { store.set(dayKey(todayStr()), entries); }, [entries]);
+      useEffect(() => { store.set("mk_mealprep_archive", archive); }, [archive]);
 
       const addRecipe = async (recipe) => {
         try {
           const saved = await saveRecipeToServer(userId, recipe);
           setRecipes(p => [...p, saved]);
         } catch {
-          // Fallback: lokal speichern
           const local = { ...recipe, id: Date.now() };
           setRecipes(p => [...p, local]);
           store.set("mk_recipes", [...recipes, local]);
@@ -618,6 +650,11 @@
       const removeRecipe = async (id) => {
         setRecipes(p => p.filter(r => r.id !== id));
         deleteRecipeFromServer(userId, id).catch(() => {});
+      };
+
+      const archiveRecipe = (recipe) => {
+        setArchive(p => [...p, { ...recipe, archived_at: new Date().toISOString() }]);
+        removeRecipe(recipe.id);
       };
 
       return (
@@ -635,7 +672,7 @@
           <div style={{ flex: 1, overflowY: "auto", WebkitOverflowScrolling: "touch" }}>
             {tab === "input"   && <InputTab recipes={recipes} onSave={e => { setEntries(p => [...p, e]); setTab("today"); }} />}
             {tab === "today"   && <TodayTab entries={entries} targets={targets} onDelete={id => setEntries(p => p.filter(e => e.id !== id))} />}
-            {tab === "recipes" && <RecipesTab recipes={recipes} onAdd={addRecipe} onDelete={removeRecipe} />}
+            {tab === "mealprep" && <MealprepTab recipes={recipes} onAdd={addRecipe} onDelete={removeRecipe} onArchive={archiveRecipe} archive={archive} />}
             {tab === "history" && <HistoryTab targets={targets} />}
           </div>
           <div style={{ display: "flex", borderTop: `1px solid ${C.border}`, background: C.bg, flexShrink: 0, paddingBottom: "env(safe-area-inset-bottom)" }}>
