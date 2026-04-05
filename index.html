@@ -34,6 +34,7 @@
   <script src="https://unpkg.com/react@18/umd/react.production.min.js" crossorigin></script>
   <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js" crossorigin></script>
   <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+  <script src="https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
 
   <script type="text/babel">
     const { useState, useEffect, useRef } = React;
@@ -112,6 +113,10 @@
     // Rezept-Zutaten analysieren → Makros vom Backend
     async function analyzeRecipe(text) {
       return apiCall("/api/analyze-recipe", "POST", { text });
+    }
+
+    async function lookupBarcode(barcode) {
+      return apiCall("/api/barcode", "POST", { barcode });
     }
 
     // Rezepte vom Server laden (userId kommt aus JWT)
@@ -207,6 +212,49 @@
       <div style={{ fontFamily: "Syne", fontSize: 10, color: C.muted, textTransform: "uppercase", letterSpacing: 1.2, marginBottom: 10 }}>{children}</div>
     );
 
+    function BarcodeScanner({ onScan, onClose }) {
+      useEffect(() => {
+        let scanner;
+        let done = false;
+
+        (async () => {
+          try {
+            scanner = new Html5Qrcode("barcode-reader-div");
+            await scanner.start(
+              { facingMode: "environment" },
+              { fps: 10, qrbox: { width: 260, height: 100 }, aspectRatio: 1.777 },
+              (text) => {
+                if (done) return;
+                done = true;
+                scanner.stop().catch(() => {}).finally(() => onScan(text));
+              },
+              () => {}
+            );
+          } catch {
+            onClose();
+          }
+        })();
+
+        return () => {
+          done = true;
+          scanner?.stop().catch(() => {});
+        };
+      }, []);
+
+      return (
+        <div style={{ position: "fixed", inset: 0, background: "#000", zIndex: 200, display: "flex", flexDirection: "column" }}>
+          <div style={{ padding: "16px 16px 12px", display: "flex", justifyContent: "space-between", alignItems: "center", flexShrink: 0 }}>
+            <span style={{ fontFamily: "Syne", fontSize: 16, fontWeight: 700, color: "#fff" }}>Barcode scannen</span>
+            <button onClick={onClose} style={{ background: "none", border: "none", color: "#fff", fontSize: 24, padding: 4, cursor: "pointer" }}>✕</button>
+          </div>
+          <div id="barcode-reader-div" style={{ flex: 1, overflow: "hidden" }} />
+          <div style={{ padding: "16px", textAlign: "center", color: "#555", fontFamily: "Syne", fontSize: 13, flexShrink: 0 }}>
+            Halte den Barcode vor die Kamera
+          </div>
+        </div>
+      );
+    }
+
     function InputTab({ recipes, onSave }) {
       const [text, setText] = useState("");
       const [loading, setLoading] = useState(false);
@@ -214,6 +262,10 @@
       const [err, setErr] = useState(null);
       const [listening, setListening] = useState(false);
       const recognitionRef = useRef(null);
+      const [scanning, setScanning] = useState(false);
+      const [barcodeLoading, setBarcodeLoading] = useState(false);
+      const [scannedProduct, setScannedProduct] = useState(null);
+      const [barcodeWeight, setBarcodeWeight] = useState("100");
 
       const toggleVoice = () => {
         const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
@@ -226,6 +278,45 @@
         r.onend = () => setListening(false);
         recognitionRef.current = r;
         r.start(); setListening(true);
+      };
+
+      const handleBarcodeScan = async (barcode) => {
+        setScanning(false);
+        setBarcodeLoading(true);
+        setErr(null);
+        try {
+          const data = await lookupBarcode(barcode);
+          if (data.found) {
+            setScannedProduct(data);
+            setBarcodeWeight("100");
+          } else {
+            setErr(`Produkt nicht gefunden (${barcode}). Bitte manuell eingeben.`);
+          }
+        } catch (e) {
+          setErr("Barcode-Suche fehlgeschlagen: " + e.message);
+        }
+        setBarcodeLoading(false);
+      };
+
+      const addBarcodeItem = () => {
+        if (!scannedProduct) return;
+        const w = parseFloat(barcodeWeight);
+        if (!w || w <= 0) return;
+        const p = scannedProduct;
+        const item = {
+          name_de: p.name_de,
+          name_en: p.name_en || p.name_de,
+          weight_g: w,
+          kcal:    Math.round(p.kcal_100    * w / 100 * 10) / 10,
+          protein: Math.round(p.protein_100 * w / 100 * 10) / 10,
+          carbs:   Math.round(p.carbs_100   * w / 100 * 10) / 10,
+          fat:     Math.round(p.fat_100     * w / 100 * 10) / 10,
+          source: p.source,
+          found: true,
+        };
+        setItems(prev => [...prev, item]);
+        setScannedProduct(null);
+        setBarcodeWeight("100");
       };
 
       const analyze = async () => {
@@ -257,10 +348,18 @@
               style={{ width: "100%", minHeight: 120, background: "transparent", border: "none", outline: "none", padding: "16px", color: C.text, fontFamily: "Syne", fontSize: 15, lineHeight: 1.7 }}
             />
             <div style={{ padding: "8px 12px 12px", display: "flex", justifyContent: "space-between", alignItems: "center", borderTop: `1px solid ${C.border}`, gap: 8 }}>
-              <button onClick={toggleVoice} style={{ background: listening ? "#f59e0b22" : "transparent", border: `1px solid ${listening ? C.accent : C.border}`, borderRadius: 8, padding: "8px 12px", color: listening ? C.accent : C.muted, display: "flex", alignItems: "center", gap: 6, flexShrink: 0 }}>
-                <span className={listening ? "pulsing" : ""} style={{ fontSize: 18 }}>🎙</span>
-                {listening && <Mono size={11} color={C.accent}>Höre zu…</Mono>}
-              </button>
+              <div style={{ display: "flex", gap: 8, flexShrink: 0 }}>
+                <button onClick={toggleVoice} style={{ background: listening ? "#f59e0b22" : "transparent", border: `1px solid ${listening ? C.accent : C.border}`, borderRadius: 8, padding: "8px 12px", color: listening ? C.accent : C.muted, display: "flex", alignItems: "center", gap: 6 }}>
+                  <span className={listening ? "pulsing" : ""} style={{ fontSize: 18 }}>🎙</span>
+                  {listening && <Mono size={11} color={C.accent}>Höre zu…</Mono>}
+                </button>
+                <button onClick={() => setScanning(true)} disabled={barcodeLoading} style={{ background: barcodeLoading ? "#f59e0b22" : "transparent", border: `1px solid ${C.border}`, borderRadius: 8, padding: "8px 12px", color: C.muted, display: "flex", alignItems: "center" }}>
+                  {barcodeLoading
+                    ? <span className="pulsing" style={{ fontSize: 16 }}>⬛</span>
+                    : <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><rect x="1" y="4" width="2" height="16"/><rect x="5" y="4" width="1" height="16"/><rect x="8" y="4" width="2" height="16"/><rect x="12" y="4" width="1" height="16"/><rect x="15" y="4" width="2" height="16"/><rect x="19" y="4" width="1" height="16"/><rect x="22" y="4" width="1" height="16"/></svg>
+                  }
+                </button>
+              </div>
               <Btn onClick={analyze} disabled={loading || !text.trim()} small>{loading ? "…" : "Analysieren →"}</Btn>
             </div>
           </Card>
@@ -288,7 +387,7 @@
                   <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 10 }}>
                     <span style={{ fontFamily: "Syne", fontSize: 14, fontWeight: 700, color: C.text, flex: 1 }}>{item.name_de || item.name}</span>
                     <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
-                      <span style={{ fontFamily: "DM Mono", fontSize: 10, padding: "2px 7px", borderRadius: 4, background: item.found ? "#34d39918" : "#f8717118", color: item.found ? C.carbs : C.fat }}>{item.source === "recipe" ? "rezept" : item.source === "cache" ? "db" : item.found ? "ki" : "?"}</span>
+                      <span style={{ fontFamily: "DM Mono", fontSize: 10, padding: "2px 7px", borderRadius: 4, background: item.found ? "#34d39918" : "#f8717118", color: item.found ? C.carbs : C.fat }}>{item.source === "recipe" ? "rezept" : item.source === "cache" || item.source === "off" ? "db" : item.found ? "ki" : "?"}</span>
                       <Mono size={11} color={C.muted}>{item.weight_g}g</Mono>
                       <button onClick={() => setItems(p => p.filter((_, idx) => idx !== i))} style={{ background: "none", border: "none", color: "#f8717150", fontSize: 16, padding: "2px 4px" }}>✕</button>
                     </div>
@@ -315,6 +414,38 @@
                 </div>
               </Card>
               <Btn onClick={save} full>Eintrag speichern</Btn>
+            </div>
+          )}
+
+          {scanning && <BarcodeScanner onScan={handleBarcodeScan} onClose={() => setScanning(false)} />}
+
+          {scannedProduct && (
+            <div onClick={() => setScannedProduct(null)} style={{ position: "fixed", inset: 0, background: "#000c", display: "flex", alignItems: "flex-end", zIndex: 150 }}>
+              <div onClick={e => e.stopPropagation()} style={{ background: "#181818", borderRadius: "20px 20px 0 0", padding: "20px 16px", width: "100%", border: `1px solid ${C.border}`, paddingBottom: "calc(20px + env(safe-area-inset-bottom))" }}>
+                <div style={{ fontFamily: "Syne", fontSize: 16, fontWeight: 700, color: C.text, marginBottom: 4 }}>{scannedProduct.name_de}</div>
+                <div style={{ fontFamily: "Syne", fontSize: 11, color: C.muted, marginBottom: 20 }}>
+                  Pro 100g: {Math.round(scannedProduct.kcal_100)} kcal · {Math.round(scannedProduct.protein_100 * 10) / 10}g E · {Math.round(scannedProduct.carbs_100 * 10) / 10}g KH · {Math.round(scannedProduct.fat_100 * 10) / 10}g F
+                </div>
+                <div style={{ fontFamily: "Syne", fontSize: 12, color: C.muted, marginBottom: 8 }}>Wie viel hast du gegessen?</div>
+                <div style={{ display: "flex", gap: 10, alignItems: "center", marginBottom: 16 }}>
+                  <input
+                    type="number" value={barcodeWeight}
+                    onChange={e => setBarcodeWeight(e.target.value)}
+                    autoFocus
+                    style={{ flex: 1, background: "#111", border: `1px solid ${C.border}`, borderRadius: 8, padding: "12px 14px", color: C.text, fontFamily: "DM Mono", fontSize: 18, outline: "none", textAlign: "center" }}
+                  />
+                  <span style={{ fontFamily: "Syne", fontSize: 16, color: C.muted }}>g</span>
+                </div>
+                {barcodeWeight && parseFloat(barcodeWeight) > 0 && (
+                  <div style={{ background: "#34d39910", borderRadius: 8, padding: "8px 12px", fontFamily: "Syne", fontSize: 12, color: C.carbs, marginBottom: 14 }}>
+                    = {Math.round(scannedProduct.kcal_100 * parseFloat(barcodeWeight) / 100)} kcal · {Math.round(scannedProduct.protein_100 * parseFloat(barcodeWeight) / 100 * 10) / 10}g E · {Math.round(scannedProduct.carbs_100 * parseFloat(barcodeWeight) / 100 * 10) / 10}g KH · {Math.round(scannedProduct.fat_100 * parseFloat(barcodeWeight) / 100 * 10) / 10}g F
+                  </div>
+                )}
+                <div style={{ display: "flex", gap: 8 }}>
+                  <Btn onClick={addBarcodeItem} disabled={!barcodeWeight || parseFloat(barcodeWeight) <= 0} style={{ flex: 1 }}>Hinzufügen →</Btn>
+                  <Btn onClick={() => setScannedProduct(null)} variant="ghost">Abbrechen</Btn>
+                </div>
+              </div>
             </div>
           )}
         </div>
