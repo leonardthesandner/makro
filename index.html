@@ -298,7 +298,8 @@
           const data = await lookupBarcode(barcode);
           if (data.found) {
             setScannedProduct(data);
-            setBarcodeWeight("100");
+            // Portionsgröße aus Barcode vorausfüllen, sonst 100g
+            setBarcodeWeight(data.serving_g ? String(data.serving_g) : "100");
           } else {
             setErr(`Produkt nicht gefunden. Barcode: ${barcode} — bitte manuell eingeben.`);
           }
@@ -436,7 +437,15 @@
                 <div style={{ fontFamily: "Syne", fontSize: 11, color: C.muted, marginBottom: 20 }}>
                   Pro 100g: {Math.round(scannedProduct.kcal_100)} kcal · {Math.round(scannedProduct.protein_100 * 10) / 10}g E · {Math.round(scannedProduct.carbs_100 * 10) / 10}g KH · {Math.round(scannedProduct.fat_100 * 10) / 10}g F
                 </div>
-                <div style={{ fontFamily: "Syne", fontSize: 12, color: C.muted, marginBottom: 8 }}>Wie viel hast du gegessen?</div>
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
+                  <div style={{ fontFamily: "Syne", fontSize: 12, color: C.muted }}>Wie viel hast du gegessen?</div>
+                  {scannedProduct.serving_g && (
+                    <button onClick={() => setBarcodeWeight(String(scannedProduct.serving_g))}
+                      style={{ fontFamily: "Syne", fontSize: 11, fontWeight: 700, padding: "3px 10px", borderRadius: 20, background: parseFloat(barcodeWeight) === scannedProduct.serving_g ? C.accent : C.card, color: parseFloat(barcodeWeight) === scannedProduct.serving_g ? "#000" : C.muted, border: `1px solid ${C.border}`, cursor: "pointer" }}>
+                      {scannedProduct.serving_g}g (1 Portion)
+                    </button>
+                  )}
+                </div>
                 <div style={{ display: "flex", gap: 10, alignItems: "center", marginBottom: 16 }}>
                   <input
                     type="number" value={barcodeWeight}
