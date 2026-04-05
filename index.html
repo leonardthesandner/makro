@@ -214,38 +214,47 @@
 
     function BarcodeScanner({ onScan, onClose }) {
       const scannerRef = useRef(null);
+      const [scanErr, setScanErr] = useState(null);
 
       useEffect(() => {
         let done = false;
-        const scanner = new Html5Qrcode("barcode-reader-div");
-        scannerRef.current = scanner;
+        let scanner;
+        try {
+          scanner = new Html5Qrcode("barcode-reader-div");
+          scannerRef.current = scanner;
+        } catch (e) {
+          onClose(); return;
+        }
 
-        const formats = [
-          Html5QrcodeSupportedFormats.EAN_13,
-          Html5QrcodeSupportedFormats.EAN_8,
-          Html5QrcodeSupportedFormats.UPC_A,
-          Html5QrcodeSupportedFormats.UPC_E,
-          Html5QrcodeSupportedFormats.CODE_128,
-          Html5QrcodeSupportedFormats.CODE_39,
-          Html5QrcodeSupportedFormats.QR_CODE,
-        ];
+        // Numerische Format-Werte direkt (kein Enum nötig):
+        // QR_CODE=0, CODE_39=3, CODE_128=5, EAN_13=9, EAN_8=10, UPC_A=14, UPC_E=15
+        const formats = [0, 3, 5, 9, 10, 14, 15];
 
         scanner.start(
           { facingMode: "environment" },
-          { fps: 10, qrbox: { width: 280, height: 110 }, formatsToSupport: formats },
+          { fps: 15, qrbox: { width: 280, height: 110 }, formatsToSupport: formats },
           (text) => {
             if (done) return;
             done = true;
             scanner.stop().catch(() => {}).finally(() => onScan(text));
           },
           () => {}
-        ).catch(() => { if (!done) onClose(); });
+        ).catch(() => {
+          if (!done) setScanErr("Kamera konnte nicht gestartet werden. Bitte Kamera-Zugriff erlauben.");
+        });
 
         return () => {
           done = true;
-          scanner.stop().catch(() => {});
+          scannerRef.current?.stop().catch(() => {});
         };
       }, []);
+
+      if (scanErr) return (
+        <div style={{ position: "fixed", inset: 0, background: "#000", zIndex: 200, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", padding: 24, gap: 16 }}>
+          <div style={{ color: "#f87171", fontFamily: "Syne", fontSize: 14, textAlign: "center" }}>{scanErr}</div>
+          <Btn onClick={onClose} small>Schließen</Btn>
+        </div>
+      );
 
       return (
         <div style={{ position: "fixed", inset: 0, background: "#000", zIndex: 200, display: "flex", flexDirection: "column" }}>
