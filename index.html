@@ -214,25 +214,22 @@
 
     function BarcodeScanner({ onScan, onClose }) {
       const scannerRef = useRef(null);
-      const [scanErr, setScanErr] = useState(null);
+      const [err, setErr] = useState(null);
 
       useEffect(() => {
         let done = false;
         let scanner;
         try {
-          scanner = new Html5Qrcode("barcode-reader-div");
+          scanner = new Html5Qrcode("bc-div");
           scannerRef.current = scanner;
-        } catch (e) {
-          onClose(); return;
-        }
+        } catch { onClose(); return; }
 
-        // Numerische Format-Werte direkt (kein Enum nötig):
         // QR_CODE=0, CODE_39=3, CODE_128=5, EAN_13=9, EAN_8=10, UPC_A=14, UPC_E=15
         const formats = [0, 3, 5, 9, 10, 14, 15];
 
         scanner.start(
           { facingMode: "environment" },
-          { fps: 15, qrbox: { width: 280, height: 110 }, formatsToSupport: formats },
+          { fps: 15, qrbox: { width: 250, height: 100 }, formatsToSupport: formats },
           (text) => {
             if (done) return;
             done = true;
@@ -240,7 +237,7 @@
           },
           () => {}
         ).catch(() => {
-          if (!done) setScanErr("Kamera konnte nicht gestartet werden. Bitte Kamera-Zugriff erlauben.");
+          if (!done) setErr("Kamera-Zugriff verweigert oder nicht verfügbar.");
         });
 
         return () => {
@@ -249,22 +246,24 @@
         };
       }, []);
 
-      if (scanErr) return (
-        <div style={{ position: "fixed", inset: 0, background: "#000", zIndex: 200, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", padding: 24, gap: 16 }}>
-          <div style={{ color: "#f87171", fontFamily: "Syne", fontSize: 14, textAlign: "center" }}>{scanErr}</div>
-          <Btn onClick={onClose} small>Schließen</Btn>
-        </div>
-      );
-
       return (
-        <div style={{ position: "fixed", inset: 0, background: "#000", zIndex: 200, display: "flex", flexDirection: "column" }}>
-          <div style={{ padding: "16px 16px 12px", display: "flex", justifyContent: "space-between", alignItems: "center", flexShrink: 0 }}>
+        <div style={{ position: "fixed", inset: 0, zIndex: 200, background: "#000" }}>
+          {/* Scanner-Div: füllt gesamten Screen, html5-qrcode braucht explizite Größe */}
+          <div id="bc-div" style={{ position: "absolute", inset: 0 }} />
+          {/* Overlay: Header */}
+          <div style={{ position: "absolute", top: 0, left: 0, right: 0, padding: "52px 16px 16px", background: "linear-gradient(#000e, transparent)", zIndex: 1, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
             <span style={{ fontFamily: "Syne", fontSize: 16, fontWeight: 700, color: "#fff" }}>Barcode scannen</span>
-            <button onClick={onClose} style={{ background: "none", border: "none", color: "#fff", fontSize: 24, padding: 4, cursor: "pointer" }}>✕</button>
+            <button onClick={onClose} style={{ background: "none", border: "none", color: "#fff", fontSize: 26, cursor: "pointer", padding: 4 }}>✕</button>
           </div>
-          <div id="barcode-reader-div" style={{ flex: 1, overflow: "hidden" }} />
-          <div style={{ padding: "16px", textAlign: "center", color: "#555", fontFamily: "Syne", fontSize: 13, flexShrink: 0 }}>
-            Halte den Barcode vor die Kamera
+          {/* Overlay: Scan-Rahmen */}
+          <div style={{ position: "absolute", inset: 0, display: "flex", alignItems: "center", justifyContent: "center", zIndex: 1, pointerEvents: "none" }}>
+            <div style={{ width: 260, height: 100, border: "2px solid #f59e0b", borderRadius: 8, boxShadow: "0 0 0 9999px #00000066" }} />
+          </div>
+          {/* Overlay: Footer */}
+          <div style={{ position: "absolute", bottom: 0, left: 0, right: 0, padding: "16px 16px 36px", background: "linear-gradient(transparent, #000e)", zIndex: 1, textAlign: "center" }}>
+            <span style={{ fontFamily: "Syne", fontSize: 13, color: err ? "#f87171" : "#aaa" }}>
+              {err || "Halte den Barcode in den Rahmen"}
+            </span>
           </div>
         </div>
       );
