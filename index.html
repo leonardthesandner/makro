@@ -100,6 +100,10 @@
       return res.json();
     }
 
+    async function resendVerification(email) {
+      return authApiCall("/api/auth/resend-verification", "POST", { email });
+    }
+
     // Freitext analysieren → Makros vom Backend
     async function analyzeMeal(text, recipes) {
       return apiCall("/api/analyze", "POST", { text, recipes });
@@ -677,21 +681,92 @@
       const [password, setPassword] = useState("");
       const [loading, setLoading] = useState(false);
       const [err, setErr] = useState(null);
+      const [pendingEmail, setPendingEmail] = useState(null); // "check email" state
+      const [resendLoading, setResendLoading] = useState(false);
+      const [resendDone, setResendDone] = useState(false);
+      const [unverifiedEmail, setUnverifiedEmail] = useState(null); // login blocked state
 
       const inputStyle = { background: "#111", border: `1px solid ${C.border}`, borderRadius: 8, padding: "12px 14px", color: C.text, fontFamily: "Syne", fontSize: 15, outline: "none", width: "100%" };
 
       const submit = async () => {
         if (!email.trim() || !password) return;
-        setLoading(true); setErr(null);
+        setLoading(true); setErr(null); setUnverifiedEmail(null);
         try {
           const data = await authApiCall(`/api/auth/${mode}`, "POST", { email: email.trim(), password });
-          saveAuth(data);
-          onAuth(data);
+          if (data.pending) {
+            setPendingEmail(email.trim());
+          } else {
+            saveAuth(data);
+            onAuth(data);
+          }
         } catch (e) {
-          setErr(e.message);
+          if (e.message === "email_not_verified" || e.message.includes("bestätige")) {
+            setUnverifiedEmail(email.trim());
+          } else {
+            setErr(e.message);
+          }
         }
         setLoading(false);
       };
+
+      const handleResend = async (emailAddr) => {
+        setResendLoading(true); setResendDone(false);
+        try { await resendVerification(emailAddr); setResendDone(true); } catch {}
+        setResendLoading(false);
+      };
+
+      // "Check your email" screen
+      if (pendingEmail) {
+        return (
+          <div style={{ height: "100vh", height: "-webkit-fill-available", background: C.bg, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", padding: 24, maxWidth: 500, margin: "0 auto" }}>
+            <div style={{ fontFamily: "Syne", fontSize: 38, fontWeight: 800, letterSpacing: -1.5, color: C.text, marginBottom: 6 }}>
+              makro<span style={{ color: C.accent }}>.</span>
+            </div>
+            <div style={{ fontSize: 52, margin: "28px 0 20px" }}>📬</div>
+            <div style={{ fontFamily: "Syne", fontSize: 18, fontWeight: 700, color: C.text, marginBottom: 10, textAlign: "center" }}>E-Mail bestätigen</div>
+            <div style={{ fontFamily: "Syne", fontSize: 13, color: C.muted, textAlign: "center", lineHeight: 1.7, marginBottom: 32, maxWidth: 300 }}>
+              Wir haben eine Bestätigungs-E-Mail an <span style={{ color: C.text }}>{pendingEmail}</span> gesendet. Klick auf den Link um fortzufahren.
+            </div>
+            {resendDone
+              ? <div style={{ fontFamily: "Syne", fontSize: 13, color: C.carbs }}>✓ E-Mail erneut gesendet</div>
+              : <button onClick={() => handleResend(pendingEmail)} disabled={resendLoading}
+                  style={{ background: "none", border: "none", color: C.muted, fontFamily: "Syne", fontSize: 13, cursor: "pointer", textDecoration: "underline" }}>
+                  {resendLoading ? "Sende…" : "E-Mail erneut senden"}
+                </button>
+            }
+            <button onClick={() => { setPendingEmail(null); setMode("login"); }}
+              style={{ background: "none", border: "none", color: "#444", fontFamily: "Syne", fontSize: 12, cursor: "pointer", marginTop: 16 }}>
+              Zurück zum Login
+            </button>
+          </div>
+        );
+      }
+
+      // "Unverified email" screen after login attempt
+      if (unverifiedEmail) {
+        return (
+          <div style={{ height: "100vh", height: "-webkit-fill-available", background: C.bg, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", padding: 24, maxWidth: 500, margin: "0 auto" }}>
+            <div style={{ fontFamily: "Syne", fontSize: 38, fontWeight: 800, letterSpacing: -1.5, color: C.text, marginBottom: 6 }}>
+              makro<span style={{ color: C.accent }}>.</span>
+            </div>
+            <div style={{ fontSize: 52, margin: "28px 0 20px" }}>✉️</div>
+            <div style={{ fontFamily: "Syne", fontSize: 17, fontWeight: 700, color: C.text, marginBottom: 10, textAlign: "center" }}>E-Mail noch nicht bestätigt</div>
+            <div style={{ fontFamily: "Syne", fontSize: 13, color: C.muted, textAlign: "center", lineHeight: 1.7, marginBottom: 32, maxWidth: 300 }}>
+              Bitte klick auf den Link in der Bestätigungs-E-Mail die wir an <span style={{ color: C.text }}>{unverifiedEmail}</span> gesendet haben.
+            </div>
+            {resendDone
+              ? <div style={{ fontFamily: "Syne", fontSize: 13, color: C.carbs }}>✓ E-Mail erneut gesendet</div>
+              : <Btn onClick={() => handleResend(unverifiedEmail)} disabled={resendLoading} small>
+                  {resendLoading ? "Sende…" : "Neue Bestätigungs-E-Mail senden"}
+                </Btn>
+            }
+            <button onClick={() => setUnverifiedEmail(null)}
+              style={{ background: "none", border: "none", color: "#444", fontFamily: "Syne", fontSize: 12, cursor: "pointer", marginTop: 16 }}>
+              Zurück zum Login
+            </button>
+          </div>
+        );
+      }
 
       return (
         <div style={{ height: "100vh", height: "-webkit-fill-available", background: C.bg, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", padding: 24, maxWidth: 500, margin: "0 auto" }}>
