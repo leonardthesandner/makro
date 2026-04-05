@@ -61,7 +61,32 @@
     const BACKEND_URL    = "https://makro-backend-production.up.railway.app";
     const BACKEND_SECRET = "e824810bc66e6e56ceb2ec780a3707e29652ccd71fac842a9b108bf113eea6ea";
 
+    // Auth-State (token + user)
+    const getAuth  = () => store.get("mk_auth");
+    const saveAuth = (data) => store.set("mk_auth", data);
+    const clearAuth = () => localStorage.removeItem("mk_auth");
+
+    // API-Call mit JWT (für alle /api/* außer /api/auth/*)
     async function apiCall(path, method = "GET", body = null) {
+      const auth = getAuth();
+      const opts = {
+        method,
+        headers: {
+          "Content-Type": "application/json",
+          ...(auth?.token ? { "Authorization": `Bearer ${auth.token}` } : {}),
+        },
+      };
+      if (body) opts.body = JSON.stringify(body);
+      const res = await fetch(BACKEND_URL + path, opts);
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        throw new Error(err.error || `HTTP ${res.status}`);
+      }
+      return res.json();
+    }
+
+    // Auth-API-Call mit APP_SECRET (nur für /api/auth/register + /api/auth/login)
+    async function authApiCall(path, method = "GET", body = null) {
       const opts = {
         method,
         headers: { "Content-Type": "application/json", "x-api-key": BACKEND_SECRET },
@@ -85,29 +110,19 @@
       return apiCall("/api/analyze-recipe", "POST", { text });
     }
 
-    // Rezepte vom Server laden
-    async function loadRecipes(userId) {
-      return apiCall(`/api/recipes?user_id=${userId}`);
+    // Rezepte vom Server laden (userId kommt aus JWT)
+    async function loadRecipes() {
+      return apiCall("/api/recipes");
     }
 
     // Rezept auf Server speichern
-    async function saveRecipeToServer(userId, recipe) {
-      return apiCall("/api/recipes", "POST", { user_id: userId, ...recipe });
+    async function saveRecipeToServer(recipe) {
+      return apiCall("/api/recipes", "POST", recipe);
     }
 
     // Rezept vom Server löschen
-    async function deleteRecipeFromServer(userId, id) {
-      return apiCall(`/api/recipes/${id}`, "DELETE", { user_id: userId });
-    }
-
-    // Eindeutige User-ID generieren (einmalig, bleibt lokal gespeichert)
-    function getUserId() {
-      let id = localStorage.getItem("mk_user_id");
-      if (!id) {
-        id = "u_" + Math.random().toString(36).slice(2) + Date.now().toString(36);
-        localStorage.setItem("mk_user_id", id);
-      }
-      return id;
+    async function deleteRecipeFromServer(id) {
+      return apiCall(`/api/recipes/${id}`, "DELETE");
     }
 
     function sumEntries(entries) {
@@ -611,6 +626,65 @@
       );
     }
 
+    function AuthScreen({ onAuth }) {
+      const [mode, setMode] = useState("login");
+      const [email, setEmail] = useState("");
+      const [password, setPassword] = useState("");
+      const [loading, setLoading] = useState(false);
+      const [err, setErr] = useState(null);
+
+      const inputStyle = { background: "#111", border: `1px solid ${C.border}`, borderRadius: 8, padding: "12px 14px", color: C.text, fontFamily: "Syne", fontSize: 15, outline: "none", width: "100%" };
+
+      const submit = async () => {
+        if (!email.trim() || !password) return;
+        setLoading(true); setErr(null);
+        try {
+          const data = await authApiCall(`/api/auth/${mode}`, "POST", { email: email.trim(), password });
+          saveAuth(data);
+          onAuth(data);
+        } catch (e) {
+          setErr(e.message);
+        }
+        setLoading(false);
+      };
+
+      return (
+        <div style={{ height: "100vh", height: "-webkit-fill-available", background: C.bg, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", padding: 24, maxWidth: 500, margin: "0 auto" }}>
+          <div style={{ fontFamily: "Syne", fontSize: 38, fontWeight: 800, letterSpacing: -1.5, color: C.text, marginBottom: 6 }}>
+            makro<span style={{ color: C.accent }}>.</span>
+          </div>
+          <div style={{ fontFamily: "Syne", fontSize: 13, color: C.muted, marginBottom: 44 }}>
+            {mode === "login" ? "Willkommen zurück" : "Konto erstellen"}
+          </div>
+          <div style={{ width: "100%", display: "flex", flexDirection: "column", gap: 12 }}>
+            <input
+              type="email" placeholder="E-Mail-Adresse" value={email}
+              onChange={e => setEmail(e.target.value)}
+              onKeyDown={e => e.key === "Enter" && submit()}
+              style={inputStyle}
+            />
+            <input
+              type="password" placeholder="Passwort" value={password}
+              onChange={e => setPassword(e.target.value)}
+              onKeyDown={e => e.key === "Enter" && submit()}
+              style={inputStyle}
+            />
+            {err && (
+              <div style={{ background: "#f8717112", border: `1px solid #f8717128`, borderRadius: 8, padding: "10px 14px", color: C.fat, fontFamily: "Syne", fontSize: 13 }}>{err}</div>
+            )}
+            <Btn onClick={submit} disabled={loading || !email.trim() || !password} full>
+              {loading ? "…" : mode === "login" ? "Anmelden →" : "Registrieren →"}
+            </Btn>
+            <button
+              onClick={() => { setMode(m => m === "login" ? "register" : "login"); setErr(null); }}
+              style={{ background: "none", border: "none", color: C.muted, fontFamily: "Syne", fontSize: 13, cursor: "pointer", padding: 8, marginTop: 4 }}>
+              {mode === "login" ? "Noch kein Konto? Registrieren" : "Schon ein Konto? Anmelden"}
+            </button>
+          </div>
+        </div>
+      );
+    }
+
     const TABS = [
       { id: "input",    label: "Eingabe",  sym: "✦" },
       { id: "today",    label: "Heute",    sym: "◉" },
@@ -619,26 +693,35 @@
     ];
 
     function App() {
+      const [auth, setAuth] = useState(() => getAuth());
       const [tab, setTab] = useState("input");
       const [targets, setTargets] = useState(() => store.get("mk_targets") || DEFAULT_TARGETS);
       const [entries, setEntries] = useState(() => store.get(dayKey(todayStr())) || []);
       const [recipes, setRecipes] = useState([]);
       const [archive, setArchive] = useState(() => store.get("mk_mealprep_archive") || []);
       const [settings, setSettings] = useState(false);
-      const userId = getUserId();
 
       useEffect(() => {
-        loadRecipes(userId)
+        if (!auth) return;
+        loadRecipes()
           .then(r => setRecipes(r))
           .catch(() => setRecipes(store.get("mk_recipes") || []));
-      }, []);
+      }, [auth]);
 
       useEffect(() => { store.set(dayKey(todayStr()), entries); }, [entries]);
       useEffect(() => { store.set("mk_mealprep_archive", archive); }, [archive]);
 
+      const handleAuth = (data) => { setAuth(data); };
+
+      const logout = () => {
+        clearAuth();
+        setAuth(null);
+        setRecipes([]);
+      };
+
       const addRecipe = async (recipe) => {
         try {
-          const saved = await saveRecipeToServer(userId, recipe);
+          const saved = await saveRecipeToServer(recipe);
           setRecipes(p => [...p, saved]);
         } catch {
           const local = { ...recipe, id: Date.now() };
@@ -649,13 +732,15 @@
 
       const removeRecipe = async (id) => {
         setRecipes(p => p.filter(r => r.id !== id));
-        deleteRecipeFromServer(userId, id).catch(() => {});
+        deleteRecipeFromServer(id).catch(() => {});
       };
 
       const archiveRecipe = (recipe) => {
         setArchive(p => [...p, { ...recipe, archived_at: new Date().toISOString() }]);
         removeRecipe(recipe.id);
       };
+
+      if (!auth) return <AuthScreen onAuth={handleAuth} />;
 
       return (
         <div style={{ height: "100vh", height: "-webkit-fill-available", background: C.bg, display: "flex", flexDirection: "column", color: C.text, maxWidth: 500, margin: "0 auto" }}>
@@ -667,7 +752,10 @@
               </div>
               <Mono size={10} color={C.muted}>{new Date().toLocaleDateString("de-DE", { weekday: "long", day: "numeric", month: "long" })}</Mono>
             </div>
-            <button onClick={() => setSettings(true)} style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 10, padding: "8px 12px", color: C.muted, fontSize: 16 }}>⚙</button>
+            <div style={{ display: "flex", gap: 8 }}>
+              <button onClick={logout} title={auth?.user?.email} style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 10, padding: "8px 12px", color: C.muted, fontFamily: "Syne", fontSize: 12 }}>Logout</button>
+              <button onClick={() => setSettings(true)} style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 10, padding: "8px 12px", color: C.muted, fontSize: 16 }}>⚙</button>
+            </div>
           </div>
           <div style={{ flex: 1, overflowY: "auto", WebkitOverflowScrolling: "touch" }}>
             {tab === "input"   && <InputTab recipes={recipes} onSave={e => { setEntries(p => [...p, e]); setTab("today"); }} />}
