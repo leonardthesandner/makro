@@ -125,6 +125,36 @@
       return apiCall(`/api/recipes/${id}`, "DELETE");
     }
 
+    // Diary entries
+    async function loadDiaryEntries(date) {
+      return apiCall(`/api/diary?date=${date}`);
+    }
+    async function loadDiaryRange(from, to) {
+      return apiCall(`/api/diary?from=${from}&to=${to}`);
+    }
+    async function saveDiaryEntry(date, entry) {
+      return apiCall("/api/diary", "POST", { date, entry });
+    }
+    async function deleteDiaryEntry(id) {
+      return apiCall(`/api/diary/${id}`, "DELETE");
+    }
+
+    // Mealprep archive
+    async function loadArchive() {
+      return apiCall("/api/archive");
+    }
+    async function saveToArchive(recipe) {
+      return apiCall("/api/archive", "POST", { recipe });
+    }
+
+    // User settings
+    async function loadSettings() {
+      return apiCall("/api/settings");
+    }
+    async function saveSettings(targets) {
+      return apiCall("/api/settings", "POST", { targets });
+    }
+
     function sumEntries(entries) {
       return entries.reduce((a, e) => ({
         kcal: a.kcal + e.totals.kcal, protein: a.protein + e.totals.protein,
@@ -541,17 +571,28 @@
       );
     }
 
-    function HistoryTab({ targets }) {
+    function HistoryTab({ targets, loadRange }) {
       const [days, setDays] = useState([]);
+      const [loading, setLoading] = useState(true);
+
       useEffect(() => {
-        const result = [];
-        for (let i = 0; i < 7; i++) {
-          const d = new Date(); d.setDate(d.getDate() - i);
-          const ds = d.toISOString().split("T")[0];
-          const entries = store.get(dayKey(ds)) || [];
-          result.push({ date: ds, entries: entries.length, totals: sumEntries(entries) });
-        }
-        setDays(result);
+        const to = todayStr();
+        const fromDate = new Date(); fromDate.setDate(fromDate.getDate() - 6);
+        const from = fromDate.toISOString().split("T")[0];
+        setLoading(true);
+        loadRange(from, to)
+          .then(map => {
+            const result = [];
+            for (let i = 0; i < 7; i++) {
+              const d = new Date(); d.setDate(d.getDate() - i);
+              const ds = d.toISOString().split("T")[0];
+              const entries = map[ds] || [];
+              result.push({ date: ds, entries: entries.length, totals: sumEntries(entries) });
+            }
+            setDays(result);
+          })
+          .catch(() => setDays([]))
+          .finally(() => setLoading(false));
       }, []);
 
       const label = (ds) => {
@@ -561,6 +602,10 @@
         if (d.toDateString() === y.toDateString()) return "Gestern";
         return d.toLocaleDateString("de-DE", { weekday: "long", day: "numeric", month: "short" });
       };
+
+      if (loading) return (
+        <div className="pulsing" style={{ textAlign: "center", padding: 60, fontFamily: "Syne", fontSize: 14, color: C.muted }}>Lade Verlauf…</div>
+      );
 
       return (
         <div style={{ padding: 16, display: "flex", flexDirection: "column", gap: 10 }}>
@@ -696,20 +741,35 @@
       const [auth, setAuth] = useState(() => getAuth());
       const [tab, setTab] = useState("input");
       const [targets, setTargets] = useState(() => store.get("mk_targets") || DEFAULT_TARGETS);
-      const [entries, setEntries] = useState(() => store.get(dayKey(todayStr())) || []);
+      const [entries, setEntries] = useState([]);
       const [recipes, setRecipes] = useState([]);
-      const [archive, setArchive] = useState(() => store.get("mk_mealprep_archive") || []);
+      const [archive, setArchive] = useState([]);
       const [settings, setSettings] = useState(false);
 
+      // Load all data on auth
       useEffect(() => {
         if (!auth) return;
+
+        // Load today's entries
+        loadDiaryEntries(todayStr())
+          .then(r => setEntries(r))
+          .catch(() => {});
+
+        // Load recipes
         loadRecipes()
           .then(r => setRecipes(r))
           .catch(() => setRecipes(store.get("mk_recipes") || []));
-      }, [auth]);
 
-      useEffect(() => { store.set(dayKey(todayStr()), entries); }, [entries]);
-      useEffect(() => { store.set("mk_mealprep_archive", archive); }, [archive]);
+        // Load archive
+        loadArchive()
+          .then(r => setArchive(r))
+          .catch(() => setArchive(store.get("mk_mealprep_archive") || []));
+
+        // Load settings/targets
+        loadSettings()
+          .then(data => { if (data?.targets) { setTargets(data.targets); store.set("mk_targets", data.targets); } })
+          .catch(() => {});
+      }, [auth]);
 
       const handleAuth = (data) => { setAuth(data); };
 
@@ -717,8 +777,27 @@
         clearAuth();
         setAuth(null);
         setRecipes([]);
+        setEntries([]);
+        setArchive([]);
       };
 
+      // Entry functions
+      const addEntry = async (entry) => {
+        try {
+          const saved = await saveDiaryEntry(todayStr(), entry);
+          setEntries(p => [...p, saved]);
+        } catch {
+          setEntries(p => [...p, entry]);
+        }
+        setTab("today");
+      };
+
+      const deleteEntry = async (id) => {
+        setEntries(p => p.filter(e => e.id !== id));
+        deleteDiaryEntry(id).catch(() => {});
+      };
+
+      // Recipe functions
       const addRecipe = async (recipe) => {
         try {
           const saved = await saveRecipeToServer(recipe);
@@ -726,7 +805,6 @@
         } catch {
           const local = { ...recipe, id: Date.now() };
           setRecipes(p => [...p, local]);
-          store.set("mk_recipes", [...recipes, local]);
         }
       };
 
@@ -735,9 +813,23 @@
         deleteRecipeFromServer(id).catch(() => {});
       };
 
-      const archiveRecipe = (recipe) => {
-        setArchive(p => [...p, { ...recipe, archived_at: new Date().toISOString() }]);
+      // Archive functions
+      const archiveRecipe = async (recipe) => {
+        const withTs = { ...recipe, archived_at: new Date().toISOString() };
+        try {
+          const saved = await saveToArchive(withTs);
+          setArchive(p => [...p, saved]);
+        } catch {
+          setArchive(p => [...p, withTs]);
+        }
         removeRecipe(recipe.id);
+      };
+
+      // Settings
+      const updateTargets = (t) => {
+        setTargets(t);
+        store.set("mk_targets", t);
+        saveSettings(t).catch(() => {});
       };
 
       if (!auth) return <AuthScreen onAuth={handleAuth} />;
@@ -758,10 +850,10 @@
             </div>
           </div>
           <div style={{ flex: 1, overflowY: "auto", WebkitOverflowScrolling: "touch" }}>
-            {tab === "input"   && <InputTab recipes={recipes} onSave={e => { setEntries(p => [...p, e]); setTab("today"); }} />}
-            {tab === "today"   && <TodayTab entries={entries} targets={targets} onDelete={id => setEntries(p => p.filter(e => e.id !== id))} />}
+            {tab === "input"    && <InputTab recipes={recipes} onSave={addEntry} />}
+            {tab === "today"    && <TodayTab entries={entries} targets={targets} onDelete={deleteEntry} />}
             {tab === "mealprep" && <MealprepTab recipes={recipes} onAdd={addRecipe} onDelete={removeRecipe} onArchive={archiveRecipe} archive={archive} />}
-            {tab === "history" && <HistoryTab targets={targets} />}
+            {tab === "history"  && <HistoryTab targets={targets} loadRange={loadDiaryRange} />}
           </div>
           <div style={{ display: "flex", borderTop: `1px solid ${C.border}`, background: C.bg, flexShrink: 0, paddingBottom: "env(safe-area-inset-bottom)" }}>
             {TABS.map(t => (
@@ -771,7 +863,7 @@
               </button>
             ))}
           </div>
-          {settings && <SettingsModal targets={targets} onSave={t => { setTargets(t); store.set("mk_targets", t); }} onClose={() => setSettings(false)} />}
+          {settings && <SettingsModal targets={targets} onSave={t => { updateTargets(t); }} onClose={() => setSettings(false)} />}
         </div>
       );
     }
