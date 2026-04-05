@@ -300,7 +300,7 @@
             setScannedProduct(data);
             setBarcodeWeight("100");
           } else {
-            setErr(`Produkt nicht gefunden (${barcode}). Bitte manuell eingeben.`);
+            setErr(`Produkt nicht gefunden. Barcode: ${barcode} — bitte manuell eingeben.`);
           }
         } catch (e) {
           setErr("Barcode-Suche fehlgeschlagen: " + e.message);
