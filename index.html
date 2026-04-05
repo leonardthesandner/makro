@@ -213,31 +213,37 @@
     );
 
     function BarcodeScanner({ onScan, onClose }) {
-      useEffect(() => {
-        let scanner;
-        let done = false;
+      const scannerRef = useRef(null);
 
-        (async () => {
-          try {
-            scanner = new Html5Qrcode("barcode-reader-div");
-            await scanner.start(
-              { facingMode: "environment" },
-              { fps: 10, qrbox: { width: 260, height: 100 }, aspectRatio: 1.777 },
-              (text) => {
-                if (done) return;
-                done = true;
-                scanner.stop().catch(() => {}).finally(() => onScan(text));
-              },
-              () => {}
-            );
-          } catch {
-            onClose();
-          }
-        })();
+      useEffect(() => {
+        let done = false;
+        const scanner = new Html5Qrcode("barcode-reader-div");
+        scannerRef.current = scanner;
+
+        const formats = [
+          Html5QrcodeSupportedFormats.EAN_13,
+          Html5QrcodeSupportedFormats.EAN_8,
+          Html5QrcodeSupportedFormats.UPC_A,
+          Html5QrcodeSupportedFormats.UPC_E,
+          Html5QrcodeSupportedFormats.CODE_128,
+          Html5QrcodeSupportedFormats.CODE_39,
+          Html5QrcodeSupportedFormats.QR_CODE,
+        ];
+
+        scanner.start(
+          { facingMode: "environment" },
+          { fps: 10, qrbox: { width: 280, height: 110 }, formatsToSupport: formats },
+          (text) => {
+            if (done) return;
+            done = true;
+            scanner.stop().catch(() => {}).finally(() => onScan(text));
+          },
+          () => {}
+        ).catch(() => { if (!done) onClose(); });
 
         return () => {
           done = true;
-          scanner?.stop().catch(() => {});
+          scanner.stop().catch(() => {});
         };
       }, []);
 
