@@ -276,6 +276,7 @@
       const [barcodeLoading, setBarcodeLoading] = useState(false);
       const [scannedProduct, setScannedProduct] = useState(null);
       const [barcodeWeight, setBarcodeWeight] = useState("100");
+      const [barcodeErr, setBarcodeErr] = useState(null);
 
       const toggleVoice = () => {
         const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
@@ -293,18 +294,16 @@
       const handleBarcodeScan = async (barcode) => {
         setScanning(false);
         setBarcodeLoading(true);
-        setErr(null);
         try {
           const data = await lookupBarcode(barcode);
           if (data.found) {
             setScannedProduct(data);
-            // Portionsgröße aus Barcode vorausfüllen, sonst 100g
             setBarcodeWeight(data.serving_g ? String(data.serving_g) : "100");
           } else {
-            setErr(`Produkt nicht gefunden. Barcode: ${barcode} — bitte manuell eingeben.`);
+            setBarcodeErr(`Produkt nicht gefunden (${barcode})`);
           }
         } catch (e) {
-          setErr("Barcode-Suche fehlgeschlagen: " + e.message);
+          setBarcodeErr("Suche fehlgeschlagen: " + e.message);
         }
         setBarcodeLoading(false);
       };
@@ -350,7 +349,7 @@
 
       const inputStyle = { background: "#111", border: `1px solid ${C.border}`, borderRadius: 6, padding: "9px 10px", color: C.text, fontFamily: "Syne", fontSize: 14, outline: "none", width: "100%" };
 
-      return (
+      const mainContent = (
         <div style={{ padding: 16, display: "flex", flexDirection: "column", gap: 14 }}>
           <Card>
             <textarea
@@ -428,11 +427,30 @@
             </div>
           )}
 
+        </div>
+      );
+
+      // Alle Barcode-Overlays via Portal direkt in document.body (iOS overflow:auto fix)
+      const portal = ReactDOM.createPortal(
+        <>
           {scanning && <BarcodeScanner onScan={handleBarcodeScan} onClose={() => setScanning(false)} />}
 
+          {barcodeLoading && (
+            <div style={{ position: "fixed", inset: 0, background: "#000d", zIndex: 190, display: "flex", alignItems: "center", justifyContent: "center" }}>
+              <div className="pulsing" style={{ fontFamily: "Syne", fontSize: 15, color: C.accent }}>Produkt wird gesucht…</div>
+            </div>
+          )}
+
+          {barcodeErr && (
+            <div style={{ position: "fixed", inset: 0, background: "#000d", zIndex: 190, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", padding: 32, gap: 16 }}>
+              <div style={{ fontFamily: "Syne", fontSize: 14, color: C.fat, textAlign: "center" }}>{barcodeErr}</div>
+              <Btn onClick={() => setBarcodeErr(null)} small>OK</Btn>
+            </div>
+          )}
+
           {scannedProduct && (
-            <div onClick={() => setScannedProduct(null)} style={{ position: "fixed", inset: 0, background: "#000c", display: "flex", alignItems: "flex-end", zIndex: 150 }}>
-              <div onClick={e => e.stopPropagation()} style={{ background: "#181818", borderRadius: "20px 20px 0 0", padding: "20px 16px", width: "100%", border: `1px solid ${C.border}`, paddingBottom: "calc(20px + env(safe-area-inset-bottom))" }}>
+            <div onClick={() => setScannedProduct(null)} style={{ position: "fixed", inset: 0, background: "#000c", display: "flex", alignItems: "flex-end", zIndex: 190 }}>
+              <div onClick={e => e.stopPropagation()} style={{ background: "#181818", borderRadius: "20px 20px 0 0", padding: "20px 16px", width: "100%", maxWidth: 500, margin: "0 auto", border: `1px solid ${C.border}`, paddingBottom: "calc(20px + env(safe-area-inset-bottom))" }}>
                 <div style={{ fontFamily: "Syne", fontSize: 16, fontWeight: 700, color: C.text, marginBottom: 4 }}>{scannedProduct.name_de}</div>
                 <div style={{ fontFamily: "Syne", fontSize: 11, color: C.muted, marginBottom: 20 }}>
                   Pro 100g: {Math.round(scannedProduct.kcal_100)} kcal · {Math.round(scannedProduct.protein_100 * 10) / 10}g E · {Math.round(scannedProduct.carbs_100 * 10) / 10}g KH · {Math.round(scannedProduct.fat_100 * 10) / 10}g F
@@ -441,18 +459,14 @@
                   <div style={{ fontFamily: "Syne", fontSize: 12, color: C.muted }}>Wie viel hast du gegessen?</div>
                   {scannedProduct.serving_g && (
                     <button onClick={() => setBarcodeWeight(String(scannedProduct.serving_g))}
-                      style={{ fontFamily: "Syne", fontSize: 11, fontWeight: 700, padding: "3px 10px", borderRadius: 20, background: parseFloat(barcodeWeight) === scannedProduct.serving_g ? C.accent : C.card, color: parseFloat(barcodeWeight) === scannedProduct.serving_g ? "#000" : C.muted, border: `1px solid ${C.border}`, cursor: "pointer" }}>
+                      style={{ fontFamily: "Syne", fontSize: 11, fontWeight: 700, padding: "3px 10px", borderRadius: 20, background: parseFloat(barcodeWeight) === scannedProduct.serving_g ? C.accent : C.soft, color: parseFloat(barcodeWeight) === scannedProduct.serving_g ? "#000" : C.muted, border: `1px solid ${C.border}`, cursor: "pointer" }}>
                       {scannedProduct.serving_g}g (1 Portion)
                     </button>
                   )}
                 </div>
                 <div style={{ display: "flex", gap: 10, alignItems: "center", marginBottom: 16 }}>
-                  <input
-                    type="number" value={barcodeWeight}
-                    onChange={e => setBarcodeWeight(e.target.value)}
-                    autoFocus
-                    style={{ flex: 1, background: "#111", border: `1px solid ${C.border}`, borderRadius: 8, padding: "12px 14px", color: C.text, fontFamily: "DM Mono", fontSize: 18, outline: "none", textAlign: "center" }}
-                  />
+                  <input type="number" value={barcodeWeight} onChange={e => setBarcodeWeight(e.target.value)} autoFocus
+                    style={{ flex: 1, background: "#111", border: `1px solid ${C.border}`, borderRadius: 8, padding: "12px 14px", color: C.text, fontFamily: "DM Mono", fontSize: 18, outline: "none", textAlign: "center" }} />
                   <span style={{ fontFamily: "Syne", fontSize: 16, color: C.muted }}>g</span>
                 </div>
                 {barcodeWeight && parseFloat(barcodeWeight) > 0 && (
@@ -467,8 +481,11 @@
               </div>
             </div>
           )}
-        </div>
+        </>,
+        document.body
       );
+
+      return <>{mainContent}{portal}</>;
     }
 
     function TodayTab({ entries, targets, onDelete }) {
