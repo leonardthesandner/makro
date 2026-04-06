@@ -339,7 +339,22 @@
         setLoading(false);
       };
 
-      const update = (i, field, val) => setItems(p => p.map((it, idx) => idx === i ? { ...it, [field]: parseFloat(val) || 0 } : it));
+      const update = (i, field, val) => setItems(p => p.map((it, idx) => {
+        if (idx !== i) return it;
+        if (field === "weight_g") {
+          const w = parseFloat(val) || 0;
+          if (w > 0) {
+            if (it.kcal_100 != null) {
+              return { ...it, weight_g: w, kcal: Math.round(it.kcal_100 * w / 100), protein: Math.round(it.protein_100 * w / 100 * 10) / 10, carbs: Math.round(it.carbs_100 * w / 100 * 10) / 10, fat: Math.round(it.fat_100 * w / 100 * 10) / 10 };
+            } else if (it.weight_g > 0) {
+              const r = w / it.weight_g;
+              return { ...it, weight_g: w, kcal: Math.round(it.kcal * r), protein: Math.round(it.protein * r * 10) / 10, carbs: Math.round(it.carbs * r * 10) / 10, fat: Math.round(it.fat * r * 10) / 10 };
+            }
+          }
+          return { ...it, weight_g: w };
+        }
+        return { ...it, [field]: parseFloat(val) || 0 };
+      }));
       const totals = items.reduce((a, it) => ({ kcal: a.kcal + (it.kcal || it.calories || 0), protein: a.protein + (it.protein || 0), carbs: a.carbs + (it.carbs || it.carbohydrates || 0), fat: a.fat + (it.fat || 0) }), { kcal: 0, protein: 0, carbs: 0, fat: 0 });
 
       const save = () => {
@@ -398,11 +413,14 @@
                     <span style={{ fontFamily: "Syne", fontSize: 14, fontWeight: 700, color: C.text, flex: 1 }}>{item.name_de || item.name}</span>
                     <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
                       <span style={{ fontFamily: "DM Mono", fontSize: 10, padding: "2px 7px", borderRadius: 4, background: item.found ? "#34d39918" : "#f8717118", color: item.found ? C.carbs : C.fat }}>{item.source === "recipe" ? "rezept" : item.source === "cache" || item.source === "off" ? "db" : item.found ? "ki" : "?"}</span>
-                      <Mono size={11} color={C.muted}>{item.weight_g}g</Mono>
                       <button onClick={() => setItems(p => p.filter((_, idx) => idx !== i))} style={{ background: "none", border: "none", color: "#f8717150", fontSize: 16, padding: "2px 4px" }}>✕</button>
                     </div>
                   </div>
-                  <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr 1fr", gap: 8 }}>
+                  <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr 1fr 1fr", gap: 8 }}>
+                    <div>
+                      <div style={{ fontFamily: "Syne", fontSize: 9, color: C.muted, textTransform: "uppercase", letterSpacing: 0.5, marginBottom: 3 }}>Gramm</div>
+                      <input type="number" value={item.weight_g} onChange={e => update(i, "weight_g", e.target.value)} style={{ ...inputStyle, fontFamily: "DM Mono", fontSize: 13, color: C.text, padding: "6px 8px" }} />
+                    </div>
                     {MACROS.map(m => (
                       <div key={m}>
                         <div style={{ fontFamily: "Syne", fontSize: 9, color: MC[m], textTransform: "uppercase", letterSpacing: 0.5, marginBottom: 3 }}>{m}</div>
