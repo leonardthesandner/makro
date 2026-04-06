@@ -265,7 +265,7 @@
       );
     }
 
-    function InputTab({ recipes, onSave }) {
+    function InputTab({ recipes, onSave, voiceLang }) {
       const [text, setText] = useState("");
       const [loading, setLoading] = useState(false);
       const [items, setItems] = useState([]);
@@ -301,13 +301,14 @@
               const form = new FormData();
               const ext = mime.includes("mp4") ? "mp4" : "webm";
               form.append("audio", blob, `rec.${ext}`);
+              form.append("language", voiceLang || "de");
               const res = await fetch(BACKEND_URL + "/api/transcribe", {
                 method: "POST",
                 headers: auth?.token ? { "Authorization": `Bearer ${auth.token}` } : {},
                 body: form,
               });
               const data = await res.json();
-              if (data.text) setText(p => (p ? p + " " + data.text : data.text).slice(0, 100));
+              if (data.text) setText(p => (p ? p + " " + data.text : data.text).slice(0, 200));
               else if (data.error) setErr("Spracheingabe: " + data.error);
             } catch (e) { setErr("Spracheingabe fehlgeschlagen"); }
             setTranscribing(false);
@@ -395,13 +396,13 @@
         <div style={{ padding: 16, display: "flex", flexDirection: "column", gap: 14 }}>
           <Card>
             <textarea
-              value={text} onChange={e => setText(e.target.value.slice(0, 100))}
+              value={text} onChange={e => setText(e.target.value.slice(0, 200))}
               placeholder={"Was hast du gegessen?"}
-              maxLength={100}
+              maxLength={200}
               style={{ width: "100%", minHeight: 120, background: "transparent", border: "none", outline: "none", padding: "16px 16px 6px", color: C.text, fontFamily: "Syne", fontSize: 15, lineHeight: 1.7 }}
             />
             {transcribing && <div style={{ padding: "2px 16px 6px", fontFamily: "Syne", fontSize: 13, color: C.muted, fontStyle: "italic" }} className="pulsing">Whisper erkennt Sprache…</div>}
-            <div style={{ textAlign: "right", padding: "0 16px 10px", fontFamily: "DM Mono", fontSize: 10, color: text.length >= 90 ? (text.length >= 100 ? C.fat : C.accent) : C.muted }}>{text.length}/100</div>
+            <div style={{ textAlign: "right", padding: "0 16px 10px", fontFamily: "DM Mono", fontSize: 10, color: text.length >= 180 ? (text.length >= 200 ? C.fat : C.accent) : C.muted }}>{text.length}/200</div>
             <div style={{ padding: "8px 12px 12px", display: "flex", justifyContent: "space-between", alignItems: "center", borderTop: `1px solid ${C.border}`, gap: 8 }}>
               <div style={{ display: "flex", gap: 8, flexShrink: 0 }}>
                 <button onClick={toggleVoice} disabled={transcribing} style={{ background: listening ? "#f8717122" : transcribing ? "#f59e0b22" : "transparent", border: `1px solid ${listening ? C.fat : transcribing ? C.accent : C.border}`, borderRadius: 8, padding: "8px 12px", color: listening ? C.fat : transcribing ? C.accent : C.muted, display: "flex", alignItems: "center", gap: 6 }}>
@@ -586,7 +587,7 @@
       );
     }
 
-    function MealprepTab({ recipes, onAdd, onDelete, onArchive, archive }) {
+    function MealprepTab({ recipes, onAdd, onDelete, onArchive, archive, voiceLang }) {
       const STEP = { idle: "idle", entering: "entering", analyzing: "analyzing", naming: "naming" };
       const [step, setStep] = useState(STEP.idle);
       const [subTab, setSubTab] = useState("aktiv");
@@ -595,8 +596,15 @@
       const [mealName, setMealName] = useState("");
       const [cookedWeight, setCookedWeight] = useState("");
       const [err, setErr] = useState(null);
-      const [isListening, setIsListening] = useState(false);
-      const recogRef = useRef(null);
+      const [mpListening, setMpListening] = useState(false);
+      const [mpTranscribing, setMpTranscribing] = useState(false);
+      const mpMediaRecorderRef = useRef(null);
+      const mpChunksRef = useRef([]);
+      const [mpScanning, setMpScanning] = useState(false);
+      const [mpBarcodeLoading, setMpBarcodeLoading] = useState(false);
+      const [mpBarcodeErr, setMpBarcodeErr] = useState(null);
+      const [mpScannedProduct, setMpScannedProduct] = useState(null);
+      const [mpBarcodeWeight, setMpBarcodeWeight] = useState("100");
       const inputStyle = { background: "#111", border: `1px solid ${C.border}`, borderRadius: 6, padding: "9px 10px", color: C.text, fontFamily: "Syne", fontSize: 14, outline: "none", width: "100%" };
 
       const analyze = async () => {
@@ -632,19 +640,66 @@
         setStep(STEP.entering);
       };
 
-      const toggleVoice = () => {
-        const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
-        if (!SR) { alert("Spracherkennung wird nicht unterstützt."); return; }
-        if (isListening) { recogRef.current && recogRef.current.stop(); setIsListening(false); return; }
-        const r = new SR();
-        r.lang = "de-DE"; r.continuous = true; r.interimResults = false;
-        r.onresult = (e) => { const t = Array.from(e.results).slice(e.resultIndex).map(res => res[0].transcript).join("\n"); setIngredientText(prev => prev.trim() ? prev.trim() + "\n" + t : t); };
-        r.onend = () => setIsListening(false);
-        r.onerror = () => setIsListening(false);
-        r.start(); recogRef.current = r; setIsListening(true);
+      const toggleMpVoice = async () => {
+        if (mpListening) { mpMediaRecorderRef.current?.stop(); setMpListening(false); return; }
+        try {
+          const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+          const mime = MediaRecorder.isTypeSupported("audio/webm") ? "audio/webm" : "audio/mp4";
+          const recorder = new MediaRecorder(stream, { mimeType: mime });
+          mpChunksRef.current = [];
+          recorder.ondataavailable = e => { if (e.data.size > 0) mpChunksRef.current.push(e.data); };
+          recorder.onstop = async () => {
+            stream.getTracks().forEach(t => t.stop());
+            const blob = new Blob(mpChunksRef.current, { type: mime });
+            setMpTranscribing(true);
+            try {
+              const auth = getAuth();
+              const form = new FormData();
+              const ext = mime.includes("mp4") ? "mp4" : "webm";
+              form.append("audio", blob, `rec.${ext}`);
+              form.append("language", voiceLang || "de");
+              const res = await fetch(BACKEND_URL + "/api/transcribe", {
+                method: "POST",
+                headers: auth?.token ? { "Authorization": `Bearer ${auth.token}` } : {},
+                body: form,
+              });
+              const data = await res.json();
+              if (data.text) setIngredientText(p => p.trim() ? p.trim() + "\n" + data.text : data.text);
+              else if (data.error) setErr("Spracheingabe: " + data.error);
+            } catch { setErr("Spracheingabe fehlgeschlagen"); }
+            setMpTranscribing(false);
+          };
+          mpMediaRecorderRef.current = recorder;
+          recorder.start();
+          setMpListening(true);
+        } catch { setErr("Mikrofon-Zugriff verweigert"); }
       };
 
-      return (
+      const handleMpBarcodeScan = async (barcode) => {
+        setMpScanning(false); setMpBarcodeLoading(true);
+        try {
+          const data = await lookupBarcode(barcode);
+          if (data.found) {
+            setMpScannedProduct(data);
+            setMpBarcodeWeight(data.serving_g ? String(data.serving_g) : "100");
+          } else {
+            setMpBarcodeErr(`Produkt nicht gefunden (${barcode})`);
+          }
+        } catch (e) { setMpBarcodeErr("Barcode-Suche fehlgeschlagen: " + e.message); }
+        setMpBarcodeLoading(false);
+      };
+
+      const addMpBarcodeItem = () => {
+        if (!mpScannedProduct) return;
+        const w = parseFloat(mpBarcodeWeight);
+        if (!w || w <= 0) return;
+        const line = `${w}g ${mpScannedProduct.name_de}`;
+        setIngredientText(p => p.trim() ? p.trim() + "\n" + line : line);
+        setMpScannedProduct(null);
+        setMpBarcodeWeight("100");
+      };
+
+      const mpContent = (
         <div style={{ padding: 16, display: "flex", flexDirection: "column", gap: 12 }}>
           <div style={{ display: "flex", gap: 0, background: C.card, borderRadius: 10, padding: 3, border: `1px solid ${C.border}` }}>
             {[["aktiv", "Aktiv"], ["archiv", `Archiv (${archive.length})`]].map(([id, label]) => (
@@ -666,11 +721,18 @@
                 <textarea value={ingredientText} onChange={e => setIngredientText(e.target.value)}
                   placeholder={"1000g rohes Hühnchen\n1 Dose gehackte Tomaten\n1 EL Olivenöl\n1 Packung Sahne 20%\nSalz, Pfeffer, Knoblauch"}
                   style={{ width: "100%", minHeight: 140, background: "transparent", border: "none", outline: "none", padding: "8px 14px 12px", color: C.text, fontFamily: "Syne", fontSize: 15, lineHeight: 1.7 }} />
+                {mpTranscribing && <div style={{ padding: "2px 14px 6px", fontFamily: "Syne", fontSize: 13, color: C.muted, fontStyle: "italic" }} className="pulsing">Whisper erkennt Sprache…</div>}
                 <div style={{ padding: "8px 12px 12px", display: "flex", justifyContent: "space-between", alignItems: "center", borderTop: `1px solid ${C.border}`, gap: 8 }}>
-                  <button onClick={toggleVoice} style={{ background: isListening ? "#f59e0b22" : "transparent", border: `1px solid ${isListening ? C.accent : C.border}`, borderRadius: 8, padding: "8px 12px", color: isListening ? C.accent : C.muted, display: "flex", alignItems: "center", gap: 6, flexShrink: 0 }}>
-                    <span className={isListening ? "pulsing" : ""} style={{ fontSize: 18 }}>🎙</span>
-                    {isListening && <Mono size={11} color={C.accent}>Höre zu…</Mono>}
-                  </button>
+                  <div style={{ display: "flex", gap: 8, flexShrink: 0 }}>
+                    <button onClick={toggleMpVoice} disabled={mpTranscribing} style={{ background: mpListening ? "#f8717122" : mpTranscribing ? "#f59e0b22" : "transparent", border: `1px solid ${mpListening ? C.fat : mpTranscribing ? C.accent : C.border}`, borderRadius: 8, padding: "8px 12px", color: mpListening ? C.fat : mpTranscribing ? C.accent : C.muted, display: "flex", alignItems: "center", gap: 6 }}>
+                      <svg className={mpListening || mpTranscribing ? "pulsing" : ""} width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><rect x="9" y="2" width="6" height="11" rx="3"/><path d="M5 11a7 7 0 0 0 14 0" stroke="currentColor" strokeWidth="2" fill="none" strokeLinecap="round"/><line x1="12" y1="18" x2="12" y2="22" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/><line x1="8" y1="22" x2="16" y2="22" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/></svg>
+                      {mpListening && <Mono size={11} color={C.fat}>Aufnahme…</Mono>}
+                      {mpTranscribing && <Mono size={11} color={C.accent}>Erkennt…</Mono>}
+                    </button>
+                    <button onClick={() => setMpScanning(true)} disabled={mpBarcodeLoading} style={{ background: mpBarcodeLoading ? "#f59e0b22" : "transparent", border: `1px solid ${C.border}`, borderRadius: 8, padding: "8px 12px", color: C.muted, display: "flex", alignItems: "center" }}>
+                      {mpBarcodeLoading ? <span className="pulsing" style={{ fontSize: 16 }}>⬛</span> : <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="3" y="3" width="5" height="5"/><rect x="16" y="3" width="5" height="5"/><rect x="3" y="16" width="5" height="5"/><line x1="21" y1="16" x2="21" y2="21"/><line x1="16" y1="21" x2="21" y2="21"/><line x1="16" y1="16" x2="16" y2="16"/><line x1="10" y1="3" x2="10" y2="9"/><line x1="10" y1="14" x2="10" y2="21"/><line x1="14" y1="10" x2="21" y2="10"/><line x1="3" y1="10" x2="9" y2="10"/></svg>}
+                    </button>
+                  </div>
                   <div style={{ display: "flex", gap: 8 }}>
                     <Btn onClick={analyze} disabled={!ingredientText.trim()} small>Makros berechnen →</Btn>
                     <Btn onClick={cancel} small variant="ghost">Abbrechen</Btn>
@@ -789,6 +851,62 @@
           </>}
         </div>
       );
+
+      const mpPortal = ReactDOM.createPortal(
+        <>
+          {mpScanning && <BarcodeScanner onScan={handleMpBarcodeScan} onClose={() => setMpScanning(false)} />}
+
+          {mpBarcodeLoading && (
+            <div style={{ position: "fixed", inset: 0, background: "#000d", zIndex: 190, display: "flex", alignItems: "center", justifyContent: "center" }}>
+              <div className="pulsing" style={{ fontFamily: "Syne", fontSize: 15, color: C.accent }}>Produkt wird gesucht…</div>
+            </div>
+          )}
+
+          {mpBarcodeErr && (
+            <div style={{ position: "fixed", inset: 0, background: "#000d", zIndex: 190, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", padding: 32, gap: 16 }}>
+              <div style={{ fontFamily: "Syne", fontSize: 14, color: C.fat, textAlign: "center" }}>{mpBarcodeErr}</div>
+              <Btn onClick={() => setMpBarcodeErr(null)} small>OK</Btn>
+            </div>
+          )}
+
+          {mpScannedProduct && (
+            <div onClick={() => setMpScannedProduct(null)} style={{ position: "fixed", inset: 0, background: "#000c", display: "flex", alignItems: "flex-end", zIndex: 190 }}>
+              <div onClick={e => e.stopPropagation()} style={{ background: "#181818", borderRadius: "20px 20px 0 0", padding: "20px 16px", width: "100%", maxWidth: 500, margin: "0 auto", border: `1px solid ${C.border}`, paddingBottom: "calc(20px + env(safe-area-inset-bottom))" }}>
+                <div style={{ fontFamily: "Syne", fontSize: 16, fontWeight: 700, color: C.text, marginBottom: 4 }}>{mpScannedProduct.name_de}</div>
+                <div style={{ fontFamily: "Syne", fontSize: 11, color: C.muted, marginBottom: 20 }}>
+                  Pro 100g: {Math.round(mpScannedProduct.kcal_100)} kcal · {Math.round(mpScannedProduct.protein_100 * 10) / 10}g E · {Math.round(mpScannedProduct.carbs_100 * 10) / 10}g KH · {Math.round(mpScannedProduct.fat_100 * 10) / 10}g F
+                </div>
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
+                  <div style={{ fontFamily: "Syne", fontSize: 12, color: C.muted }}>Wie viel hast du verwendet?</div>
+                  {mpScannedProduct.serving_g && (
+                    <button onClick={() => setMpBarcodeWeight(String(mpScannedProduct.serving_g))}
+                      style={{ fontFamily: "Syne", fontSize: 11, fontWeight: 700, padding: "3px 10px", borderRadius: 20, background: parseFloat(mpBarcodeWeight) === mpScannedProduct.serving_g ? C.accent : C.soft, color: parseFloat(mpBarcodeWeight) === mpScannedProduct.serving_g ? "#000" : C.muted, border: `1px solid ${C.border}`, cursor: "pointer" }}>
+                      {mpScannedProduct.serving_g}g (1 Portion)
+                    </button>
+                  )}
+                </div>
+                <div style={{ display: "flex", gap: 10, alignItems: "center", marginBottom: 16 }}>
+                  <input type="number" value={mpBarcodeWeight} onChange={e => setMpBarcodeWeight(e.target.value)} autoFocus
+                    style={{ flex: 1, background: "#111", border: `1px solid ${C.border}`, borderRadius: 8, padding: "12px 14px", color: C.text, fontFamily: "DM Mono", fontSize: 18, outline: "none", textAlign: "center" }} />
+                  <span style={{ fontFamily: "Syne", fontSize: 16, color: C.muted }}>g</span>
+                </div>
+                {mpBarcodeWeight && parseFloat(mpBarcodeWeight) > 0 && (
+                  <div style={{ background: "#34d39910", borderRadius: 8, padding: "8px 12px", fontFamily: "Syne", fontSize: 12, color: C.carbs, marginBottom: 14 }}>
+                    = {Math.round(mpScannedProduct.kcal_100 * parseFloat(mpBarcodeWeight) / 100)} kcal · {Math.round(mpScannedProduct.protein_100 * parseFloat(mpBarcodeWeight) / 100 * 10) / 10}g E · {Math.round(mpScannedProduct.carbs_100 * parseFloat(mpBarcodeWeight) / 100 * 10) / 10}g KH · {Math.round(mpScannedProduct.fat_100 * parseFloat(mpBarcodeWeight) / 100 * 10) / 10}g F
+                  </div>
+                )}
+                <div style={{ display: "flex", gap: 8 }}>
+                  <Btn onClick={addMpBarcodeItem} disabled={!mpBarcodeWeight || parseFloat(mpBarcodeWeight) <= 0} style={{ flex: 1 }}>Hinzufügen →</Btn>
+                  <Btn onClick={() => setMpScannedProduct(null)} variant="ghost">Abbrechen</Btn>
+                </div>
+              </div>
+            </div>
+          )}
+        </>,
+        document.body
+      );
+
+      return <>{mpContent}{mpPortal}</>;
     }
 
     function HistoryTab({ targets, loadRange }) {
@@ -866,6 +984,12 @@
       );
     }
 
+    const LANG_OPTS = [
+      { k: "de", l: "Deutsch" }, { k: "en", l: "English" }, { k: "tr", l: "Türkçe" },
+      { k: "ru", l: "Русский" }, { k: "it", l: "Italiano" }, { k: "es", l: "Español" },
+      { k: "fr", l: "Français" }, { k: "ar", l: "العربية" },
+    ];
+
     function calcMacroTargets(gender, age, weight, height, goal) {
       const bmr = gender === "m"
         ? 10 * weight + 6.25 * height - 5 * age + 5
@@ -880,7 +1004,7 @@
       return { kcal, protein, carbs, fat };
     }
 
-    function SettingsModal({ targets, profile, onSave, onClose }) {
+    function SettingsModal({ targets, profile, voiceLang, onSave, onClose }) {
       const [form, setForm] = useState(() => ({
         kcal: String(targets.kcal), protein: String(targets.protein),
         carbs: String(targets.carbs), fat: String(targets.fat),
@@ -891,6 +1015,7 @@
       });
       const [calculating, setCalculating] = useState(false);
       const [calcErr, setCalcErr] = useState(null);
+      const [vlForm, setVlForm] = useState(voiceLang || "de");
 
       const calculate = async () => {
         const w = parseFloat(pForm.weight);
@@ -914,7 +1039,7 @@
         const parsed = {};
         MACROS.forEach(m => parsed[m] = parseFloat(form[m]) || 0);
         const newProfile = { ...(profile || {}), weight: parseFloat(pForm.weight) || profile?.weight, goal: pForm.goal };
-        onSave(parsed, newProfile);
+        onSave(parsed, newProfile, vlForm);
         onClose();
       };
 
@@ -957,6 +1082,13 @@
                 </div>
               ))}
             </div>
+            <div style={{ fontFamily: "Syne", fontSize: 10, color: C.muted, textTransform: "uppercase", letterSpacing: 1, marginBottom: 10 }}>Spracheingabe-Sprache</div>
+            <div style={{ display: "flex", flexWrap: "wrap", gap: 6, marginBottom: 20 }}>
+              {LANG_OPTS.map(({ k, l }) => (
+                <button key={k} onClick={() => setVlForm(k)} style={{ background: vlForm === k ? C.accent : "#111", border: `1px solid ${vlForm === k ? C.accent : C.border}`, borderRadius: 6, padding: "7px 12px", color: vlForm === k ? "#000" : C.muted, fontFamily: "Syne", fontSize: 12, fontWeight: 700, cursor: "pointer" }}>{l}</button>
+              ))}
+            </div>
+
             <div style={{ display: "flex", gap: 8 }}>
               <Btn onClick={save} style={{ flex: 1 }}>Speichern</Btn>
               <Btn onClick={onClose} variant="ghost">Abbrechen</Btn>
@@ -1209,6 +1341,7 @@
       const [settings, setSettings] = useState(false);
       const [onboarding, setOnboarding] = useState(false);
       const [profile, setProfile] = useState(() => store.get("mk_profile") || null);
+      const [voiceLang, setVoiceLang] = useState(() => store.get("mk_voicelang") || "de");
 
       // Load all data on auth
       useEffect(() => {
@@ -1234,6 +1367,7 @@
           .then(data => {
             if (data?.targets) { setTargets(data.targets); store.set("mk_targets", data.targets); }
             if (data?.profile) { setProfile(data.profile); store.set("mk_profile", data.profile); }
+            if (data?.voiceLang) { setVoiceLang(data.voiceLang); store.set("mk_voicelang", data.voiceLang); }
             if (!data?.onboarding_done) setOnboarding(true);
           })
           .catch(() => {});
@@ -1294,11 +1428,12 @@
       };
 
       // Settings
-      const updateSettings = (t, p) => {
+      const updateSettings = (t, p, vl) => {
         setTargets(t);
         store.set("mk_targets", t);
         if (p) { setProfile(p); store.set("mk_profile", p); }
-        saveSettings(t, p ? { profile: p } : {}).catch(() => {});
+        if (vl) { setVoiceLang(vl); store.set("mk_voicelang", vl); }
+        saveSettings(t, { ...(p ? { profile: p } : {}), ...(vl ? { voiceLang: vl } : {}) }).catch(() => {});
       };
 
       if (!auth) return <AuthScreen onAuth={handleAuth} />;
@@ -1329,9 +1464,9 @@
             </div>
           </div>
           <div style={{ flex: 1, overflowY: "auto", WebkitOverflowScrolling: "touch" }}>
-            {tab === "input"    && <InputTab recipes={recipes} onSave={addEntry} />}
+            {tab === "input"    && <InputTab recipes={recipes} onSave={addEntry} voiceLang={voiceLang} />}
             {tab === "today"    && <TodayTab entries={entries} targets={targets} onDelete={deleteEntry} />}
-            {tab === "mealprep" && <MealprepTab recipes={recipes} onAdd={addRecipe} onDelete={removeRecipe} onArchive={archiveRecipe} archive={archive} />}
+            {tab === "mealprep" && <MealprepTab recipes={recipes} onAdd={addRecipe} onDelete={removeRecipe} onArchive={archiveRecipe} archive={archive} voiceLang={voiceLang} />}
             {tab === "history"  && <HistoryTab targets={targets} loadRange={loadDiaryRange} />}
           </div>
           <div style={{ display: "flex", borderTop: `1px solid ${C.border}`, background: C.bg, flexShrink: 0, paddingBottom: "env(safe-area-inset-bottom)" }}>
@@ -1342,7 +1477,7 @@
               </button>
             ))}
           </div>
-          {settings && <SettingsModal targets={targets} profile={profile} onSave={(t, p) => updateSettings(t, p)} onClose={() => setSettings(false)} />}
+          {settings && <SettingsModal targets={targets} profile={profile} voiceLang={voiceLang} onSave={(t, p, vl) => updateSettings(t, p, vl)} onClose={() => setSettings(false)} />}
         </div>
       );
     }
