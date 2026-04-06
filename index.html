@@ -280,6 +280,34 @@
       const [barcodeWeight, setBarcodeWeight] = useState("100");
       const [barcodeErr, setBarcodeErr] = useState(null);
 
+      const startRecognition = () => {
+        const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+        if (!SR || !listeningRef.current) return;
+        const r = new SR();
+        r.lang = "de-DE"; r.continuous = false; r.interimResults = true;
+        r.onresult = (e) => {
+          let finals = ""; let interim = "";
+          for (let i = 0; i < e.results.length; i++) {
+            const t = e.results[i][0].transcript;
+            if (e.results[i].isFinal) finals += (finals ? " " : "") + t.trim();
+            else interim += t;
+          }
+          if (finals) { setText(p => (p ? p + " " + finals : finals).slice(0, 100)); setInterimText(""); }
+          else setInterimText(interim);
+        };
+        r.onerror = (e) => {
+          if (e.error === "no-speech") { setInterimText(""); setTimeout(startRecognition, 100); return; }
+          listeningRef.current = false; setListening(false); setInterimText("");
+        };
+        r.onend = () => {
+          setInterimText("");
+          if (listeningRef.current) setTimeout(startRecognition, 200);
+          else setListening(false);
+        };
+        recognitionRef.current = r;
+        try { r.start(); } catch { listeningRef.current = false; setListening(false); }
+      };
+
       const toggleVoice = () => {
         const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
         if (!SR) { setErr("Spracheingabe nicht unterstützt. Bitte Safari verwenden."); return; }
@@ -288,27 +316,8 @@
           recognitionRef.current?.stop();
           setListening(false); setInterimText(""); return;
         }
-        const r = new SR();
-        r.lang = "de-DE"; r.continuous = true; r.interimResults = true;
-        r.onresult = (e) => {
-          let finals = ""; let interim = "";
-          for (let i = e.resultIndex; i < e.results.length; i++) {
-            const t = e.results[i][0].transcript;
-            if (e.results[i].isFinal) finals += (finals ? " " : "") + t.trim();
-            else interim += t;
-          }
-          if (finals) { setText(p => (p ? p + " " + finals : finals).slice(0, 100)); setInterimText(""); }
-          else setInterimText(interim);
-        };
-        r.onerror = (e) => { if (e.error === "no-speech") return; listeningRef.current = false; setListening(false); setInterimText(""); };
-        r.onend = () => {
-          setInterimText("");
-          if (listeningRef.current) { try { r.start(); } catch {} } // iOS: auto-restart
-          else setListening(false);
-        };
-        recognitionRef.current = r;
-        listeningRef.current = true;
-        r.start(); setListening(true);
+        listeningRef.current = true; setListening(true);
+        startRecognition();
       };
 
       const handleBarcodeScan = async (barcode) => {
