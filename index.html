@@ -368,10 +368,12 @@
         <div style={{ padding: 16, display: "flex", flexDirection: "column", gap: 14 }}>
           <Card>
             <textarea
-              value={text} onChange={e => setText(e.target.value)}
+              value={text} onChange={e => setText(e.target.value.slice(0, 100))}
               placeholder={"Was hast du gegessen?"}
-              style={{ width: "100%", minHeight: 120, background: "transparent", border: "none", outline: "none", padding: "16px", color: C.text, fontFamily: "Syne", fontSize: 15, lineHeight: 1.7 }}
+              maxLength={100}
+              style={{ width: "100%", minHeight: 120, background: "transparent", border: "none", outline: "none", padding: "16px 16px 6px", color: C.text, fontFamily: "Syne", fontSize: 15, lineHeight: 1.7 }}
             />
+            <div style={{ textAlign: "right", padding: "0 16px 10px", fontFamily: "DM Mono", fontSize: 10, color: text.length >= 90 ? (text.length >= 100 ? C.fat : C.accent) : C.muted }}>{text.length}/100</div>
             <div style={{ padding: "8px 12px 12px", display: "flex", justifyContent: "space-between", alignItems: "center", borderTop: `1px solid ${C.border}`, gap: 8 }}>
               <div style={{ display: "flex", gap: 8, flexShrink: 0 }}>
                 <button onClick={toggleVoice} style={{ background: listening ? "#f59e0b22" : "transparent", border: `1px solid ${listening ? C.accent : C.border}`, borderRadius: 8, padding: "8px 12px", color: listening ? C.accent : C.muted, display: "flex", alignItems: "center", gap: 6 }}>
@@ -835,24 +837,90 @@
       );
     }
 
-    function SettingsModal({ targets, onSave, onClose }) {
-      const [form, setForm] = useState({ ...targets });
+    function calcMacroTargets(gender, age, weight, height, goal) {
+      const bmr = gender === "m"
+        ? 10 * weight + 6.25 * height - 5 * age + 5
+        : 10 * weight + 6.25 * height - 5 * age - 161;
+      let tdee = bmr * 1.55;
+      if (goal === "abnehmen") tdee -= 400;
+      else if (goal === "aufbauen") tdee += 200;
+      const kcal = Math.round(tdee / 50) * 50;
+      const protein = Math.round(weight * 2);
+      const fat = Math.round(kcal * 0.28 / 9);
+      const carbs = Math.round((kcal - protein * 4 - fat * 9) / 4);
+      return { kcal, protein, carbs, fat };
+    }
+
+    function SettingsModal({ targets, profile, onSave, onClose }) {
+      const [form, setForm] = useState(() => ({
+        kcal: String(targets.kcal), protein: String(targets.protein),
+        carbs: String(targets.carbs), fat: String(targets.fat),
+      }));
+      const [pForm, setPForm] = useState({
+        weight: String(profile?.weight || ""),
+        goal: profile?.goal || "halten",
+      });
+
+      const canRecalc = profile?.gender && profile?.age && profile?.height && parseFloat(pForm.weight) > 0;
+
+      const recalc = (newWeight, newGoal) => {
+        if (!canRecalc && !profile?.gender) return;
+        const w = parseFloat(newWeight);
+        if (!w || !profile?.gender || !profile?.age || !profile?.height) return;
+        const t = calcMacroTargets(profile.gender, profile.age, w, profile.height, newGoal);
+        setForm({ kcal: String(t.kcal), protein: String(t.protein), carbs: String(t.carbs), fat: String(t.fat) });
+      };
+
+      const setWeight = (val) => { setPForm(p => ({ ...p, weight: val })); recalc(val, pForm.goal); };
+      const setGoal   = (val) => { setPForm(p => ({ ...p, goal: val }));   recalc(pForm.weight, val); };
+
+      const save = () => {
+        const parsed = {};
+        MACROS.forEach(m => parsed[m] = parseFloat(form[m]) || 0);
+        const newProfile = profile ? { ...profile, weight: parseFloat(pForm.weight) || profile.weight, goal: pForm.goal } : null;
+        onSave(parsed, newProfile);
+        onClose();
+      };
+
       const inputStyle = { background: "#111", border: `1px solid ${C.border}`, borderRadius: 6, padding: "9px 10px", color: C.text, fontFamily: "DM Mono", fontSize: 14, outline: "none", flex: 1 };
+      const goalOpts = [{ k: "abnehmen", l: "Abnehmen" }, { k: "halten", l: "Halten" }, { k: "aufbauen", l: "Aufbauen" }];
+
       return (
         <div onClick={onClose} style={{ position: "fixed", inset: 0, background: "#000c", display: "flex", alignItems: "flex-end", zIndex: 100 }}>
-          <div onClick={e => e.stopPropagation()} style={{ background: "#181818", borderRadius: "20px 20px 0 0", padding: "20px 16px", width: "100%", border: `1px solid ${C.border}`, paddingBottom: "calc(20px + env(safe-area-inset-bottom))" }}>
-            <div style={{ fontFamily: "Syne", fontSize: 17, fontWeight: 800, color: C.text, marginBottom: 20 }}>Tagesziele</div>
+          <div onClick={e => e.stopPropagation()} style={{ background: "#181818", borderRadius: "20px 20px 0 0", padding: "20px 16px", width: "100%", border: `1px solid ${C.border}`, paddingBottom: "calc(20px + env(safe-area-inset-bottom))", maxHeight: "85vh", overflowY: "auto" }}>
+            <div style={{ fontFamily: "Syne", fontSize: 17, fontWeight: 800, color: C.text, marginBottom: 20 }}>Einstellungen</div>
+
+            {profile && <>
+              <div style={{ fontFamily: "Syne", fontSize: 10, color: C.muted, textTransform: "uppercase", letterSpacing: 1, marginBottom: 10 }}>Körperprofil</div>
+              <div style={{ display: "flex", flexDirection: "column", gap: 10, marginBottom: 20 }}>
+                <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                  <span style={{ fontFamily: "Syne", fontSize: 13, color: C.text, width: 115, flexShrink: 0 }}>Gewicht</span>
+                  <input type="number" value={pForm.weight} onChange={e => setWeight(e.target.value)} placeholder="kg" style={inputStyle} />
+                  <Mono size={11} color={C.muted} style={{ width: 32 }}>kg</Mono>
+                </div>
+                <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                  <span style={{ fontFamily: "Syne", fontSize: 13, color: C.text, width: 115, flexShrink: 0 }}>Ziel</span>
+                  <div style={{ display: "flex", gap: 6, flex: 1 }}>
+                    {goalOpts.map(({ k, l }) => (
+                      <button key={k} onClick={() => setGoal(k)} style={{ flex: 1, background: pForm.goal === k ? C.accent : "#111", border: `1px solid ${pForm.goal === k ? C.accent : C.border}`, borderRadius: 6, padding: "8px 4px", color: pForm.goal === k ? "#000" : C.muted, fontFamily: "Syne", fontSize: 11, fontWeight: 700, cursor: "pointer" }}>{l}</button>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            </>}
+
+            <div style={{ fontFamily: "Syne", fontSize: 10, color: C.muted, textTransform: "uppercase", letterSpacing: 1, marginBottom: 10 }}>Tagesziele</div>
             <div style={{ display: "flex", flexDirection: "column", gap: 10, marginBottom: 20 }}>
               {MACROS.map(m => (
                 <div key={m} style={{ display: "flex", alignItems: "center", gap: 10 }}>
                   <span style={{ fontFamily: "Syne", fontSize: 13, color: MC[m], width: 115, flexShrink: 0 }}>{LABELS[m]}</span>
-                  <input type="number" value={form[m]} onChange={e => setForm(p => ({ ...p, [m]: parseFloat(e.target.value) || 0 }))} style={inputStyle} />
-                  <Mono size={11} color={C.muted} style={{ width: 32 }}> {UNITS[m]}</Mono>
+                  <input type="number" value={form[m]} onChange={e => setForm(p => ({ ...p, [m]: e.target.value }))} style={inputStyle} />
+                  <Mono size={11} color={C.muted} style={{ width: 32 }}>{UNITS[m]}</Mono>
                 </div>
               ))}
             </div>
             <div style={{ display: "flex", gap: 8 }}>
-              <Btn onClick={() => { onSave(form); onClose(); }} style={{ flex: 1 }}>Speichern</Btn>
+              <Btn onClick={save} style={{ flex: 1 }}>Speichern</Btn>
               <Btn onClick={onClose} variant="ghost">Abbrechen</Btn>
             </div>
           </div>
@@ -868,22 +936,11 @@
       const [height, setHeight] = useState("");
       const [targets, setTargets] = useState(null);
 
-      const calcTargets = (g, a, w, h, goal) => {
-        const bmr = g === "m"
-          ? 10 * w + 6.25 * h - 5 * a + 5
-          : 10 * w + 6.25 * h - 5 * a - 161;
-        let tdee = bmr * 1.55;
-        if (goal === "abnehmen") tdee -= 400;
-        else if (goal === "aufbauen") tdee += 200;
-        const kcal = Math.round(tdee / 50) * 50;
-        const protein = Math.round(w * 2);
-        const fat = Math.round(kcal * 0.28 / 9);
-        const carbs = Math.round((kcal - protein * 4 - fat * 9) / 4);
-        return { kcal, protein, carbs, fat };
-      };
+      const [selectedGoal, setSelectedGoal] = useState(null);
 
       const selectGoal = (goal) => {
-        const t = calcTargets(gender, parseFloat(age), parseFloat(weight), parseFloat(height), goal);
+        const t = calcMacroTargets(gender, parseFloat(age), parseFloat(weight), parseFloat(height), goal);
+        setSelectedGoal(goal);
         setTargets(t);
         setStep(4);
       };
@@ -963,7 +1020,7 @@
             </div>
           ))}
         </div>
-        <button onClick={() => onComplete(targets)} style={{ background: C.accent, border: "none", borderRadius: 12, padding: "16px 20px", color: "#000", fontFamily: "Syne", fontSize: 15, fontWeight: 700, cursor: "pointer", width: "100%" }}>Übernehmen →</button>
+        <button onClick={() => onComplete(targets, { gender, age: parseFloat(age), weight: parseFloat(weight), height: parseFloat(height), goal: selectedGoal })} style={{ background: C.accent, border: "none", borderRadius: 12, padding: "16px 20px", color: "#000", fontFamily: "Syne", fontSize: 15, fontWeight: 700, cursor: "pointer", width: "100%" }}>Übernehmen →</button>
       </>);
     }
 
@@ -1113,6 +1170,7 @@
       const [archive, setArchive] = useState([]);
       const [settings, setSettings] = useState(false);
       const [onboarding, setOnboarding] = useState(false);
+      const [profile, setProfile] = useState(() => store.get("mk_profile") || null);
 
       // Load all data on auth
       useEffect(() => {
@@ -1137,6 +1195,7 @@
         loadSettings()
           .then(data => {
             if (data?.targets) { setTargets(data.targets); store.set("mk_targets", data.targets); }
+            if (data?.profile) { setProfile(data.profile); store.set("mk_profile", data.profile); }
             if (!data?.onboarding_done) setOnboarding(true);
           })
           .catch(() => {});
@@ -1197,19 +1256,21 @@
       };
 
       // Settings
-      const updateTargets = (t) => {
+      const updateSettings = (t, p) => {
         setTargets(t);
         store.set("mk_targets", t);
-        saveSettings(t).catch(() => {});
+        if (p) { setProfile(p); store.set("mk_profile", p); }
+        saveSettings(t, p ? { profile: p } : {}).catch(() => {});
       };
 
       if (!auth) return <AuthScreen onAuth={handleAuth} />;
 
       if (onboarding) return (
-        <OnboardingModal onComplete={(t) => {
+        <OnboardingModal onComplete={(t, p) => {
           setTargets(t);
           store.set("mk_targets", t);
-          saveSettings(t, { onboarding_done: true }).catch(() => {});
+          if (p) { setProfile(p); store.set("mk_profile", p); }
+          saveSettings(t, { onboarding_done: true, ...(p ? { profile: p } : {}) }).catch(() => {});
           setOnboarding(false);
         }} />
       );
@@ -1243,7 +1304,7 @@
               </button>
             ))}
           </div>
-          {settings && <SettingsModal targets={targets} onSave={t => { updateTargets(t); }} onClose={() => setSettings(false)} />}
+          {settings && <SettingsModal targets={targets} profile={profile} onSave={(t, p) => updateSettings(t, p)} onClose={() => setSettings(false)} />}
         </div>
       );
     }
