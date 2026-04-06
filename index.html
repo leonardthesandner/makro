@@ -271,7 +271,9 @@
       const [items, setItems] = useState([]);
       const [err, setErr] = useState(null);
       const [listening, setListening] = useState(false);
+      const listeningRef = useRef(false);
       const recognitionRef = useRef(null);
+      const [interimText, setInterimText] = useState("");
       const [scanning, setScanning] = useState(false);
       const [barcodeLoading, setBarcodeLoading] = useState(false);
       const [scannedProduct, setScannedProduct] = useState(null);
@@ -281,13 +283,31 @@
       const toggleVoice = () => {
         const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
         if (!SR) { setErr("Spracheingabe nicht unterstützt. Bitte Safari verwenden."); return; }
-        if (listening) { recognitionRef.current?.stop(); setListening(false); return; }
+        if (listeningRef.current) {
+          listeningRef.current = false;
+          recognitionRef.current?.stop();
+          setListening(false); setInterimText(""); return;
+        }
         const r = new SR();
-        r.lang = "de-DE"; r.continuous = true; r.interimResults = false;
-        r.onresult = (e) => { const t = Array.from(e.results).slice(e.resultIndex).map(r => r[0].transcript).join(", "); setText(p => p ? p + ", " + t : t); };
-        r.onerror = () => { setListening(false); setErr("Spracheingabe fehlgeschlagen."); };
-        r.onend = () => setListening(false);
+        r.lang = "de-DE"; r.continuous = true; r.interimResults = true;
+        r.onresult = (e) => {
+          let finals = ""; let interim = "";
+          for (let i = e.resultIndex; i < e.results.length; i++) {
+            const t = e.results[i][0].transcript;
+            if (e.results[i].isFinal) finals += (finals ? " " : "") + t.trim();
+            else interim += t;
+          }
+          if (finals) { setText(p => (p ? p + " " + finals : finals).slice(0, 100)); setInterimText(""); }
+          else setInterimText(interim);
+        };
+        r.onerror = (e) => { if (e.error === "no-speech") return; listeningRef.current = false; setListening(false); setInterimText(""); };
+        r.onend = () => {
+          setInterimText("");
+          if (listeningRef.current) { try { r.start(); } catch {} } // iOS: auto-restart
+          else setListening(false);
+        };
         recognitionRef.current = r;
+        listeningRef.current = true;
         r.start(); setListening(true);
       };
 
@@ -373,6 +393,7 @@
               maxLength={100}
               style={{ width: "100%", minHeight: 120, background: "transparent", border: "none", outline: "none", padding: "16px 16px 6px", color: C.text, fontFamily: "Syne", fontSize: 15, lineHeight: 1.7 }}
             />
+            {interimText && <div style={{ padding: "2px 16px 6px", fontFamily: "Syne", fontSize: 13, color: C.muted, fontStyle: "italic" }}>{interimText}…</div>}
             <div style={{ textAlign: "right", padding: "0 16px 10px", fontFamily: "DM Mono", fontSize: 10, color: text.length >= 90 ? (text.length >= 100 ? C.fat : C.accent) : C.muted }}>{text.length}/100</div>
             <div style={{ padding: "8px 12px 12px", display: "flex", justifyContent: "space-between", alignItems: "center", borderTop: `1px solid ${C.border}`, gap: 8 }}>
               <div style={{ display: "flex", gap: 8, flexShrink: 0 }}>
