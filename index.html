@@ -160,8 +160,8 @@
     async function loadSettings() {
       return apiCall("/api/settings");
     }
-    async function saveSettings(targets) {
-      return apiCall("/api/settings", "POST", { targets });
+    async function saveSettings(targets, extra = {}) {
+      return apiCall("/api/settings", "POST", { targets, ...extra });
     }
 
     function sumEntries(entries) {
@@ -860,6 +860,113 @@
       );
     }
 
+    function OnboardingModal({ onComplete }) {
+      const [step, setStep] = useState(1);
+      const [gender, setGender] = useState(null);
+      const [age, setAge] = useState("");
+      const [weight, setWeight] = useState("");
+      const [height, setHeight] = useState("");
+      const [targets, setTargets] = useState(null);
+
+      const calcTargets = (g, a, w, h, goal) => {
+        const bmr = g === "m"
+          ? 10 * w + 6.25 * h - 5 * a + 5
+          : 10 * w + 6.25 * h - 5 * a - 161;
+        let tdee = bmr * 1.55;
+        if (goal === "abnehmen") tdee -= 400;
+        else if (goal === "aufbauen") tdee += 200;
+        const kcal = Math.round(tdee / 50) * 50;
+        const protein = Math.round(w * 2);
+        const fat = Math.round(kcal * 0.28 / 9);
+        const carbs = Math.round((kcal - protein * 4 - fat * 9) / 4);
+        return { kcal, protein, carbs, fat };
+      };
+
+      const selectGoal = (goal) => {
+        const t = calcTargets(gender, parseFloat(age), parseFloat(weight), parseFloat(height), goal);
+        setTargets(t);
+        setStep(4);
+      };
+
+      const bodyValid = parseFloat(age) > 0 && parseFloat(weight) > 0 && parseFloat(height) > 0;
+      const inStyle = { background: "#111", border: `1px solid ${C.border}`, borderRadius: 8, padding: "12px 14px", color: C.text, fontFamily: "DM Mono", fontSize: 18, outline: "none", flex: 1 };
+      const bigBtn = (onClick, children, active = true) => (
+        <button onClick={onClick} disabled={!active} style={{ background: active ? C.card : C.soft, border: `1px solid ${active ? C.border : "transparent"}`, borderRadius: 12, padding: "16px 20px", color: active ? C.text : C.muted, fontFamily: "Syne", fontSize: 15, fontWeight: 600, cursor: active ? "pointer" : "default", textAlign: "left", width: "100%" }}>
+          {children}
+        </button>
+      );
+
+      const wrap = (content) => (
+        <div style={{ position: "fixed", inset: 0, background: C.bg, zIndex: 200, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", padding: "32px 24px", overflowY: "auto" }}>
+          <div style={{ width: "100%", maxWidth: 400 }}>
+            <div style={{ fontFamily: "Syne", fontSize: 26, fontWeight: 800, letterSpacing: -1, color: C.text, marginBottom: 2 }}>makro<span style={{ color: C.accent }}>.</span></div>
+            {content}
+          </div>
+        </div>
+      );
+
+      if (step === 1) return wrap(<>
+        <div style={{ fontFamily: "Syne", fontSize: 22, fontWeight: 700, color: C.text, marginTop: 28, marginBottom: 8 }}>Willkommen!</div>
+        <div style={{ fontFamily: "Syne", fontSize: 14, color: C.muted, marginBottom: 36, lineHeight: 1.7 }}>Ich berechne deine optimalen Tagesziele. Dauert nur 10 Sekunden.</div>
+        <div style={{ fontFamily: "Syne", fontSize: 12, color: C.muted, textTransform: "uppercase", letterSpacing: 1, marginBottom: 12 }}>Ich bin …</div>
+        <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+          {bigBtn(() => { setGender("m"); setStep(2); }, "Mann")}
+          {bigBtn(() => { setGender("f"); setStep(2); }, "Frau")}
+        </div>
+      </>);
+
+      if (step === 2) return wrap(<>
+        <div style={{ fontFamily: "Syne", fontSize: 22, fontWeight: 700, color: C.text, marginTop: 28, marginBottom: 28 }}>Deine Angaben</div>
+        <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+          {[
+            { label: "Alter", unit: "Jahre", val: age, set: setAge },
+            { label: "Gewicht", unit: "kg", val: weight, set: setWeight },
+            { label: "Größe", unit: "cm", val: height, set: setHeight },
+          ].map(({ label, unit, val, set }) => (
+            <div key={label}>
+              <div style={{ fontFamily: "Syne", fontSize: 11, color: C.muted, textTransform: "uppercase", letterSpacing: 1, marginBottom: 6 }}>{label}</div>
+              <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                <input type="number" value={val} onChange={e => set(e.target.value)} placeholder="0" style={inStyle} />
+                <span style={{ fontFamily: "Syne", fontSize: 13, color: C.muted, width: 38 }}>{unit}</span>
+              </div>
+            </div>
+          ))}
+          <button onClick={() => setStep(3)} disabled={!bodyValid} style={{ background: bodyValid ? C.accent : C.soft, border: "none", borderRadius: 12, padding: "16px 20px", color: bodyValid ? "#000" : C.muted, fontFamily: "Syne", fontSize: 15, fontWeight: 700, cursor: bodyValid ? "pointer" : "default", marginTop: 8 }}>Weiter →</button>
+        </div>
+      </>);
+
+      if (step === 3) return wrap(<>
+        <div style={{ fontFamily: "Syne", fontSize: 22, fontWeight: 700, color: C.text, marginTop: 28, marginBottom: 8 }}>Dein Ziel</div>
+        <div style={{ fontFamily: "Syne", fontSize: 14, color: C.muted, marginBottom: 28 }}>Was möchtest du erreichen?</div>
+        <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+          {[
+            { key: "abnehmen",  label: "Abnehmen",          sub: "−400 kcal Defizit" },
+            { key: "halten",    label: "Gewicht halten",     sub: "ausgeglichene Ernährung" },
+            { key: "aufbauen",  label: "Muskeln aufbauen",   sub: "+200 kcal Überschuss" },
+          ].map(({ key, label, sub }) => (
+            <button key={key} onClick={() => selectGoal(key)} style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 12, padding: "16px 20px", color: C.text, fontFamily: "Syne", fontSize: 15, fontWeight: 600, cursor: "pointer", textAlign: "left", width: "100%" }}>
+              <div>{label}</div>
+              <div style={{ fontFamily: "DM Mono", fontSize: 10, color: C.muted, marginTop: 4 }}>{sub}</div>
+            </button>
+          ))}
+        </div>
+      </>);
+
+      return wrap(<>
+        <div style={{ fontFamily: "Syne", fontSize: 22, fontWeight: 700, color: C.text, marginTop: 28, marginBottom: 8 }}>Deine Tagesziele</div>
+        <div style={{ fontFamily: "Syne", fontSize: 13, color: C.muted, marginBottom: 24, lineHeight: 1.6 }}>Berechnet für dein Profil — du kannst sie jederzeit in den Einstellungen anpassen.</div>
+        <div style={{ display: "flex", flexDirection: "column", gap: 10, marginBottom: 28 }}>
+          {MACROS.map(m => (
+            <div key={m} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", background: C.card, borderRadius: 10, padding: "14px 16px" }}>
+              <span style={{ fontFamily: "Syne", fontSize: 14, fontWeight: 600, color: MC[m] }}>{LABELS[m]}</span>
+              <span style={{ fontFamily: "DM Mono", fontSize: 20, fontWeight: 700, color: C.text }}>{targets[m]}<span style={{ fontSize: 11, color: C.muted, marginLeft: 4 }}>{UNITS[m]}</span></span>
+            </div>
+          ))}
+        </div>
+        <button onClick={() => onComplete(targets)} style={{ background: C.accent, border: "none", borderRadius: 12, padding: "16px 20px", color: "#000", fontFamily: "Syne", fontSize: 15, fontWeight: 700, cursor: "pointer", width: "100%" }}>Übernehmen →</button>
+      </>);
+    }
+
     function AuthScreen({ onAuth }) {
       const [mode, setMode] = useState("login");
       const [email, setEmail] = useState("");
@@ -1005,6 +1112,7 @@
       const [recipes, setRecipes] = useState([]);
       const [archive, setArchive] = useState([]);
       const [settings, setSettings] = useState(false);
+      const [onboarding, setOnboarding] = useState(false);
 
       // Load all data on auth
       useEffect(() => {
@@ -1027,7 +1135,10 @@
 
         // Load settings/targets
         loadSettings()
-          .then(data => { if (data?.targets) { setTargets(data.targets); store.set("mk_targets", data.targets); } })
+          .then(data => {
+            if (data?.targets) { setTargets(data.targets); store.set("mk_targets", data.targets); }
+            if (!data?.onboarding_done) setOnboarding(true);
+          })
           .catch(() => {});
       }, [auth]);
 
@@ -1093,6 +1204,15 @@
       };
 
       if (!auth) return <AuthScreen onAuth={handleAuth} />;
+
+      if (onboarding) return (
+        <OnboardingModal onComplete={(t) => {
+          setTargets(t);
+          store.set("mk_targets", t);
+          saveSettings(t, { onboarding_done: true }).catch(() => {});
+          setOnboarding(false);
+        }} />
+      );
 
       return (
         <div style={{ height: "100vh", height: "-webkit-fill-available", background: C.bg, display: "flex", flexDirection: "column", color: C.text, maxWidth: 500, margin: "0 auto" }}>
