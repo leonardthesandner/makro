@@ -860,19 +860,26 @@
         weight: String(profile?.weight || ""),
         goal: profile?.goal || "halten",
       });
+      const [calculating, setCalculating] = useState(false);
+      const [calcErr, setCalcErr] = useState(null);
 
-      const canRecalc = profile?.gender && profile?.age && profile?.height && parseFloat(pForm.weight) > 0;
-
-      const recalc = (newWeight, newGoal) => {
-        if (!canRecalc && !profile?.gender) return;
-        const w = parseFloat(newWeight);
-        if (!w || !profile?.gender || !profile?.age || !profile?.height) return;
-        const t = calcMacroTargets(profile.gender, profile.age, w, profile.height, newGoal);
-        setForm({ kcal: String(t.kcal), protein: String(t.protein), carbs: String(t.carbs), fat: String(t.fat) });
+      const calculate = async () => {
+        const w = parseFloat(pForm.weight);
+        if (!w || w <= 0) return;
+        setCalculating(true); setCalcErr(null);
+        try {
+          const result = await apiCall("/api/calculate-macros", "POST", {
+            weight: w, goal: pForm.goal,
+            ...(profile?.gender ? { gender: profile.gender } : {}),
+            ...(profile?.age    ? { age: profile.age }       : {}),
+            ...(profile?.height ? { height: profile.height } : {}),
+          });
+          setForm({ kcal: String(result.kcal), protein: String(result.protein), carbs: String(result.carbs), fat: String(result.fat) });
+        } catch (e) {
+          setCalcErr("Berechnung fehlgeschlagen: " + e.message);
+        }
+        setCalculating(false);
       };
-
-      const setWeight = (val) => { setPForm(p => ({ ...p, weight: val })); recalc(val, pForm.goal); };
-      const setGoal   = (val) => { setPForm(p => ({ ...p, goal: val }));   recalc(pForm.weight, val); };
 
       const save = () => {
         const parsed = {};
@@ -905,7 +912,10 @@
                   ))}
                 </div>
               </div>
-              {!profile?.gender && <div style={{ fontFamily: "Syne", fontSize: 11, color: C.muted, lineHeight: 1.5 }}>Makros werden manuell angepasst — kein vollständiges Profil vorhanden.</div>}
+              <button onClick={calculate} disabled={calculating || !parseFloat(pForm.weight)} style={{ background: calculating ? C.soft : C.accent, border: "none", borderRadius: 8, padding: "10px 16px", color: calculating ? C.muted : "#000", fontFamily: "Syne", fontSize: 13, fontWeight: 700, cursor: calculating || !parseFloat(pForm.weight) ? "default" : "pointer", width: "100%" }}>
+                {calculating ? "KI berechnet…" : "Makros von KI berechnen lassen →"}
+              </button>
+              {calcErr && <div style={{ fontFamily: "Syne", fontSize: 11, color: C.fat }}>{calcErr}</div>}
             </div>
 
             <div style={{ fontFamily: "Syne", fontSize: 10, color: C.muted, textTransform: "uppercase", letterSpacing: 1, marginBottom: 10 }}>Tagesziele</div>
