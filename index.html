@@ -360,19 +360,8 @@
         if (!scannedProduct) return;
         const w = parseFloat(barcodeWeight);
         if (!w || w <= 0) return;
-        const p = scannedProduct;
-        const item = {
-          name_de: p.name_de,
-          name_en: p.name_en || p.name_de,
-          weight_g: w,
-          kcal:    Math.round(p.kcal_100    * w / 100 * 10) / 10,
-          protein: Math.round(p.protein_100 * w / 100 * 10) / 10,
-          carbs:   Math.round(p.carbs_100   * w / 100 * 10) / 10,
-          fat:     Math.round(p.fat_100     * w / 100 * 10) / 10,
-          source: p.source,
-          found: true,
-        };
-        setItems(prev => [...prev, item]);
+        const line = `${w}g ${scannedProduct.name_de}`;
+        setText(prev => prev.trim() ? prev.trim() + "\n" + line : line);
         setScannedProduct(null);
         setBarcodeWeight("100");
       };
