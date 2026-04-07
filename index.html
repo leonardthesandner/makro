@@ -1603,6 +1603,8 @@
         try {
           const saved = await saveDiaryEntry(todayStr(), entry);
           setEntries(p => [...p, saved]);
+          // Persönliche DB im Hintergrund aktualisieren
+          loadUserFoods().then(r => setUserFoods(r)).catch(() => {});
         } catch {
           setEntries(p => [...p, entry]);
         }
