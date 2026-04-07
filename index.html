@@ -143,6 +143,9 @@
     async function saveDiaryEntry(date, entry) {
       return apiCall("/api/diary", "POST", { date, entry });
     }
+    async function updateDiaryEntry(id, entry) {
+      return apiCall(`/api/diary/${id}`, "PATCH", { entry });
+    }
     async function deleteDiaryEntry(id) {
       return apiCall(`/api/diary/${id}`, "DELETE");
     }
@@ -537,7 +540,86 @@
       return <>{mainContent}{portal}</>;
     }
 
-    function TodayTab({ entries, targets, onDelete }) {
+    function EditEntryModal({ entry, onSave, onClose }) {
+      const [items, setItems] = useState(() => (entry.items || []).map(it => ({ ...it })));
+      const [saving, setSaving] = useState(false);
+      const inputStyle = { background: "#111", border: `1px solid ${C.border}`, borderRadius: 6, padding: "6px 8px", color: C.text, fontFamily: "DM Mono", fontSize: 13, outline: "none", width: "100%" };
+
+      const update = (i, field, val) => setItems(p => p.map((it, idx) => {
+        if (idx !== i) return it;
+        if (field === "weight_g") {
+          const w = parseFloat(val) || 0;
+          if (w > 0 && it.kcal_100 != null) {
+            return { ...it, weight_g: w, kcal: Math.round(it.kcal_100 * w / 100), protein: Math.round(it.protein_100 * w / 100 * 10) / 10, carbs: Math.round(it.carbs_100 * w / 100 * 10) / 10, fat: Math.round(it.fat_100 * w / 100 * 10) / 10 };
+          } else if (w > 0 && it.weight_g > 0) {
+            const r = w / it.weight_g;
+            return { ...it, weight_g: w, kcal: Math.round(it.kcal * r), protein: Math.round(it.protein * r * 10) / 10, carbs: Math.round(it.carbs * r * 10) / 10, fat: Math.round(it.fat * r * 10) / 10 };
+          }
+          return { ...it, weight_g: w };
+        }
+        return { ...it, [field]: parseFloat(val) || 0 };
+      }));
+
+      const totals = items.reduce((a, it) => ({
+        kcal: a.kcal + (it.kcal || 0), protein: a.protein + (it.protein || 0),
+        carbs: a.carbs + (it.carbs || 0), fat: a.fat + (it.fat || 0),
+      }), { kcal: 0, protein: 0, carbs: 0, fat: 0 });
+
+      const save = async () => {
+        setSaving(true);
+        try { await onSave({ ...entry, items, totals }); } finally { setSaving(false); }
+      };
+
+      return ReactDOM.createPortal(
+        <div style={{ position: "fixed", inset: 0, background: "#000e", zIndex: 200, display: "flex", flexDirection: "column", maxWidth: 500, margin: "0 auto" }}>
+          <div style={{ background: C.bg, borderBottom: `1px solid ${C.border}`, padding: "12px 16px", display: "flex", justifyContent: "space-between", alignItems: "center", paddingTop: "calc(12px + env(safe-area-inset-top))", flexShrink: 0 }}>
+            <div style={{ fontFamily: "Syne", fontSize: 16, fontWeight: 700, color: C.text }}>Eintrag bearbeiten</div>
+            <button onClick={onClose} style={{ background: "none", border: "none", color: C.muted, fontSize: 22, padding: 4 }}>✕</button>
+          </div>
+          <div style={{ flex: 1, overflowY: "auto", WebkitOverflowScrolling: "touch", padding: 16, display: "flex", flexDirection: "column", gap: 10 }}>
+            <div style={{ fontFamily: "Syne", fontSize: 12, color: C.muted, lineHeight: 1.5, marginBottom: 2 }}>{entry.raw_input}</div>
+            {items.map((item, i) => (
+              <Card key={i} style={{ padding: "12px 14px" }}>
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 10 }}>
+                  <span style={{ fontFamily: "Syne", fontSize: 14, fontWeight: 700, color: C.text, flex: 1 }}>{item.name_de || item.name}</span>
+                  <button onClick={() => setItems(p => p.filter((_, idx) => idx !== i))} style={{ background: "none", border: "none", color: "#f8717150", fontSize: 16, padding: "2px 4px" }}>✕</button>
+                </div>
+                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr 1fr 1fr", gap: 8 }}>
+                  <div>
+                    <div style={{ fontFamily: "Syne", fontSize: 9, color: C.muted, textTransform: "uppercase", letterSpacing: 0.5, marginBottom: 3 }}>Gramm</div>
+                    <input type="number" value={item.weight_g} onChange={e => update(i, "weight_g", e.target.value)} style={{ ...inputStyle, color: C.text }} />
+                  </div>
+                  {MACROS.map(m => (
+                    <div key={m}>
+                      <div style={{ fontFamily: "Syne", fontSize: 9, color: MC[m], textTransform: "uppercase", letterSpacing: 0.5, marginBottom: 3 }}>{m}</div>
+                      <input type="number" value={Math.round(item[m] * 10) / 10} onChange={e => update(i, m, e.target.value)} style={{ ...inputStyle, color: MC[m] }} />
+                    </div>
+                  ))}
+                </div>
+              </Card>
+            ))}
+            <Card accent style={{ padding: "12px 14px" }}>
+              <div style={{ fontFamily: "Syne", fontSize: 10, color: C.accent, textTransform: "uppercase", letterSpacing: 1, marginBottom: 10 }}>Gesamt</div>
+              <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 8 }}>
+                {MACROS.map(m => (
+                  <div key={m} style={{ textAlign: "center" }}>
+                    <Mono size={18} color={MC[m]} bold>{Math.round(totals[m])}</Mono>
+                    <div style={{ fontFamily: "DM Mono", fontSize: 9, color: C.muted, marginTop: 2 }}>{UNITS[m]}</div>
+                  </div>
+                ))}
+              </div>
+            </Card>
+          </div>
+          <div style={{ background: C.bg, borderTop: `1px solid ${C.border}`, padding: "12px 16px", paddingBottom: "calc(12px + env(safe-area-inset-bottom))", display: "flex", gap: 8, flexShrink: 0 }}>
+            <Btn onClick={save} disabled={saving || items.length === 0} style={{ flex: 1 }}>{saving ? "Speichert…" : "Speichern ✓"}</Btn>
+            <Btn onClick={onClose} variant="ghost">Abbrechen</Btn>
+          </div>
+        </div>,
+        document.body
+      );
+    }
+
+    function TodayTab({ entries, targets, onDelete, onEdit }) {
       const totals = sumEntries(entries);
       const rest = Object.fromEntries(MACROS.map(m => [m, targets[m] - totals[m]]));
       return (
@@ -567,7 +649,12 @@
                           <div style={{ fontFamily: "Syne", fontSize: 13, color: C.text, marginBottom: 3, lineHeight: 1.4 }}>{e.raw_input}</div>
                           <Mono size={11} color={C.muted}>{new Date(e.timestamp).toLocaleTimeString("de-DE", { hour: "2-digit", minute: "2-digit" })} Uhr</Mono>
                         </div>
-                        <button onClick={() => onDelete(e.id)} style={{ background: "none", border: "none", color: "#f8717140", fontSize: 18, padding: 4 }}>✕</button>
+                        <div style={{ display: "flex", gap: 4 }}>
+                          <button onClick={() => onEdit(e)} style={{ background: "none", border: "none", color: C.muted, padding: 4 }}>
+                            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+                          </button>
+                          <button onClick={() => onDelete(e.id)} style={{ background: "none", border: "none", color: "#f8717140", fontSize: 18, padding: 4 }}>✕</button>
+                        </div>
                       </div>
                       <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 6 }}>
                         {MACROS.map(m => (
@@ -1341,6 +1428,7 @@
       const [onboarding, setOnboarding] = useState(false);
       const [profile, setProfile] = useState(() => store.get("mk_profile") || null);
       const [voiceLang, setVoiceLang] = useState(() => store.get("mk_voicelang") || "de");
+      const [editingEntry, setEditingEntry] = useState(null);
 
       // Load all data on auth
       useEffect(() => {
@@ -1396,6 +1484,16 @@
       const deleteEntry = async (id) => {
         setEntries(p => p.filter(e => e.id !== id));
         deleteDiaryEntry(id).catch(() => {});
+      };
+
+      const editEntry = async (updated) => {
+        try {
+          const saved = await updateDiaryEntry(updated.id, updated);
+          setEntries(p => p.map(e => e.id === saved.id ? saved : e));
+        } catch {
+          setEntries(p => p.map(e => e.id === updated.id ? updated : e));
+        }
+        setEditingEntry(null);
       };
 
       // Recipe functions
@@ -1464,7 +1562,7 @@
           </div>
           <div style={{ flex: 1, overflowY: "auto", WebkitOverflowScrolling: "touch" }}>
             {tab === "input"    && <InputTab recipes={recipes} onSave={addEntry} voiceLang={voiceLang} />}
-            {tab === "today"    && <TodayTab entries={entries} targets={targets} onDelete={deleteEntry} />}
+            {tab === "today"    && <TodayTab entries={entries} targets={targets} onDelete={deleteEntry} onEdit={e => setEditingEntry(e)} />}
             {tab === "mealprep" && <MealprepTab recipes={recipes} onAdd={addRecipe} onDelete={removeRecipe} onArchive={archiveRecipe} archive={archive} voiceLang={voiceLang} />}
             {tab === "history"  && <HistoryTab targets={targets} loadRange={loadDiaryRange} />}
           </div>
@@ -1477,6 +1575,7 @@
             ))}
           </div>
           {settings && <SettingsModal targets={targets} profile={profile} voiceLang={voiceLang} onSave={(t, p, vl) => updateSettings(t, p, vl)} onClose={() => setSettings(false)} />}
+          {editingEntry && <EditEntryModal entry={editingEntry} onSave={editEntry} onClose={() => setEditingEntry(null)} />}
         </div>
       );
     }
