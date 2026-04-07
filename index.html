@@ -59,8 +59,7 @@
     };
 
     // ── Backend-Konfiguration ──────────────────────────────────────
-    const BACKEND_URL    = "https://makro-backend-production.up.railway.app";
-    const BACKEND_SECRET = "e824810bc66e6e56ceb2ec780a3707e29652ccd71fac842a9b108bf113eea6ea";
+    const BACKEND_URL = "https://makro-backend-production.up.railway.app";
 
     // Auth-State (token + user)
     const getAuth  = () => store.get("mk_auth");
@@ -86,11 +85,11 @@
       return res.json();
     }
 
-    // Auth-API-Call mit APP_SECRET (nur für /api/auth/register + /api/auth/login)
+    // Auth-API-Call (kein Secret nötig — Backend nutzt Rate Limiting)
     async function authApiCall(path, method = "GET", body = null) {
       const opts = {
         method,
-        headers: { "Content-Type": "application/json", "x-api-key": BACKEND_SECRET },
+        headers: { "Content-Type": "application/json" },
       };
       if (body) opts.body = JSON.stringify(body);
       const res = await fetch(BACKEND_URL + path, opts);
