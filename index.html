@@ -1783,7 +1783,7 @@
             </div>
           </div>
           <div style={{ flex: 1, overflowY: "auto", WebkitOverflowScrolling: "touch" }}>
-            {tab === "input"     && <InputTab recipes={recipes} onSave={addEntry} voiceLang={voiceLang} />}
+            <div style={{ display: tab === "input" ? "contents" : "none" }}><InputTab recipes={recipes} onSave={addEntry} voiceLang={voiceLang} /></div>
             {tab === "today"     && <TodayTab entries={entries} targets={targets} onDelete={deleteEntry} onEdit={e => setEditingEntry(e)} />}
             {tab === "mealprep"  && <MealprepTab recipes={recipes} onAdd={addRecipe} onDelete={removeRecipe} onArchive={archiveRecipe} archive={archive} voiceLang={voiceLang} />}
             {tab === "history"   && <HistoryTab targets={targets} loadRange={loadDiaryRange} loadDay={loadDiaryEntries} onDelete={deleteEntry} updateEntry={updateDiaryEntry} />}
