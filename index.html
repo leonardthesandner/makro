@@ -464,7 +464,7 @@
                   <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 10 }}>
                     <span style={{ fontFamily: "Syne", fontSize: 14, fontWeight: 700, color: C.text, flex: 1 }}>{item.name_de || item.name}</span>
                     <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
-                      <span style={{ fontFamily: "DM Mono", fontSize: 10, padding: "2px 7px", borderRadius: 4, background: item.found ? "#34d39918" : "#f8717118", color: item.found ? C.carbs : C.fat }}>{item.source === "recipe" ? "rezept" : item.source === "cache" || item.source === "off" ? "db" : item.found ? "ki" : "?"}</span>
+                      <span style={{ fontFamily: "DM Mono", fontSize: 10, padding: "2px 7px", borderRadius: 4, background: item.found ? "#34d39918" : "#f8717118", color: item.found ? C.carbs : C.fat }}>{item.source === "recipe" ? "rezept" : item.source === "personal" ? "eigen" : item.source === "cache" || item.source === "off" ? "db" : item.found ? "ki" : "?"}</span>
                       <button onClick={() => setItems(p => p.filter((_, idx) => idx !== i))} style={{ background: "none", border: "none", color: "#f8717150", fontSize: 16, padding: "2px 4px" }}>✕</button>
                     </div>
                   </div>
