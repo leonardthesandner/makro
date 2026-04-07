@@ -1491,7 +1491,7 @@
           {showAdd && (
             <Card accent style={{ padding: 14 }}>
               <div style={{ fontFamily: "Syne", fontSize: 12, color: C.accent, marginBottom: 10 }}>Neues Lebensmittel</div>
-              <FoodForm form={addForm} setForm={setAddForm} onSave={saveAdd} onCancel={() => setShowAdd(false)} saveLabel="Speichern ✓" />
+              <FoodForm form={addForm} setForm={setAddForm} onSave={saveAdd} onCancel={() => setShowAdd(false)} saveLabel="Speichern ✓" saving={saving} />
             </Card>
           )}
 
@@ -1504,7 +1504,7 @@
           {userFoods.map(f => (
             <Card key={f.id} style={{ padding: "12px 14px" }}>
               {editId === f.id ? (
-                <FoodForm form={editForm} setForm={setEditForm} onSave={saveEdit} onCancel={() => setEditId(null)} saveLabel="Speichern ✓" />
+                <FoodForm form={editForm} setForm={setEditForm} onSave={saveEdit} onCancel={() => setEditId(null)} saveLabel="Speichern ✓" saving={saving} />
               ) : (
                 <>
                   <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 10 }}>
