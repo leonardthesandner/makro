@@ -1428,14 +1428,39 @@
       );
     }
 
+    const foodFormInputStyle = { background: "#111", border: `1px solid ${C.border}`, borderRadius: 6, padding: "8px 10px", color: C.text, fontFamily: "DM Mono", fontSize: 14, outline: "none", width: "100%" };
+
+    function FoodForm({ form, setForm, onSave, onCancel, saveLabel, saving }) {
+      return (
+        <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+          <div>
+            <div style={{ fontFamily: "Syne", fontSize: 10, color: C.muted, marginBottom: 4 }}>Name</div>
+            <input value={form.name} onChange={e => setForm(p => ({ ...p, name: e.target.value }))}
+              placeholder="z.B. Protein Shake Vanille" style={{ ...foodFormInputStyle, fontFamily: "Syne" }} />
+          </div>
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
+            {[["kcal_100", "kcal", C.kcal], ["protein_100", "Eiweiß", C.protein], ["carbs_100", "Kohlenhydrate", C.carbs], ["fat_100", "Fett", C.fat]].map(([key, label, color]) => (
+              <div key={key}>
+                <div style={{ fontFamily: "Syne", fontSize: 10, color, marginBottom: 4 }}>{label} / 100g</div>
+                <input type="number" value={form[key]} onChange={e => setForm(p => ({ ...p, [key]: e.target.value }))}
+                  placeholder="0" style={foodFormInputStyle} />
+              </div>
+            ))}
+          </div>
+          <div style={{ display: "flex", gap: 8 }}>
+            <Btn onClick={onSave} disabled={saving || !form.name.trim() || !form.kcal_100} style={{ flex: 1 }}>{saving ? "…" : saveLabel}</Btn>
+            <Btn onClick={onCancel} variant="ghost">Abbrechen</Btn>
+          </div>
+        </div>
+      );
+    }
+
     function UserFoodsTab({ userFoods, onAdd, onUpdate, onDelete }) {
       const [showAdd, setShowAdd] = useState(false);
       const [addForm, setAddForm] = useState({ name: "", kcal_100: "", protein_100: "", carbs_100: "", fat_100: "" });
       const [editId, setEditId] = useState(null);
       const [editForm, setEditForm] = useState({});
       const [saving, setSaving] = useState(false);
-
-      const iStyle = { background: "#111", border: `1px solid ${C.border}`, borderRadius: 6, padding: "8px 10px", color: C.text, fontFamily: "DM Mono", fontSize: 14, outline: "none", width: "100%" };
 
       const startEdit = (f) => {
         setEditId(f.id);
@@ -1455,29 +1480,6 @@
         setAddForm({ name: "", kcal_100: "", protein_100: "", carbs_100: "", fat_100: "" });
         setShowAdd(false); setSaving(false);
       };
-
-      const FoodForm = ({ form, setForm, onSave, onCancel, saveLabel }) => (
-        <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-          <div>
-            <div style={{ fontFamily: "Syne", fontSize: 10, color: C.muted, marginBottom: 4 }}>Name</div>
-            <input value={form.name} onChange={e => setForm(p => ({ ...p, name: e.target.value }))}
-              placeholder="z.B. Protein Shake Vanille" style={{ ...iStyle, fontFamily: "Syne" }} />
-          </div>
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
-            {[["kcal_100", "kcal", C.kcal], ["protein_100", "Eiweiß", C.protein], ["carbs_100", "Kohlenhydrate", C.carbs], ["fat_100", "Fett", C.fat]].map(([key, label, color]) => (
-              <div key={key}>
-                <div style={{ fontFamily: "Syne", fontSize: 10, color, marginBottom: 4 }}>{label} / 100g</div>
-                <input type="number" value={form[key]} onChange={e => setForm(p => ({ ...p, [key]: e.target.value }))}
-                  placeholder="0" style={iStyle} />
-              </div>
-            ))}
-          </div>
-          <div style={{ display: "flex", gap: 8 }}>
-            <Btn onClick={onSave} disabled={saving || !form.name.trim() || !form.kcal_100} style={{ flex: 1 }}>{saving ? "…" : saveLabel}</Btn>
-            <Btn onClick={onCancel} variant="ghost">Abbrechen</Btn>
-          </div>
-        </div>
-      );
 
       return (
         <div style={{ padding: 16, display: "flex", flexDirection: "column", gap: 12 }}>
