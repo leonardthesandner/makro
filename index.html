@@ -222,8 +222,8 @@
       return <button onClick={onClick} disabled={disabled} style={{ ...base, ...v[variant] }}>{children}</button>;
     };
 
-    const Card = ({ children, accent, style: sx }) => (
-      <div style={{ background: C.card, borderRadius: 12, border: `1px solid ${accent ? C.accent + "35" : C.border}`, ...sx }}>
+    const Card = ({ children, accent, style: sx, onClick }) => (
+      <div onClick={onClick} style={{ background: C.card, borderRadius: 12, border: `1px solid ${accent ? C.accent + "35" : C.border}`, ...sx }}>
         {children}
       </div>
     );
