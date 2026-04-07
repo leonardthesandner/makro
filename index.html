@@ -31,6 +31,18 @@
 <body>
   <div id="root"></div>
 
+  <script>
+    // iOS: nach Eingabe automatisch wieder rauszoomen
+    document.addEventListener('focusout', function(e) {
+      if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') {
+        var meta = document.querySelector('meta[name="viewport"]');
+        if (!meta) return;
+        var original = meta.content;
+        meta.content = original + ', maximum-scale=1.0';
+        setTimeout(function() { meta.content = original; }, 300);
+      }
+    });
+  </script>
   <script src="https://unpkg.com/react@18/umd/react.production.min.js" crossorigin></script>
   <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js" crossorigin></script>
   <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
