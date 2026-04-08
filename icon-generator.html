@@ -1,0 +1,157 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+  <meta charset="UTF-8">
+  <title>makro. Icon Generator</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Syne:wght@800&display=swap" rel="stylesheet">
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { background: #111; color: #eee; font-family: system-ui, sans-serif; padding: 40px 24px; min-height: 100vh; }
+    h1 { font-size: 28px; font-weight: 800; margin-bottom: 6px; letter-spacing: -1px; }
+    h1 span { color: #f59e0b; }
+    .sub { color: #666; font-size: 14px; margin-bottom: 40px; }
+    .row { display: flex; gap: 32px; flex-wrap: wrap; align-items: flex-start; }
+    .preview-box { display: flex; flex-direction: column; align-items: center; gap: 12px; }
+    .preview-box canvas { border-radius: 22%; border: 1px solid #333; }
+    .label { font-size: 11px; color: #666; text-transform: uppercase; letter-spacing: 1px; }
+    .downloads { display: flex; flex-direction: column; gap: 10px; min-width: 220px; }
+    .section-title { font-size: 11px; color: #555; text-transform: uppercase; letter-spacing: 1px; margin: 16px 0 8px; }
+    button {
+      background: #f59e0b; color: #000; border: none; padding: 11px 18px;
+      font-size: 13px; font-weight: 700; cursor: pointer; border-radius: 8px;
+      width: 100%; text-align: left; display: flex; justify-content: space-between; align-items: center;
+    }
+    button:hover { background: #fbbf24; }
+    button .size-badge { font-weight: 400; font-size: 11px; opacity: 0.7; }
+    .status { margin-top: 24px; padding: 14px 16px; background: #1a1a1a; border-radius: 8px; font-size: 13px; color: #666; line-height: 1.6; }
+    .status strong { color: #eee; }
+    #loading { position: fixed; inset: 0; background: #111; display: flex; align-items: center; justify-content: center; font-size: 18px; color: #666; z-index: 100; }
+  </style>
+</head>
+<body>
+  <div id="loading">Lade Syne-Schrift…</div>
+
+  <h1>makro<span>.</span> Icon Generator</h1>
+  <p class="sub">Generiert App-Icons in der Syne-Schrift — exakt wie in der App</p>
+
+  <div class="row">
+    <div class="preview-box">
+      <canvas id="preview" width="256" height="256"></canvas>
+      <div class="label">Vorschau</div>
+    </div>
+    <div class="preview-box">
+      <canvas id="preview-maskable" width="256" height="256"></canvas>
+      <div class="label">Maskable (Android)</div>
+    </div>
+
+    <div class="downloads">
+      <div class="section-title">App Store / Play Store</div>
+      <button onclick="dl(1024, false)">App Store (iOS) <span class="size-badge">1024 × 1024 px</span></button>
+      <button onclick="dl(512, false)">Play Store (Android) <span class="size-badge">512 × 512 px</span></button>
+      <button onclick="dl(512, true)">Play Store Maskable <span class="size-badge">512 × 512 px</span></button>
+
+      <div class="section-title">PWA / Home Screen Icons</div>
+      <button onclick="dl(180, false)">iPhone Home Screen <span class="size-badge">180 × 180 px</span></button>
+      <button onclick="dl(167, false)">iPad Pro <span class="size-badge">167 × 167 px</span></button>
+      <button onclick="dl(152, false)">iPad <span class="size-badge">152 × 152 px</span></button>
+      <button onclick="dl(120, false)">iPhone (Retina) <span class="size-badge">120 × 120 px</span></button>
+      <button onclick="dl(192, false)">Android / PWA <span class="size-badge">192 × 192 px</span></button>
+      <button onclick="dl(192, true)">Android Maskable <span class="size-badge">192 × 192 px</span></button>
+
+      <div class="section-title">Alle auf einmal</div>
+      <button onclick="dlAll()" style="background:#222;color:#eee;border:1px solid #333;">
+        Alle herunterladen <span class="size-badge">8 Dateien</span>
+      </button>
+    </div>
+  </div>
+
+  <div class="status">
+    <strong>So verwendest du die Icons:</strong><br>
+    1. Lade alle Icons herunter und lege sie in den <code>makro/icons/</code> Ordner.<br>
+    2. Die <code>manifest.json</code> und <code>index.html</code> sind bereits aktualisiert.<br>
+    3. Für den App Store: <code>makro-icon-1024.png</code> in Xcode oder PWABuilder hochladen.<br>
+    4. Für Play Store: <code>makro-icon-512.png</code> verwenden.
+  </div>
+
+  <script>
+    const BG    = '#0c0c0c';
+    const WHITE = '#efefef';
+    const AMBER = '#f59e0b';
+
+    function drawIcon(size, maskable) {
+      const canvas = document.createElement('canvas');
+      canvas.width  = size;
+      canvas.height = size;
+      const ctx = canvas.getContext('2d');
+
+      // Hintergrund
+      ctx.fillStyle = BG;
+      ctx.fillRect(0, 0, size, size);
+
+      // Schriftgröße: bei maskable etwas kleiner (safe zone = 80% des Icons)
+      const scale     = maskable ? 0.52 : 0.62;
+      const fontSize  = Math.round(size * scale);
+      ctx.font        = `800 ${fontSize}px Syne, sans-serif`;
+      ctx.textBaseline = 'alphabetic';
+
+      const m    = 'm';
+      const dot  = '.';
+      const mW   = ctx.measureText(m).width;
+      const dotW = ctx.measureText(dot).width;
+
+      // Metriken für vertikale Zentrierung
+      const metrics    = ctx.measureText(m);
+      const textHeight = metrics.actualBoundingBoxAscent + metrics.actualBoundingBoxDescent;
+      const x = (size - mW - dotW) / 2;
+      const y = size / 2 + textHeight / 2 - metrics.actualBoundingBoxDescent;
+
+      // "m" weiß
+      ctx.fillStyle = WHITE;
+      ctx.fillText(m, x, y);
+
+      // "." orange
+      ctx.fillStyle = AMBER;
+      ctx.fillText(dot, x + mW, y);
+
+      return canvas;
+    }
+
+    function dl(size, maskable) {
+      const canvas = drawIcon(size, maskable);
+      const a = document.createElement('a');
+      const suffix = maskable ? `-maskable-${size}` : `-${size}`;
+      a.download = `makro-icon${suffix}.png`;
+      a.href = canvas.toDataURL('image/png');
+      a.click();
+    }
+
+    function dlAll() {
+      const configs = [
+        [1024, false], [512, false], [512, true],
+        [192, false], [192, true],
+        [180, false], [167, false], [152, false], [120, false],
+      ];
+      configs.forEach(([size, maskable], i) => {
+        setTimeout(() => dl(size, maskable), i * 120);
+      });
+    }
+
+    async function init() {
+      await document.fonts.ready;
+      await document.fonts.load('800 100px Syne');
+
+      // Previews rendern
+      const prev = document.getElementById('preview');
+      const pm   = document.getElementById('preview-maskable');
+      prev.getContext('2d').drawImage(drawIcon(256, false), 0, 0);
+      pm.getContext('2d').drawImage(drawIcon(256, true),  0, 0);
+
+      document.getElementById('loading').style.display = 'none';
+    }
+
+    init();
+  </script>
+</body>
+</html>
