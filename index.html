@@ -172,6 +172,10 @@
     async function addUserFoodAPI(food)   { return apiCall("/api/user-foods", "POST", food); }
     async function updateUserFoodAPI(id, food) { return apiCall(`/api/user-foods/${id}`, "PATCH", food); }
     async function deleteUserFoodAPI(id)  { return apiCall(`/api/user-foods/${id}`, "DELETE"); }
+
+    // Körpergewicht
+    async function loadBodyWeightRange(from, to) { return apiCall(`/api/body-weight?from=${from}&to=${to}`); }
+    async function saveBodyWeightAPI(date, weight_kg) { return apiCall("/api/body-weight", "POST", { date, weight_kg }); }
     async function saveToArchive(recipe) {
       return apiCall("/api/archive", "POST", { recipe });
     }
@@ -997,21 +1001,55 @@
       return <>{mpContent}{mpPortal}</>;
     }
 
-    function HistoryTab({ targets, loadRange, loadDay, onDelete, updateEntry }) {
+    function SparkLine({ data, color, H = 56 }) {
+      const valid = data.filter(v => v != null);
+      if (valid.length < 2) return <div style={{ height: H }} />;
+      const min = Math.min(...valid);
+      const max = Math.max(...valid);
+      const range = max - min || 1;
+      const W = 100;
+      const step = W / (data.length - 1);
+      const pad = 6;
+      const toY = v => pad + (1 - (v - min) / range) * (H - pad * 2);
+      let d = "";
+      data.forEach((v, i) => {
+        if (v == null) return;
+        const x = i * step; const y = toY(v);
+        d += d ? ` L${x} ${y}` : `M${x} ${y}`;
+      });
+      return (
+        <svg viewBox={`0 0 ${W} ${H}`} preserveAspectRatio="none" style={{ width: "100%", height: H, display: "block" }}>
+          <path d={d} fill="none" stroke={color} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" vectorEffect="non-scaling-stroke" />
+          {data.map((v, i) => v != null && (
+            <circle key={i} cx={i * step} cy={toY(v)} r="2.5" fill={color} vectorEffect="non-scaling-stroke" />
+          ))}
+        </svg>
+      );
+    }
+
+    function HistoryTab({ targets, loadRange, loadDay, onDelete, updateEntry, loadBodyWeights, saveBodyWeight }) {
       const [days, setDays] = useState([]);
       const [loading, setLoading] = useState(true);
       const [selectedDay, setSelectedDay] = useState(null);
       const [dayEntries, setDayEntries] = useState([]);
       const [dayLoading, setDayLoading] = useState(false);
       const [editingEntry, setEditingEntry] = useState(null);
+      const [bodyWeights, setBodyWeights] = useState({});
+      const [dayWeight, setDayWeight] = useState("");
+      const [dayWeightSaving, setDayWeightSaving] = useState(false);
+      const [dayWeightSaved, setDayWeightSaved] = useState(false);
+      const [statsTab, setStatsTab] = useState("gewicht");
+
+      const rangeRef = useRef({ from: "", to: "" });
 
       useEffect(() => {
         const to = todayStr();
         const fromDate = new Date(); fromDate.setDate(fromDate.getDate() - 6);
         const from = fromDate.toISOString().split("T")[0];
+        rangeRef.current = { from, to };
         setLoading(true);
-        loadRange(from, to)
-          .then(map => {
+        Promise.all([loadRange(from, to), loadBodyWeights(from, to)])
+          .then(([map, weights]) => {
             const result = [];
             for (let i = 0; i < 7; i++) {
               const d = new Date(); d.setDate(d.getDate() - i);
@@ -1020,6 +1058,9 @@
               result.push({ date: ds, entries: entries.length, totals: sumEntries(entries) });
             }
             setDays(result);
+            const wMap = {};
+            weights.forEach(w => { wMap[w.date] = parseFloat(w.weight_kg); });
+            setBodyWeights(wMap);
           })
           .catch(() => setDays([]))
           .finally(() => setLoading(false));
@@ -1033,12 +1074,40 @@
         return d.toLocaleDateString("de-DE", { weekday: "long", day: "numeric", month: "short" });
       };
 
+      const dayLabelShort = (ds) => {
+        const d = new Date(ds + "T12:00:00");
+        return d.toLocaleDateString("de-DE", { weekday: "short" });
+      };
+
+      const getPrevWeight = (date) => {
+        for (let i = 1; i <= 30; i++) {
+          const prev = new Date(date + "T12:00:00"); prev.setDate(prev.getDate() - i);
+          const ps = prev.toISOString().split("T")[0];
+          if (bodyWeights[ps] != null) return String(bodyWeights[ps]);
+        }
+        return "";
+      };
+
       const openDay = async (date) => {
         setSelectedDay({ date, label: dayLabel(date) });
+        setDayWeight(bodyWeights[date] != null ? String(bodyWeights[date]) : getPrevWeight(date));
+        setDayWeightSaved(false);
         setDayLoading(true);
         try { setDayEntries(await loadDay(date)); }
         catch { setDayEntries([]); }
         setDayLoading(false);
+      };
+
+      const saveDayWeight = async () => {
+        const w = parseFloat(dayWeight);
+        if (!w || w <= 0) return;
+        setDayWeightSaving(true);
+        try {
+          await saveBodyWeight(selectedDay.date, w);
+          setBodyWeights(p => ({ ...p, [selectedDay.date]: w }));
+          setDayWeightSaved(true);
+        } catch {}
+        setDayWeightSaving(false);
       };
 
       const handleDelete = (id) => {
@@ -1067,6 +1136,7 @@
       if (selectedDay) {
         const totals = sumEntries(dayEntries);
         const rest = Object.fromEntries(MACROS.map(m => [m, targets[m] - totals[m]]));
+        const inputStyle = { background: "#111", border: `1px solid ${C.border}`, borderRadius: 6, padding: "8px 10px", color: C.text, fontFamily: "DM Mono", fontSize: 15, outline: "none", width: 90 };
         return (
           <>
             <div style={{ padding: 16, display: "flex", flexDirection: "column", gap: 14 }}>
@@ -1081,6 +1151,15 @@
                 <div className="pulsing" style={{ textAlign: "center", padding: 40, fontFamily: "Syne", fontSize: 14, color: C.muted }}>Lädt…</div>
               ) : (
                 <>
+                  <Card style={{ padding: "12px 14px" }}>
+                    <div style={{ fontFamily: "Syne", fontSize: 10, color: C.muted, textTransform: "uppercase", letterSpacing: 1, marginBottom: 10 }}>Körpergewicht</div>
+                    <div style={{ display: "flex", gap: 10, alignItems: "center" }}>
+                      <input type="number" value={dayWeight} onChange={e => { setDayWeight(e.target.value); setDayWeightSaved(false); }} step="0.1" min="20" max="500" placeholder="– –" style={inputStyle} />
+                      <span style={{ fontFamily: "Syne", fontSize: 13, color: C.muted }}>kg</span>
+                      <Btn small onClick={saveDayWeight} disabled={!dayWeight || dayWeightSaving}>{dayWeightSaving ? "…" : "Speichern"}</Btn>
+                      {dayWeightSaved && <Mono size={11} color={C.carbs}>✓</Mono>}
+                    </div>
+                  </Card>
                   <Card style={{ padding: 16 }}>
                     <SectionLabel>Tagesfortschritt</SectionLabel>
                     {MACROS.map(m => <MacroBar key={m} label={LABELS[m]} current={totals[m]} target={targets[m]} color={MC[m]} unit={UNITS[m]} />)}
@@ -1129,16 +1208,66 @@
         );
       }
 
+      // Statistik-Daten (ältester Tag links)
+      const chartDays = [...days].reverse();
+      const weightData = chartDays.map(d => bodyWeights[d.date] ?? null);
+      const kcalData   = chartDays.map(d => d.entries > 0 ? Math.round(d.totals.kcal) : null);
+      const hasWeightData = weightData.some(v => v != null);
+      const hasKcalData   = kcalData.some(v => v != null);
+      const statsCharts = [
+        { id: "gewicht", label: "Gewicht", data: weightData, color: C.accent, unit: "kg", show: hasWeightData },
+        { id: "kcal",    label: "Kalorien", data: kcalData,  color: C.kcal,   unit: "kcal", show: hasKcalData },
+        { id: "protein", label: "Eiweiß",   data: chartDays.map(d => d.entries > 0 ? Math.round(d.totals.protein) : null), color: C.protein, unit: "g", show: hasKcalData },
+        { id: "carbs",   label: "Kohlenhydrate", data: chartDays.map(d => d.entries > 0 ? Math.round(d.totals.carbs) : null), color: C.carbs, unit: "g", show: hasKcalData },
+        { id: "fat",     label: "Fett",     data: chartDays.map(d => d.entries > 0 ? Math.round(d.totals.fat) : null), color: C.fat, unit: "g", show: hasKcalData },
+      ];
+      const activeChart = statsCharts.find(c => c.id === statsTab) || statsCharts[0];
+      const activeData = activeChart.data.filter(v => v != null);
+      const activeMin = activeData.length ? Math.min(...activeData) : 0;
+      const activeMax = activeData.length ? Math.max(...activeData) : 0;
+
       return (
         <div style={{ padding: 16, display: "flex", flexDirection: "column", gap: 10 }}>
+          {(hasWeightData || hasKcalData) && (
+            <Card style={{ padding: "14px 14px 10px" }}>
+              <div style={{ fontFamily: "Syne", fontSize: 10, color: C.muted, textTransform: "uppercase", letterSpacing: 1, marginBottom: 10 }}>Statistik — 7 Tage</div>
+              <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginBottom: 12 }}>
+                {statsCharts.filter(c => c.show).map(c => (
+                  <button key={c.id} onClick={() => setStatsTab(c.id)} style={{ padding: "4px 10px", borderRadius: 20, border: `1px solid ${statsTab === c.id ? c.color : C.border}`, background: statsTab === c.id ? c.color + "22" : "transparent", color: statsTab === c.id ? c.color : C.muted, fontFamily: "Syne", fontSize: 11, fontWeight: statsTab === c.id ? 700 : 400, cursor: "pointer" }}>
+                    {c.label}
+                  </button>
+                ))}
+              </div>
+              <SparkLine data={activeChart.data} color={activeChart.color} H={64} />
+              <div style={{ display: "flex", justifyContent: "space-between", marginTop: 4 }}>
+                {chartDays.map((d, i) => (
+                  <div key={d.date} style={{ flex: 1, textAlign: "center" }}>
+                    <div style={{ fontFamily: "DM Mono", fontSize: 9, color: activeChart.data[i] != null ? C.muted : "#2a2a2a" }}>{dayLabelShort(d.date)}</div>
+                    {activeChart.data[i] != null && <div style={{ fontFamily: "DM Mono", fontSize: 8, color: activeChart.color, marginTop: 1 }}>{activeChart.data[i]}</div>}
+                  </div>
+                ))}
+              </div>
+              {activeData.length > 1 && (
+                <div style={{ display: "flex", gap: 12, marginTop: 10, paddingTop: 10, borderTop: `1px solid ${C.border}` }}>
+                  <div><Mono size={9} color={C.muted}>Min </Mono><Mono size={11} color={activeChart.color}>{activeMin} {activeChart.unit}</Mono></div>
+                  <div><Mono size={9} color={C.muted}>Max </Mono><Mono size={11} color={activeChart.color}>{activeMax} {activeChart.unit}</Mono></div>
+                  <div><Mono size={9} color={C.muted}>Ø </Mono><Mono size={11} color={activeChart.color}>{(activeData.reduce((a, b) => a + b, 0) / activeData.length).toFixed(activeChart.id === "gewicht" ? 1 : 0)} {activeChart.unit}</Mono></div>
+                </div>
+              )}
+            </Card>
+          )}
           <SectionLabel>Letzte 7 Tage</SectionLabel>
           {days.map(day => {
             const pct = Math.min((day.totals.kcal / targets.kcal) * 100, 100);
+            const w = bodyWeights[day.date];
             return (
-              <Card key={day.date} onClick={() => day.entries > 0 && openDay(day.date)}
-                style={{ padding: "12px 14px", opacity: day.entries > 0 ? 1 : 0.4, cursor: day.entries > 0 ? "pointer" : "default" }}>
+              <Card key={day.date} onClick={() => openDay(day.date)}
+                style={{ padding: "12px 14px", opacity: day.entries > 0 || w != null ? 1 : 0.4, cursor: "pointer" }}>
                 <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: day.entries > 0 ? 10 : 0 }}>
-                  <span style={{ fontFamily: "Syne", fontSize: 14, fontWeight: 700, color: C.text }}>{dayLabel(day.date)}</span>
+                  <div style={{ display: "flex", alignItems: "baseline", gap: 8 }}>
+                    <span style={{ fontFamily: "Syne", fontSize: 14, fontWeight: 700, color: C.text }}>{dayLabel(day.date)}</span>
+                    {w != null && <Mono size={11} color={C.accent}>{w} kg</Mono>}
+                  </div>
                   {day.entries > 0
                     ? <div style={{ display: "flex", gap: 6, alignItems: "baseline" }}>
                         <Mono size={14} color={C.kcal} bold>{Math.round(day.totals.kcal)}</Mono>
@@ -1786,7 +1915,7 @@
             <div style={{ display: tab === "input" ? "contents" : "none" }}><InputTab recipes={recipes} onSave={addEntry} voiceLang={voiceLang} /></div>
             {tab === "today"     && <TodayTab entries={entries} targets={targets} onDelete={deleteEntry} onEdit={e => setEditingEntry(e)} />}
             {tab === "mealprep"  && <MealprepTab recipes={recipes} onAdd={addRecipe} onDelete={removeRecipe} onArchive={archiveRecipe} archive={archive} voiceLang={voiceLang} />}
-            {tab === "history"   && <HistoryTab targets={targets} loadRange={loadDiaryRange} loadDay={loadDiaryEntries} onDelete={deleteEntry} updateEntry={updateDiaryEntry} />}
+            {tab === "history"   && <HistoryTab targets={targets} loadRange={loadDiaryRange} loadDay={loadDiaryEntries} onDelete={deleteEntry} updateEntry={updateDiaryEntry} loadBodyWeights={loadBodyWeightRange} saveBodyWeight={saveBodyWeightAPI} />}
             {tab === "userfoods" && <UserFoodsTab userFoods={userFoods} onAdd={addUserFood} onUpdate={updateUserFood} onDelete={deleteUserFood} />}
           </div>
           <div style={{ display: "flex", borderTop: `1px solid ${C.border}`, background: C.bg, flexShrink: 0, paddingBottom: "env(safe-area-inset-bottom)" }}>
