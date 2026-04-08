@@ -90,10 +90,10 @@
       ctx.fillStyle = BG;
       ctx.fillRect(0, 0, size, size);
 
-      // Schriftgröße: bei maskable etwas kleiner (safe zone = 80% des Icons)
-      const scale     = maskable ? 0.52 : 0.62;
-      const fontSize  = Math.round(size * scale);
-      ctx.font        = `800 ${fontSize}px Syne, sans-serif`;
+      // Schriftgröße: 46% für normale Icons, 38% für maskable (safe zone)
+      const scale    = maskable ? 0.38 : 0.46;
+      const fontSize = Math.round(size * scale);
+      ctx.font       = `800 ${fontSize}px Syne, sans-serif`;
       ctx.textBaseline = 'alphabetic';
 
       const m    = 'm';
@@ -101,11 +101,11 @@
       const mW   = ctx.measureText(m).width;
       const dotW = ctx.measureText(dot).width;
 
-      // Metriken für vertikale Zentrierung
-      const metrics    = ctx.measureText(m);
-      const textHeight = metrics.actualBoundingBoxAscent + metrics.actualBoundingBoxDescent;
+      // Optische vertikale Zentrierung: Mittelpunkt der Versalien (nicht Unterlängen)
+      const metrics = ctx.measureText(m);
+      const capHeight = metrics.actualBoundingBoxAscent;
       const x = (size - mW - dotW) / 2;
-      const y = size / 2 + textHeight / 2 - metrics.actualBoundingBoxDescent;
+      const y = size / 2 + capHeight / 2;
 
       // "m" weiß
       ctx.fillStyle = WHITE;
