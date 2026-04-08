@@ -1001,28 +1001,35 @@
       return <>{mpContent}{mpPortal}</>;
     }
 
-    function SparkLine({ data, color, H = 56 }) {
-      const valid = data.filter(v => v != null);
-      if (valid.length < 2) return <div style={{ height: H }} />;
-      const min = Math.min(...valid);
-      const max = Math.max(...valid);
-      const range = max - min || 1;
-      const W = 100;
-      const step = W / (data.length - 1);
-      const pad = 6;
-      const toY = v => pad + (1 - (v - min) / range) * (H - pad * 2);
-      let d = "";
-      data.forEach((v, i) => {
-        if (v == null) return;
-        const x = i * step; const y = toY(v);
-        d += d ? ` L${x} ${y}` : `M${x} ${y}`;
-      });
+    function MultiLineChart({ series, n = 7, H = 80 }) {
+      const VW = 280, VH = H;
+      const padT = 8, padB = 8, padL = 0, padR = 0;
+      const chartW = VW - padL - padR;
+      const step = n > 1 ? chartW / (n - 1) : 0;
+      const toX = i => padL + i * step;
       return (
-        <svg viewBox={`0 0 ${W} ${H}`} preserveAspectRatio="none" style={{ width: "100%", height: H, display: "block" }}>
-          <path d={d} fill="none" stroke={color} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" vectorEffect="non-scaling-stroke" />
-          {data.map((v, i) => v != null && (
-            <circle key={i} cx={i * step} cy={toY(v)} r="2.5" fill={color} vectorEffect="non-scaling-stroke" />
-          ))}
+        <svg viewBox={`0 0 ${VW} ${VH}`} style={{ width: "100%", display: "block" }}>
+          {series.map(s => {
+            const valid = s.data.filter(v => v != null);
+            if (valid.length < 1) return null;
+            const mn = Math.min(...valid);
+            const mx = Math.max(...valid);
+            const range = mx - mn || 1;
+            const toY = v => padT + (1 - (v - mn) / range) * (VH - padT - padB);
+            let d = "";
+            s.data.forEach((v, i) => {
+              if (v == null) return;
+              d += d ? ` L${toX(i)} ${toY(v)}` : `M${toX(i)} ${toY(v)}`;
+            });
+            return (
+              <g key={s.id}>
+                <path d={d} fill="none" stroke={s.color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+                {s.data.map((v, i) => v != null && (
+                  <circle key={i} cx={toX(i)} cy={toY(v)} r="3.5" fill={s.color} />
+                ))}
+              </g>
+            );
+          })}
         </svg>
       );
     }
@@ -1038,7 +1045,8 @@
       const [dayWeight, setDayWeight] = useState("");
       const [dayWeightSaving, setDayWeightSaving] = useState(false);
       const [dayWeightSaved, setDayWeightSaved] = useState(false);
-      const [statsTab, setStatsTab] = useState("gewicht");
+      const [activeStats, setActiveStats] = useState(new Set(["gewicht", "kcal"]));
+      const toggleStat = (id) => setActiveStats(prev => { const n = new Set(prev); n.has(id) ? n.delete(id) : n.add(id); return n; });
 
       const rangeRef = useRef({ from: "", to: "" });
 
@@ -1210,49 +1218,72 @@
 
       // Statistik-Daten (ältester Tag links)
       const chartDays = [...days].reverse();
-      const weightData = chartDays.map(d => bodyWeights[d.date] ?? null);
-      const kcalData   = chartDays.map(d => d.entries > 0 ? Math.round(d.totals.kcal) : null);
+      const weightData  = chartDays.map(d => bodyWeights[d.date] ?? null);
+      const kcalData    = chartDays.map(d => d.entries > 0 ? Math.round(d.totals.kcal) : null);
+      const proteinData = chartDays.map(d => d.entries > 0 ? Math.round(d.totals.protein * 10) / 10 : null);
+      const carbsData   = chartDays.map(d => d.entries > 0 ? Math.round(d.totals.carbs * 10) / 10 : null);
+      const fatData     = chartDays.map(d => d.entries > 0 ? Math.round(d.totals.fat * 10) / 10 : null);
       const hasWeightData = weightData.some(v => v != null);
       const hasKcalData   = kcalData.some(v => v != null);
       const statsCharts = [
-        { id: "gewicht", label: "Gewicht", data: weightData, color: C.accent, unit: "kg", show: hasWeightData },
-        { id: "kcal",    label: "Kalorien", data: kcalData,  color: C.kcal,   unit: "kcal", show: hasKcalData },
-        { id: "protein", label: "Eiweiß",   data: chartDays.map(d => d.entries > 0 ? Math.round(d.totals.protein) : null), color: C.protein, unit: "g", show: hasKcalData },
-        { id: "carbs",   label: "Kohlenhydrate", data: chartDays.map(d => d.entries > 0 ? Math.round(d.totals.carbs) : null), color: C.carbs, unit: "g", show: hasKcalData },
-        { id: "fat",     label: "Fett",     data: chartDays.map(d => d.entries > 0 ? Math.round(d.totals.fat) : null), color: C.fat, unit: "g", show: hasKcalData },
-      ];
-      const activeChart = statsCharts.find(c => c.id === statsTab) || statsCharts[0];
-      const activeData = activeChart.data.filter(v => v != null);
-      const activeMin = activeData.length ? Math.min(...activeData) : 0;
-      const activeMax = activeData.length ? Math.max(...activeData) : 0;
+        { id: "gewicht", label: "Gewicht", data: weightData,  color: C.accent,  unit: "kg",   dec: 1 },
+        { id: "kcal",    label: "kcal",    data: kcalData,    color: C.kcal,    unit: "kcal", dec: 0 },
+        { id: "protein", label: "Eiweiß",  data: proteinData, color: C.protein, unit: "g",    dec: 0 },
+        { id: "carbs",   label: "KH",      data: carbsData,   color: C.carbs,   unit: "g",    dec: 0 },
+        { id: "fat",     label: "Fett",    data: fatData,     color: C.fat,     unit: "g",    dec: 0 },
+      ].filter(c => c.data.some(v => v != null));
+      const activeSeries = statsCharts.filter(c => activeStats.has(c.id));
+      const singleActive = activeSeries.length === 1 ? activeSeries[0] : null;
 
       return (
         <div style={{ padding: 16, display: "flex", flexDirection: "column", gap: 10 }}>
-          {(hasWeightData || hasKcalData) && (
-            <Card style={{ padding: "14px 14px 10px" }}>
-              <div style={{ fontFamily: "Syne", fontSize: 10, color: C.muted, textTransform: "uppercase", letterSpacing: 1, marginBottom: 10 }}>Statistik — 7 Tage</div>
-              <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginBottom: 12 }}>
-                {statsCharts.filter(c => c.show).map(c => (
-                  <button key={c.id} onClick={() => setStatsTab(c.id)} style={{ padding: "4px 10px", borderRadius: 20, border: `1px solid ${statsTab === c.id ? c.color : C.border}`, background: statsTab === c.id ? c.color + "22" : "transparent", color: statsTab === c.id ? c.color : C.muted, fontFamily: "Syne", fontSize: 11, fontWeight: statsTab === c.id ? 700 : 400, cursor: "pointer" }}>
-                    {c.label}
-                  </button>
-                ))}
+          {statsCharts.length > 0 && (
+            <Card style={{ padding: "14px 14px 12px" }}>
+              <div style={{ fontFamily: "Syne", fontSize: 10, color: C.muted, textTransform: "uppercase", letterSpacing: 1, marginBottom: 12 }}>7-Tage-Verlauf</div>
+              <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginBottom: 14 }}>
+                {statsCharts.map(c => {
+                  const on = activeStats.has(c.id);
+                  return (
+                    <button key={c.id} onClick={() => toggleStat(c.id)} style={{ padding: "4px 10px", borderRadius: 20, border: `1px solid ${on ? c.color : C.border}`, background: on ? c.color + "1a" : "transparent", color: on ? c.color : C.muted, fontFamily: "Syne", fontSize: 11, fontWeight: on ? 700 : 400, cursor: "pointer", display: "flex", alignItems: "center", gap: 5 }}>
+                      <span style={{ width: 7, height: 7, borderRadius: "50%", background: on ? c.color : "transparent", border: `1.5px solid ${on ? c.color : C.border}`, display: "inline-block", flexShrink: 0 }} />
+                      {c.label}
+                    </button>
+                  );
+                })}
               </div>
-              <SparkLine data={activeChart.data} color={activeChart.color} H={64} />
-              <div style={{ display: "flex", justifyContent: "space-between", marginTop: 4 }}>
-                {chartDays.map((d, i) => (
-                  <div key={d.date} style={{ flex: 1, textAlign: "center" }}>
-                    <div style={{ fontFamily: "DM Mono", fontSize: 9, color: activeChart.data[i] != null ? C.muted : "#2a2a2a" }}>{dayLabelShort(d.date)}</div>
-                    {activeChart.data[i] != null && <div style={{ fontFamily: "DM Mono", fontSize: 8, color: activeChart.color, marginTop: 1 }}>{activeChart.data[i]}</div>}
-                  </div>
-                ))}
-              </div>
-              {activeData.length > 1 && (
-                <div style={{ display: "flex", gap: 12, marginTop: 10, paddingTop: 10, borderTop: `1px solid ${C.border}` }}>
-                  <div><Mono size={9} color={C.muted}>Min </Mono><Mono size={11} color={activeChart.color}>{activeMin} {activeChart.unit}</Mono></div>
-                  <div><Mono size={9} color={C.muted}>Max </Mono><Mono size={11} color={activeChart.color}>{activeMax} {activeChart.unit}</Mono></div>
-                  <div><Mono size={9} color={C.muted}>Ø </Mono><Mono size={11} color={activeChart.color}>{(activeData.reduce((a, b) => a + b, 0) / activeData.length).toFixed(activeChart.id === "gewicht" ? 1 : 0)} {activeChart.unit}</Mono></div>
+              {activeSeries.length > 0 ? (<>
+                <MultiLineChart series={activeSeries} n={7} H={84} />
+                <div style={{ display: "flex", marginTop: 6 }}>
+                  {chartDays.map((d, i) => (
+                    <div key={d.date} style={{ flex: 1, textAlign: "center" }}>
+                      <div style={{ fontFamily: "DM Mono", fontSize: 9, color: C.muted }}>{dayLabelShort(d.date)}</div>
+                      {singleActive && singleActive.data[i] != null && (
+                        <div style={{ fontFamily: "DM Mono", fontSize: 9, color: singleActive.color, marginTop: 2 }}>
+                          {Number(singleActive.data[i]).toFixed(singleActive.dec)}
+                        </div>
+                      )}
+                    </div>
+                  ))}
                 </div>
+                <div style={{ marginTop: 12, paddingTop: 10, borderTop: `1px solid ${C.border}`, display: "flex", flexDirection: "column", gap: 5 }}>
+                  {activeSeries.map(s => {
+                    const valid = s.data.filter(v => v != null);
+                    if (valid.length === 0) return null;
+                    const mn = Math.min(...valid); const mx = Math.max(...valid);
+                    const avg = valid.reduce((a, b) => a + b, 0) / valid.length;
+                    return (
+                      <div key={s.id} style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
+                        <span style={{ width: 8, height: 8, borderRadius: "50%", background: s.color, flexShrink: 0 }} />
+                        <span style={{ fontFamily: "Syne", fontSize: 10, color: s.color, minWidth: 48 }}>{s.label}</span>
+                        <Mono size={10} color={C.muted}>Min</Mono><Mono size={11} color={s.color}> {mn.toFixed(s.dec)}</Mono>
+                        <Mono size={10} color={C.muted}>Max</Mono><Mono size={11} color={s.color}> {mx.toFixed(s.dec)}</Mono>
+                        <Mono size={10} color={C.muted}>Ø</Mono><Mono size={11} color={s.color}> {avg.toFixed(s.dec)} {s.unit}</Mono>
+                      </div>
+                    );
+                  })}
+                </div>
+              </>) : (
+                <div style={{ textAlign: "center", padding: "20px 0", fontFamily: "Syne", fontSize: 12, color: C.muted }}>Keine Linie ausgewählt</div>
               )}
             </Card>
           )}
