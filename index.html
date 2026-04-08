@@ -449,7 +449,11 @@
             <div style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center" }}>
               <span style={{ fontFamily: "Syne", fontSize: 10, color: C.muted, textTransform: "uppercase", letterSpacing: 1 }}>Mealprep:</span>
               {recipes.map(r => (
-                <button key={r.id} onClick={() => setText(p => p ? p + "\n" + r.name : r.name)}
+                <button key={r.id} onClick={() => {
+                  const item = { name_de: r.name, weight_g: r.total_weight, kcal: r.kcal_total, protein: r.protein_total, carbs: r.carbs_total, fat: r.fat_total, source: "recipe" };
+                  const totals = { kcal: r.kcal_total, protein: r.protein_total, carbs: r.carbs_total, fat: r.fat_total };
+                  onSave({ id: Date.now(), raw_input: r.name, items: [item], totals, timestamp: new Date().toISOString() });
+                }}
                   style={{ fontFamily: "Syne", fontSize: 12, fontWeight: 600, padding: "5px 12px", borderRadius: 20, background: C.card, border: `1px solid ${C.border}`, color: C.text, cursor: "pointer" }}>
                   {r.name}
                 </button>
