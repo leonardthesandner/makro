@@ -176,6 +176,13 @@
     // Körpergewicht
     async function loadBodyWeightRange(from, to) { return apiCall(`/api/body-weight?from=${from}&to=${to}`); }
     async function saveBodyWeightAPI(date, weight_kg) { return apiCall("/api/body-weight", "POST", { date, weight_kg }); }
+
+    // Passwort zurücksetzen (kein Auth nötig)
+    async function forgotPassword(email) { return authApiCall("/api/auth/forgot-password", "POST", { email }); }
+    async function resetPassword(token, password) { return authApiCall("/api/auth/reset-password", "POST", { token, password }); }
+
+    // Account löschen
+    async function deleteAccount() { return apiCall("/api/account", "DELETE"); }
     async function saveToArchive(recipe) {
       return apiCall("/api/archive", "POST", { recipe });
     }
@@ -1349,7 +1356,30 @@
       return { kcal, protein, carbs, fat };
     }
 
-    function SettingsModal({ targets, profile, voiceLang, onSave, onClose }) {
+    function DeleteAccountButton({ onDelete }) {
+      const [confirm, setConfirm] = useState(false);
+      const [loading, setLoading] = useState(false);
+      if (!confirm) return (
+        <button onClick={() => setConfirm(true)} style={{ background: "none", border: `1px solid #f8717140`, borderRadius: 8, padding: "10px 14px", color: C.fat, fontFamily: "Syne", fontSize: 13, cursor: "pointer", width: "100%", textAlign: "left" }}>
+          Account löschen
+        </button>
+      );
+      return (
+        <div style={{ background: "#f8717110", border: `1px solid #f8717130`, borderRadius: 8, padding: "12px 14px", display: "flex", flexDirection: "column", gap: 10 }}>
+          <div style={{ fontFamily: "Syne", fontSize: 13, color: C.fat, lineHeight: 1.5 }}>Wirklich löschen? Alle Daten (Tagebuch, Mealpreps, Gewicht) werden unwiderruflich gelöscht.</div>
+          <div style={{ display: "flex", gap: 8 }}>
+            <button onClick={async () => { setLoading(true); await onDelete(); }} disabled={loading} style={{ flex: 1, background: C.fat, border: "none", borderRadius: 6, padding: "10px", color: "#000", fontFamily: "Syne", fontSize: 13, fontWeight: 700, cursor: "pointer" }}>
+              {loading ? "…" : "Ja, löschen"}
+            </button>
+            <button onClick={() => setConfirm(false)} style={{ flex: 1, background: "none", border: `1px solid ${C.border}`, borderRadius: 6, padding: "10px", color: C.muted, fontFamily: "Syne", fontSize: 13, cursor: "pointer" }}>
+              Abbrechen
+            </button>
+          </div>
+        </div>
+      );
+    }
+
+    function SettingsModal({ targets, profile, voiceLang, onSave, onClose, onDeleteAccount }) {
       const [form, setForm] = useState(() => ({
         kcal: String(targets.kcal), protein: String(targets.protein),
         carbs: String(targets.carbs), fat: String(targets.fat),
@@ -1437,6 +1467,11 @@
             <div style={{ display: "flex", gap: 8 }}>
               <Btn onClick={save} style={{ flex: 1 }}>Speichern</Btn>
               <Btn onClick={onClose} variant="ghost">Abbrechen</Btn>
+            </div>
+
+            <div style={{ marginTop: 28, paddingTop: 20, borderTop: `1px solid ${C.border}` }}>
+              <div style={{ fontFamily: "Syne", fontSize: 10, color: C.muted, textTransform: "uppercase", letterSpacing: 1, marginBottom: 10 }}>Account</div>
+              {onDeleteAccount && <DeleteAccountButton onDelete={onDeleteAccount} />}
             </div>
           </div>
         </div>
@@ -1539,37 +1574,57 @@
       </>);
     }
 
-    function AuthScreen({ onAuth }) {
-      const [mode, setMode] = useState("login");
+    function AuthScreen({ onAuth, initialResetToken }) {
+      const [mode, setMode] = useState(initialResetToken ? "reset" : "login");
       const [email, setEmail] = useState("");
       const [password, setPassword] = useState("");
+      const [newPassword, setNewPassword] = useState("");
+      const [newPassword2, setNewPassword2] = useState("");
       const [loading, setLoading] = useState(false);
       const [err, setErr] = useState(null);
-      const [pendingEmail, setPendingEmail] = useState(null); // "check email" state
+      const [pendingEmail, setPendingEmail] = useState(null);
       const [resendLoading, setResendLoading] = useState(false);
       const [resendDone, setResendDone] = useState(false);
-      const [unverifiedEmail, setUnverifiedEmail] = useState(null); // login blocked state
+      const [unverifiedEmail, setUnverifiedEmail] = useState(null);
+      const [forgotDone, setForgotDone] = useState(false);
+      const [resetDone, setResetDone] = useState(false);
 
       const inputStyle = { background: "#111", border: `1px solid ${C.border}`, borderRadius: 8, padding: "12px 14px", color: C.text, fontFamily: "Syne", fontSize: 15, outline: "none", width: "100%" };
+
+      const goLogin = () => { setMode("login"); setErr(null); setNewPassword(""); setNewPassword2(""); };
 
       const submit = async () => {
         if (!email.trim() || !password) return;
         setLoading(true); setErr(null); setUnverifiedEmail(null);
         try {
           const data = await authApiCall(`/api/auth/${mode}`, "POST", { email: email.trim(), password });
-          if (data.pending) {
-            setPendingEmail(email.trim());
-          } else {
-            saveAuth(data);
-            onAuth(data);
-          }
+          if (data.pending) { setPendingEmail(email.trim()); }
+          else { saveAuth(data); onAuth(data); }
         } catch (e) {
           if (e.message === "email_not_verified" || e.message.includes("bestätige")) {
             setUnverifiedEmail(email.trim());
-          } else {
-            setErr(e.message);
-          }
+          } else { setErr(e.message); }
         }
+        setLoading(false);
+      };
+
+      const submitForgot = async () => {
+        if (!email.trim()) return;
+        setLoading(true); setErr(null);
+        try { await forgotPassword(email.trim()); setForgotDone(true); } catch { setErr("Fehler beim Senden."); }
+        setLoading(false);
+      };
+
+      const submitReset = async () => {
+        if (newPassword.length < 6) { setErr("Passwort mindestens 6 Zeichen"); return; }
+        if (newPassword !== newPassword2) { setErr("Passwörter stimmen nicht überein"); return; }
+        setLoading(true); setErr(null);
+        try {
+          await resetPassword(initialResetToken, newPassword);
+          setResetDone(true);
+          // URL-Parameter entfernen
+          window.history.replaceState({}, "", window.location.pathname);
+        } catch (e) { setErr(e.message); }
         setLoading(false);
       };
 
@@ -1579,94 +1634,107 @@
         setResendLoading(false);
       };
 
-      // "Check your email" screen
-      if (pendingEmail) {
-        return (
-          <div style={{ height: "100vh", height: "-webkit-fill-available", background: C.bg, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", padding: 24, maxWidth: 500, margin: "0 auto" }}>
-            <div style={{ fontFamily: "Syne", fontSize: 38, fontWeight: 800, letterSpacing: -1.5, color: C.text, marginBottom: 6 }}>
-              makro<span style={{ color: C.accent }}>.</span>
-            </div>
-            <div style={{ fontSize: 52, margin: "28px 0 20px" }}>📬</div>
-            <div style={{ fontFamily: "Syne", fontSize: 18, fontWeight: 700, color: C.text, marginBottom: 10, textAlign: "center" }}>E-Mail bestätigen</div>
-            <div style={{ fontFamily: "Syne", fontSize: 13, color: C.muted, textAlign: "center", lineHeight: 1.7, marginBottom: 32, maxWidth: 300 }}>
-              Wir haben eine Bestätigungs-E-Mail an <span style={{ color: C.text }}>{pendingEmail}</span> gesendet. Klick auf den Link um fortzufahren.
-            </div>
-            {resendDone
-              ? <div style={{ fontFamily: "Syne", fontSize: 13, color: C.carbs }}>✓ E-Mail erneut gesendet</div>
-              : <button onClick={() => handleResend(pendingEmail)} disabled={resendLoading}
-                  style={{ background: "none", border: "none", color: C.muted, fontFamily: "Syne", fontSize: 13, cursor: "pointer", textDecoration: "underline" }}>
-                  {resendLoading ? "Sende…" : "E-Mail erneut senden"}
-                </button>
-            }
-            <button onClick={() => { setPendingEmail(null); setMode("login"); }}
-              style={{ background: "none", border: "none", color: "#444", fontFamily: "Syne", fontSize: 12, cursor: "pointer", marginTop: 16 }}>
-              Zurück zum Login
-            </button>
-          </div>
-        );
-      }
-
-      // "Unverified email" screen after login attempt
-      if (unverifiedEmail) {
-        return (
-          <div style={{ height: "100vh", height: "-webkit-fill-available", background: C.bg, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", padding: 24, maxWidth: 500, margin: "0 auto" }}>
-            <div style={{ fontFamily: "Syne", fontSize: 38, fontWeight: 800, letterSpacing: -1.5, color: C.text, marginBottom: 6 }}>
-              makro<span style={{ color: C.accent }}>.</span>
-            </div>
-            <div style={{ fontSize: 52, margin: "28px 0 20px" }}>✉️</div>
-            <div style={{ fontFamily: "Syne", fontSize: 17, fontWeight: 700, color: C.text, marginBottom: 10, textAlign: "center" }}>E-Mail noch nicht bestätigt</div>
-            <div style={{ fontFamily: "Syne", fontSize: 13, color: C.muted, textAlign: "center", lineHeight: 1.7, marginBottom: 32, maxWidth: 300 }}>
-              Bitte klick auf den Link in der Bestätigungs-E-Mail die wir an <span style={{ color: C.text }}>{unverifiedEmail}</span> gesendet haben.
-            </div>
-            {resendDone
-              ? <div style={{ fontFamily: "Syne", fontSize: 13, color: C.carbs }}>✓ E-Mail erneut gesendet</div>
-              : <Btn onClick={() => handleResend(unverifiedEmail)} disabled={resendLoading} small>
-                  {resendLoading ? "Sende…" : "Neue Bestätigungs-E-Mail senden"}
-                </Btn>
-            }
-            <button onClick={() => setUnverifiedEmail(null)}
-              style={{ background: "none", border: "none", color: "#444", fontFamily: "Syne", fontSize: 12, cursor: "pointer", marginTop: 16 }}>
-              Zurück zum Login
-            </button>
-          </div>
-        );
-      }
-
-      return (
-        <div style={{ height: "100vh", height: "-webkit-fill-available", background: C.bg, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", padding: 24, maxWidth: 500, margin: "0 auto" }}>
-          <div style={{ fontFamily: "Syne", fontSize: 38, fontWeight: 800, letterSpacing: -1.5, color: C.text, marginBottom: 6 }}>
-            makro<span style={{ color: C.accent }}>.</span>
-          </div>
-          <div style={{ fontFamily: "Syne", fontSize: 13, color: C.muted, marginBottom: 44 }}>
-            {mode === "login" ? "Willkommen zurück" : "Konto erstellen"}
-          </div>
-          <div style={{ width: "100%", display: "flex", flexDirection: "column", gap: 12 }}>
-            <input
-              type="email" placeholder="E-Mail-Adresse" value={email}
-              onChange={e => setEmail(e.target.value)}
-              onKeyDown={e => e.key === "Enter" && submit()}
-              style={inputStyle}
-            />
-            <input
-              type="password" placeholder="Passwort" value={password}
-              onChange={e => setPassword(e.target.value)}
-              onKeyDown={e => e.key === "Enter" && submit()}
-              style={inputStyle}
-            />
-            {err && (
-              <div style={{ background: "#f8717112", border: `1px solid #f8717128`, borderRadius: 8, padding: "10px 14px", color: C.fat, fontFamily: "Syne", fontSize: 13 }}>{err}</div>
-            )}
-            <Btn onClick={submit} disabled={loading || !email.trim() || !password} full>
-              {loading ? "…" : mode === "login" ? "Anmelden →" : "Registrieren →"}
-            </Btn>
-            <button
-              onClick={() => { setMode(m => m === "login" ? "register" : "login"); setErr(null); }}
-              style={{ background: "none", border: "none", color: C.muted, fontFamily: "Syne", fontSize: 13, cursor: "pointer", padding: 8, marginTop: 4 }}>
-              {mode === "login" ? "Noch kein Konto? Registrieren" : "Schon ein Konto? Anmelden"}
-            </button>
-          </div>
+      const logo = (
+        <div style={{ fontFamily: "Syne", fontSize: 38, fontWeight: 800, letterSpacing: -1.5, color: C.text, marginBottom: 6 }}>
+          makro<span style={{ color: C.accent }}>.</span>
         </div>
       );
+      const wrap = (content) => (
+        <div style={{ height: "100vh", height: "-webkit-fill-available", background: C.bg, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", padding: 24, maxWidth: 500, margin: "0 auto" }}>
+          {logo}{content}
+        </div>
+      );
+
+      if (pendingEmail) return wrap(<>
+        <div style={{ fontSize: 52, margin: "28px 0 20px" }}>📬</div>
+        <div style={{ fontFamily: "Syne", fontSize: 18, fontWeight: 700, color: C.text, marginBottom: 10, textAlign: "center" }}>E-Mail bestätigen</div>
+        <div style={{ fontFamily: "Syne", fontSize: 13, color: C.muted, textAlign: "center", lineHeight: 1.7, marginBottom: 32, maxWidth: 300 }}>
+          Wir haben eine Bestätigungs-E-Mail an <span style={{ color: C.text }}>{pendingEmail}</span> gesendet.
+        </div>
+        {resendDone
+          ? <div style={{ fontFamily: "Syne", fontSize: 13, color: C.carbs }}>✓ E-Mail erneut gesendet</div>
+          : <button onClick={() => handleResend(pendingEmail)} disabled={resendLoading} style={{ background: "none", border: "none", color: C.muted, fontFamily: "Syne", fontSize: 13, cursor: "pointer", textDecoration: "underline" }}>
+              {resendLoading ? "Sende…" : "E-Mail erneut senden"}
+            </button>
+        }
+        <button onClick={() => { setPendingEmail(null); goLogin(); }} style={{ background: "none", border: "none", color: "#444", fontFamily: "Syne", fontSize: 12, cursor: "pointer", marginTop: 16 }}>Zurück zum Login</button>
+      </>);
+
+      if (unverifiedEmail) return wrap(<>
+        <div style={{ fontSize: 52, margin: "28px 0 20px" }}>✉️</div>
+        <div style={{ fontFamily: "Syne", fontSize: 17, fontWeight: 700, color: C.text, marginBottom: 10, textAlign: "center" }}>E-Mail noch nicht bestätigt</div>
+        <div style={{ fontFamily: "Syne", fontSize: 13, color: C.muted, textAlign: "center", lineHeight: 1.7, marginBottom: 32, maxWidth: 300 }}>
+          Bitte klick auf den Link in der Bestätigungs-E-Mail an <span style={{ color: C.text }}>{unverifiedEmail}</span>.
+        </div>
+        {resendDone
+          ? <div style={{ fontFamily: "Syne", fontSize: 13, color: C.carbs }}>✓ E-Mail erneut gesendet</div>
+          : <Btn onClick={() => handleResend(unverifiedEmail)} disabled={resendLoading} small>{resendLoading ? "Sende…" : "Neue Bestätigungs-E-Mail senden"}</Btn>
+        }
+        <button onClick={() => setUnverifiedEmail(null)} style={{ background: "none", border: "none", color: "#444", fontFamily: "Syne", fontSize: 12, cursor: "pointer", marginTop: 16 }}>Zurück zum Login</button>
+      </>);
+
+      // Passwort vergessen
+      if (mode === "forgot") return wrap(<>
+        <div style={{ fontFamily: "Syne", fontSize: 13, color: C.muted, marginBottom: 36 }}>Passwort zurücksetzen</div>
+        {forgotDone ? (
+          <>
+            <div style={{ fontSize: 48, marginBottom: 20 }}>📬</div>
+            <div style={{ fontFamily: "Syne", fontSize: 16, fontWeight: 700, color: C.text, marginBottom: 10, textAlign: "center" }}>E-Mail gesendet</div>
+            <div style={{ fontFamily: "Syne", fontSize: 13, color: C.muted, textAlign: "center", lineHeight: 1.7, marginBottom: 32, maxWidth: 300 }}>
+              Falls ein Konto mit dieser Adresse existiert, haben wir einen Reset-Link gesendet. Gültig für 1 Stunde.
+            </div>
+            <button onClick={goLogin} style={{ background: "none", border: "none", color: C.muted, fontFamily: "Syne", fontSize: 13, cursor: "pointer", textDecoration: "underline" }}>Zurück zum Login</button>
+          </>
+        ) : (
+          <div style={{ width: "100%", display: "flex", flexDirection: "column", gap: 12 }}>
+            <input type="email" placeholder="E-Mail-Adresse" value={email} onChange={e => setEmail(e.target.value)} onKeyDown={e => e.key === "Enter" && submitForgot()} style={inputStyle} />
+            {err && <div style={{ background: "#f8717112", border: `1px solid #f8717128`, borderRadius: 8, padding: "10px 14px", color: C.fat, fontFamily: "Syne", fontSize: 13 }}>{err}</div>}
+            <Btn onClick={submitForgot} disabled={loading || !email.trim()} full>{loading ? "…" : "Reset-Link senden →"}</Btn>
+            <button onClick={goLogin} style={{ background: "none", border: "none", color: C.muted, fontFamily: "Syne", fontSize: 13, cursor: "pointer", padding: 8, marginTop: 4 }}>Zurück zum Login</button>
+          </div>
+        )}
+      </>);
+
+      // Passwort zurücksetzen (via Link)
+      if (mode === "reset") return wrap(<>
+        <div style={{ fontFamily: "Syne", fontSize: 13, color: C.muted, marginBottom: 36 }}>Neues Passwort vergeben</div>
+        {resetDone ? (
+          <>
+            <div style={{ fontSize: 48, marginBottom: 20 }}>✓</div>
+            <div style={{ fontFamily: "Syne", fontSize: 16, fontWeight: 700, color: C.carbs, marginBottom: 20, textAlign: "center" }}>Passwort geändert</div>
+            <Btn onClick={goLogin} full>Zum Login →</Btn>
+          </>
+        ) : (
+          <div style={{ width: "100%", display: "flex", flexDirection: "column", gap: 12 }}>
+            <input type="password" placeholder="Neues Passwort" value={newPassword} onChange={e => setNewPassword(e.target.value)} style={inputStyle} />
+            <input type="password" placeholder="Passwort bestätigen" value={newPassword2} onChange={e => setNewPassword2(e.target.value)} onKeyDown={e => e.key === "Enter" && submitReset()} style={inputStyle} />
+            {err && <div style={{ background: "#f8717112", border: `1px solid #f8717128`, borderRadius: 8, padding: "10px 14px", color: C.fat, fontFamily: "Syne", fontSize: 13 }}>{err}</div>}
+            <Btn onClick={submitReset} disabled={loading || !newPassword || !newPassword2} full>{loading ? "…" : "Passwort speichern →"}</Btn>
+          </div>
+        )}
+      </>);
+
+      return wrap(<>
+        <div style={{ fontFamily: "Syne", fontSize: 13, color: C.muted, marginBottom: 44 }}>
+          {mode === "login" ? "Willkommen zurück" : "Konto erstellen"}
+        </div>
+        <div style={{ width: "100%", display: "flex", flexDirection: "column", gap: 12 }}>
+          <input type="email" placeholder="E-Mail-Adresse" value={email} onChange={e => setEmail(e.target.value)} onKeyDown={e => e.key === "Enter" && submit()} style={inputStyle} />
+          <input type="password" placeholder="Passwort" value={password} onChange={e => setPassword(e.target.value)} onKeyDown={e => e.key === "Enter" && submit()} style={inputStyle} />
+          {err && <div style={{ background: "#f8717112", border: `1px solid #f8717128`, borderRadius: 8, padding: "10px 14px", color: C.fat, fontFamily: "Syne", fontSize: 13 }}>{err}</div>}
+          <Btn onClick={submit} disabled={loading || !email.trim() || !password} full>
+            {loading ? "…" : mode === "login" ? "Anmelden →" : "Registrieren →"}
+          </Btn>
+          <button onClick={() => { setMode(m => m === "login" ? "register" : "login"); setErr(null); }} style={{ background: "none", border: "none", color: C.muted, fontFamily: "Syne", fontSize: 13, cursor: "pointer", padding: 8, marginTop: 4 }}>
+            {mode === "login" ? "Noch kein Konto? Registrieren" : "Schon ein Konto? Anmelden"}
+          </button>
+          {mode === "login" && (
+            <button onClick={() => { setMode("forgot"); setErr(null); }} style={{ background: "none", border: "none", color: "#444", fontFamily: "Syne", fontSize: 12, cursor: "pointer", padding: "4px 8px" }}>
+              Passwort vergessen?
+            </button>
+          )}
+        </div>
+      </>);
     }
 
     const foodFormInputStyle = { background: "#111", border: `1px solid ${C.border}`, borderRadius: 6, padding: "8px 10px", color: C.text, fontFamily: "DM Mono", fontSize: 14, outline: "none", width: "100%" };
@@ -1836,6 +1904,11 @@
         setArchive([]);
       };
 
+      const handleDeleteAccount = async () => {
+        await deleteAccount();
+        logout();
+      };
+
       // Entry functions
       const addEntry = async (entry) => {
         try {
@@ -1915,7 +1988,8 @@
         saveSettings(t, { ...(p ? { profile: p } : {}), ...(vl ? { voiceLang: vl } : {}) }).catch(() => {});
       };
 
-      if (!auth) return <AuthScreen onAuth={handleAuth} />;
+      const resetToken = new URLSearchParams(window.location.search).get("reset");
+      if (!auth || resetToken) return <AuthScreen onAuth={handleAuth} initialResetToken={resetToken} />;
 
       if (onboarding) return (
         <OnboardingModal onComplete={(t, p) => {
@@ -1957,7 +2031,7 @@
               </button>
             ))}
           </div>
-          {settings && <SettingsModal targets={targets} profile={profile} voiceLang={voiceLang} onSave={(t, p, vl) => updateSettings(t, p, vl)} onClose={() => setSettings(false)} />}
+          {settings && <SettingsModal targets={targets} profile={profile} voiceLang={voiceLang} onSave={(t, p, vl) => updateSettings(t, p, vl)} onClose={() => setSettings(false)} onDeleteAccount={handleDeleteAccount} />}
           {editingEntry && <EditEntryModal entry={editingEntry} onSave={editEntry} onClose={() => setEditingEntry(null)} />}
         </div>
       );
