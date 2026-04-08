@@ -54,7 +54,7 @@
     const C = {
       bg: "#0c0c0c", card: "#161616", border: "#222", accent: "#f59e0b",
       text: "#efefef", muted: "#555", soft: "#2a2a2a",
-      protein: "#60a5fa", carbs: "#34d399", fat: "#f87171", kcal: "#f59e0b",
+      protein: "#60a5fa", carbs: "#34d399", fat: "#f87171", kcal: "#f59e0b", weight: "#a78bfa",
     };
     const MACROS = ["kcal", "protein", "carbs", "fat"];
     const LABELS = { kcal: "Kalorien", protein: "Eiweiß", carbs: "Kohlenhydrate", fat: "Fett" };
@@ -1226,7 +1226,7 @@
       const hasWeightData = weightData.some(v => v != null);
       const hasKcalData   = kcalData.some(v => v != null);
       const statsCharts = [
-        { id: "gewicht", label: "Gewicht", data: weightData,  color: C.accent,  unit: "kg",   dec: 1 },
+        { id: "gewicht", label: "Gewicht", data: weightData,  color: C.weight,  unit: "kg",   dec: 1 },
         { id: "kcal",    label: "kcal",    data: kcalData,    color: C.kcal,    unit: "kcal", dec: 0 },
         { id: "protein", label: "Eiweiß",  data: proteinData, color: C.protein, unit: "g",    dec: 0 },
         { id: "carbs",   label: "KH",      data: carbsData,   color: C.carbs,   unit: "g",    dec: 0 },
@@ -1297,7 +1297,7 @@
                 <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: day.entries > 0 ? 10 : 0 }}>
                   <div style={{ display: "flex", alignItems: "baseline", gap: 8 }}>
                     <span style={{ fontFamily: "Syne", fontSize: 14, fontWeight: 700, color: C.text }}>{dayLabel(day.date)}</span>
-                    {w != null && <Mono size={11} color={C.accent}>{w} kg</Mono>}
+                    {w != null && <Mono size={11} color={C.weight}>{w} kg</Mono>}
                   </div>
                   {day.entries > 0
                     ? <div style={{ display: "flex", gap: 6, alignItems: "baseline" }}>
