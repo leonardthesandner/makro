@@ -13,6 +13,18 @@
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Syne:wght@400;600;700;800&display=swap" rel="stylesheet" />
+  <script>
+    // iOS PWA standalone: inputs sometimes don't focus on tap — force focus on touchend
+    if (window.navigator.standalone) {
+      document.addEventListener('touchend', function(e) {
+        var t = e.target;
+        if (t.tagName === 'INPUT' || t.tagName === 'TEXTAREA') {
+          e.preventDefault();
+          t.focus();
+        }
+      }, true);
+    }
+  </script>
   <style>
     * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
     html, body, #root { height: 100%; height: -webkit-fill-available; background: #0c0c0c; }
@@ -1629,8 +1641,10 @@
         </div>
       );
       const wrap = (content) => (
-        <div style={{ minHeight: "100vh", background: C.bg, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", padding: 24, maxWidth: 500, margin: "0 auto" }}>
-          {logo}{content}
+        <div style={{ position: "fixed", inset: 0, background: C.bg, overflowY: "auto", WebkitOverflowScrolling: "touch" }}>
+          <div style={{ minHeight: "100%", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", padding: "calc(env(safe-area-inset-top) + 24px) 24px calc(env(safe-area-inset-bottom) + 24px)", maxWidth: 500, margin: "0 auto" }}>
+            {logo}{content}
+          </div>
         </div>
       );
 
