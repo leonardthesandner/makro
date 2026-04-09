@@ -295,22 +295,13 @@
         <div style={{ position: "fixed", inset: 0, zIndex: 200, background: "#000" }}>
           {/* Scanner-Div: füllt gesamten Screen, html5-qrcode braucht explizite Größe */}
           <div id="bc-div" style={{ position: "absolute", inset: 0 }} />
-          {/* Eck-Markierungen über dem Scan-Fenster */}
-          <div style={{ position: "absolute", inset: 0, zIndex: 2, pointerEvents: "none", display: "flex", alignItems: "center", justifyContent: "center" }}>
-            <div style={{ position: "relative", width: "85vmin", height: "35vmin" }}>
-              {[["top:0,left:0","borderTop","borderLeft"],["top:0,right:0","borderTop","borderRight"],["bottom:0,left:0","borderBottom","borderLeft"],["bottom:0,right:0","borderBottom","borderRight"]].map(([pos, b1, b2], i) => {
-                const s = Object.fromEntries(pos.split(",").map(p => p.split(":")));
-                return <div key={i} style={{ position: "absolute", width: 24, height: 24, [b1]: `2px solid ${C.accent}`, [b2]: `2px solid ${C.accent}`, ...s }} />;
-              })}
-            </div>
-          </div>
           {/* Overlay: Header */}
-          <div style={{ position: "absolute", top: 0, left: 0, right: 0, padding: "52px 16px 16px", background: "linear-gradient(#000e, transparent)", zIndex: 3, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+          <div style={{ position: "absolute", top: 0, left: 0, right: 0, padding: "52px 16px 16px", background: "linear-gradient(#000e, transparent)", zIndex: 1, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
             <span style={{ fontFamily: "Syne", fontSize: 16, fontWeight: 700, color: "#fff" }}>Barcode scannen</span>
             <button onClick={onClose} style={{ background: "none", border: "none", color: "#fff", fontSize: 26, cursor: "pointer", padding: 4 }}>✕</button>
           </div>
           {/* Overlay: Footer */}
-          <div style={{ position: "absolute", bottom: 0, left: 0, right: 0, padding: "16px 16px 36px", background: "linear-gradient(transparent, #000e)", zIndex: 3, textAlign: "center" }}>
+          <div style={{ position: "absolute", bottom: 0, left: 0, right: 0, padding: "16px 16px 36px", background: "linear-gradient(transparent, #000e)", zIndex: 1, textAlign: "center" }}>
             <span style={{ fontFamily: "Syne", fontSize: 13, color: err ? "#f87171" : "#aaa" }}>
               {err || "Halte den Barcode in den Rahmen"}
             </span>
