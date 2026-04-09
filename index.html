@@ -328,20 +328,24 @@
         return match ? match[1] : "";
       };
 
-      const acWord = !loading ? getCurrentWord() : "";
+      const acWord = items.length === 0 && !loading ? getCurrentWord() : "";
       const acSuggestions = acWord.length >= 2 && userFoods
         ? userFoods.filter(f => f.name.toLowerCase().startsWith(acWord.toLowerCase())).slice(0, 5)
         : [];
 
       const applySuggestion = (food) => {
-        const w = parseFloat(food.serving_g) || 100;
-        const k = parseFloat(food.kcal_100) || 0;
-        const p = parseFloat(food.protein_100) || 0;
-        const c = parseFloat(food.carbs_100) || 0;
-        const f = parseFloat(food.fat_100) || 0;
-        setItems(prev => [...prev, { name_de: food.name, weight_g: w, kcal: Math.round(k * w / 100), protein: Math.round(p * w / 100 * 10) / 10, carbs: Math.round(c * w / 100 * 10) / 10, fat: Math.round(f * w / 100 * 10) / 10, kcal_100: k, protein_100: p, carbs_100: c, fat_100: f, source: "personal" }]);
-        setText("");
-        setTimeout(() => textareaRef.current?.focus(), 0);
+        const el = textareaRef.current;
+        if (!el) return;
+        const pos = el.selectionStart;
+        const before = text.slice(0, pos);
+        const after = text.slice(pos);
+        const newBefore = before.replace(/([a-zA-ZäöüÄÖÜß]+)$/, food.name);
+        const newText = newBefore + after;
+        setText(newText);
+        setTimeout(() => {
+          el.focus();
+          el.setSelectionRange(newBefore.length, newBefore.length);
+        }, 0);
       };
 
       const toggleVoice = async () => {
