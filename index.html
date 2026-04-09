@@ -1191,9 +1191,18 @@
     }
 
     function HistoryTab({ targets, loadRange, loadDay, onDelete, updateEntry, loadBodyWeights, saveBodyWeight }) {
+      const PERIODS = [
+        { id: "tage",   label: "Tage",   daysBack: 6,    chartTitle: "Tagesverlauf" },
+        { id: "wochen", label: "Wochen", daysBack: 83,   chartTitle: "Wochenverlauf" },
+        { id: "monate", label: "Monate", daysBack: 364,  chartTitle: "Monatsverlauf" },
+        { id: "jahre",  label: "Jahre",  daysBack: 1824, chartTitle: "Jahresverlauf" },
+      ];
+
+      const [period, setPeriod] = useState("tage");
       const [days, setDays] = useState([]);
       const [loading, setLoading] = useState(true);
       const [selectedDay, setSelectedDay] = useState(null);
+      const [selectedBucket, setSelectedBucket] = useState(null);
       const [dayEntries, setDayEntries] = useState([]);
       const [dayLoading, setDayLoading] = useState(false);
       const [editingEntry, setEditingEntry] = useState(null);
@@ -1208,23 +1217,23 @@
       const [activeStats, setActiveStats] = useState(new Set(["gewicht", "kcal"]));
       const toggleStat = (id) => setActiveStats(prev => { const n = new Set(prev); n.has(id) ? n.delete(id) : n.add(id); return n; });
 
-      const rangeRef = useRef({ from: "", to: "" });
-
-      useEffect(() => {
+      const loadData = (p) => {
+        const cfg = PERIODS.find(x => x.id === p);
         const to = todayStr();
-        const fromDate = new Date(); fromDate.setDate(fromDate.getDate() - 6);
+        const fromDate = new Date(); fromDate.setDate(fromDate.getDate() - cfg.daysBack);
         const from = fromDate.toISOString().split("T")[0];
-        rangeRef.current = { from, to };
         setLoading(true);
         Promise.all([loadRange(from, to), loadBodyWeights(from, to)])
           .then(([map, weights]) => {
-            const result = [];
-            for (let i = 0; i < 7; i++) {
+            const allDates = [];
+            for (let i = 0; i <= cfg.daysBack; i++) {
               const d = new Date(); d.setDate(d.getDate() - i);
-              const ds = d.toISOString().split("T")[0];
-              const entries = map[ds] || [];
-              result.push({ date: ds, entries: entries.length, totals: sumEntries(entries) });
+              allDates.push(d.toISOString().split("T")[0]);
             }
+            const result = allDates.map(ds => {
+              const entries = map[ds] || [];
+              return { date: ds, entries: entries.length, totals: sumEntries(entries) };
+            });
             setDays(result);
             const wMap = {}, bMap = {};
             weights.forEach(w => {
@@ -1236,19 +1245,83 @@
           })
           .catch(() => setDays([]))
           .finally(() => setLoading(false));
-      }, []);
+      };
 
-      const dayLabel = (ds) => {
+      useEffect(() => { loadData(period); }, []);
+
+      const changePeriod = (p) => {
+        setPeriod(p);
+        setSelectedDay(null);
+        setSelectedBucket(null);
+        loadData(p);
+      };
+
+      // ── helpers ──────────────────────────────────────────────────────────────
+      const dayLabel = (ds, short = false) => {
         const d = new Date(ds + "T12:00:00");
-        const t = new Date(); const y = new Date(); y.setDate(y.getDate() - 1);
-        if (d.toDateString() === t.toDateString()) return "Heute";
-        if (d.toDateString() === y.toDateString()) return "Gestern";
+        if (!short) {
+          const t = new Date(); const y = new Date(); y.setDate(y.getDate() - 1);
+          if (d.toDateString() === t.toDateString()) return "Heute";
+          if (d.toDateString() === y.toDateString()) return "Gestern";
+        }
+        if (short) return d.toLocaleDateString("de-DE", { weekday: "short" });
         return d.toLocaleDateString("de-DE", { weekday: "long", day: "numeric", month: "short" });
       };
 
-      const dayLabelShort = (ds) => {
+      const isoWeekMonday = (ds) => {
         const d = new Date(ds + "T12:00:00");
-        return d.toLocaleDateString("de-DE", { weekday: "short" });
+        const dow = (d.getDay() + 6) % 7; // Mon=0
+        d.setDate(d.getDate() - dow);
+        return d.toISOString().split("T")[0];
+      };
+
+      const bucketKey = (ds, p) => {
+        if (p === "tage")   return ds;
+        if (p === "wochen") return isoWeekMonday(ds);
+        if (p === "monate") return ds.slice(0, 7);
+        if (p === "jahre")  return ds.slice(0, 4);
+        return ds;
+      };
+
+      const bucketLabel = (b, short = false) => {
+        if (period === "tage") {
+          if (short) return dayLabel(b.key, true);
+          return dayLabel(b.key, false);
+        }
+        if (period === "wochen") {
+          const start = new Date(b.key + "T12:00:00");
+          const end = new Date(b.key + "T12:00:00"); end.setDate(end.getDate() + 6);
+          const fmt = (d) => d.toLocaleDateString("de-DE", { day: "numeric", month: "short" });
+          if (short) return fmt(start);
+          return `${fmt(start)} – ${fmt(end)}`;
+        }
+        if (period === "monate") {
+          const d = new Date(b.key + "-01T12:00:00");
+          if (short) return d.toLocaleDateString("de-DE", { month: "short" });
+          return d.toLocaleDateString("de-DE", { month: "long", year: "numeric" });
+        }
+        if (period === "jahre") {
+          return b.key;
+        }
+        return b.key;
+      };
+
+      const buildBuckets = () => {
+        const map = new Map();
+        days.forEach(day => {
+          const k = bucketKey(day.date, period);
+          if (!map.has(k)) map.set(k, { key: k, dates: [], entries: 0, totals: { kcal: 0, protein: 0, carbs: 0, fat: 0 }, wvals: [], burned: 0 });
+          const b = map.get(k);
+          b.dates.push(day.date);
+          b.entries += day.entries;
+          MACROS.forEach(m => { b.totals[m] += day.totals[m]; });
+          if (bodyWeights[day.date] != null) b.wvals.push(bodyWeights[day.date]);
+          b.burned += burnedMap[day.date] || 0;
+        });
+        return Array.from(map.values()).map(b => ({
+          ...b,
+          avgWeight: b.wvals.length > 0 ? b.wvals.reduce((a, v) => a + v, 0) / b.wvals.length : null,
+        }));
       };
 
       const getPrevWeight = (date) => {
@@ -1315,10 +1388,55 @@
         setEditingEntry(null);
       };
 
+      const backBtn = (label, onClick) => (
+        <button onClick={onClick} style={{ background: "none", border: "none", color: C.muted, padding: "4px 0", display: "flex", alignItems: "center", gap: 5, fontFamily: "Syne", fontSize: 13, cursor: "pointer" }}>
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"><polyline points="15 18 9 12 15 6"/></svg>
+          {label}
+        </button>
+      );
+
+      const DayCard = ({ day, onClick }) => {
+        const pct = Math.min((day.totals.kcal / targets.kcal) * 100, 100);
+        const w = bodyWeights[day.date];
+        return (
+          <Card onClick={onClick} style={{ padding: "12px 14px", opacity: day.entries > 0 || w != null ? 1 : 0.4, cursor: "pointer" }}>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: day.entries > 0 ? 10 : 0 }}>
+              <div style={{ display: "flex", alignItems: "baseline", gap: 8 }}>
+                <span style={{ fontFamily: "Syne", fontSize: 14, fontWeight: 700, color: C.text }}>{dayLabel(day.date)}</span>
+                {w != null && <Mono size={11} color={C.weight}>{w} kg</Mono>}
+              </div>
+              {day.entries > 0
+                ? <div style={{ display: "flex", gap: 6, alignItems: "baseline" }}>
+                    <Mono size={14} color={C.kcal} bold>{Math.round(day.totals.kcal)}</Mono>
+                    <Mono size={10} color={C.muted}>kcal · {day.entries} Eintr.</Mono>
+                  </div>
+                : <Mono size={11} color={C.muted}>keine Daten</Mono>
+              }
+            </div>
+            {day.entries > 0 && (
+              <>
+                <div style={{ height: 3, background: "#1e1e1e", borderRadius: 2, marginBottom: 10 }}>
+                  <div style={{ width: `${pct}%`, height: "100%", background: pct >= 90 ? C.carbs : C.kcal, borderRadius: 2 }} />
+                </div>
+                <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 4 }}>
+                  {["protein", "carbs", "fat"].map(m => (
+                    <div key={m} style={{ textAlign: "center" }}>
+                      <Mono size={12} color={MC[m]}>{Math.round(day.totals[m])}g</Mono>
+                      <div style={{ fontFamily: "Inter", fontSize: 9, color: C.muted }}>{LABELS[m]}</div>
+                    </div>
+                  ))}
+                </div>
+              </>
+            )}
+          </Card>
+        );
+      };
+
       if (loading) return (
         <div className="pulsing" style={{ textAlign: "center", padding: 60, fontFamily: "Syne", fontSize: 14, color: C.muted }}>Lade Verlauf…</div>
       );
 
+      // ── Day detail view ───────────────────────────────────────────────────────
       if (selectedDay) {
         const totals = sumEntries(dayEntries);
         const rest = Object.fromEntries(MACROS.map(m => [m, targets[m] - totals[m]]));
@@ -1327,10 +1445,7 @@
           <>
             <div style={{ padding: 16, display: "flex", flexDirection: "column", gap: 14 }}>
               <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-                <button onClick={() => setSelectedDay(null)} style={{ background: "none", border: "none", color: C.muted, padding: "4px 0", display: "flex", alignItems: "center", gap: 5, fontFamily: "Syne", fontSize: 13, cursor: "pointer" }}>
-                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"><polyline points="15 18 9 12 15 6"/></svg>
-                  Verlauf
-                </button>
+                {backBtn("Verlauf", () => { setSelectedDay(null); })}
                 <span style={{ fontFamily: "Syne", fontSize: 15, fontWeight: 700, color: C.text }}>{selectedDay.label}</span>
               </div>
               {dayLoading ? (
@@ -1405,39 +1520,72 @@
         );
       }
 
-      // Statistik-Daten (ältester Tag links)
-      const chartDays = [...days].reverse();
-      const weightData  = chartDays.map(d => bodyWeights[d.date] ?? null);
-      const burnedData  = chartDays.map(d => burnedMap[d.date] ?? null);
-      const kcalData    = chartDays.map(d => d.entries > 0 ? Math.round(d.totals.kcal) : null);
-      const netKcalData = chartDays.map(d => d.entries > 0 ? Math.round(d.totals.kcal - (burnedMap[d.date] || 0)) : null);
-      const proteinData = chartDays.map(d => d.entries > 0 ? Math.round(d.totals.protein * 10) / 10 : null);
-      const carbsData   = chartDays.map(d => d.entries > 0 ? Math.round(d.totals.carbs * 10) / 10 : null);
-      const fatData     = chartDays.map(d => d.entries > 0 ? Math.round(d.totals.fat * 10) / 10 : null);
-      const hasWeightData = weightData.some(v => v != null);
-      const hasKcalData   = kcalData.some(v => v != null);
+      const buckets = buildBuckets();
+      const cfg = PERIODS.find(x => x.id === period);
+
+      // ── Bucket drill-down view ────────────────────────────────────────────────
+      if (selectedBucket) {
+        const b = selectedBucket;
+        const bucketDays = [...b.dates].sort((a, z) => z.localeCompare(a)).map(ds => days.find(d => d.date === ds)).filter(Boolean);
+        return (
+          <div style={{ padding: 16, display: "flex", flexDirection: "column", gap: 10 }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+              {backBtn("Verlauf", () => setSelectedBucket(null))}
+              <span style={{ fontFamily: "Syne", fontSize: 15, fontWeight: 700, color: C.text }}>{bucketLabel(b)}</span>
+            </div>
+            {bucketDays.map(day => (
+              <DayCard key={day.date} day={day} onClick={() => openDay(day.date)} />
+            ))}
+          </div>
+        );
+      }
+
+      // ── Overview ─────────────────────────────────────────────────────────────
+      // chart data: buckets oldest→newest
+      const chartBuckets = [...buckets].reverse();
+      const weightData  = chartBuckets.map(b => b.avgWeight != null ? parseFloat(b.avgWeight.toFixed(1)) : null);
+      const kcalData    = chartBuckets.map(b => b.entries > 0 ? Math.round(b.totals.kcal) : null);
+      const burnedData  = chartBuckets.map(b => b.burned > 0 ? Math.round(b.burned) : null);
+      const netKcalData = chartBuckets.map(b => b.entries > 0 ? Math.round(b.totals.kcal - b.burned) : null);
+      const proteinData = chartBuckets.map(b => b.entries > 0 ? Math.round(b.totals.protein * 10) / 10 : null);
+      const carbsData   = chartBuckets.map(b => b.entries > 0 ? Math.round(b.totals.carbs * 10) / 10 : null);
+      const fatData     = chartBuckets.map(b => b.entries > 0 ? Math.round(b.totals.fat * 10) / 10 : null);
       const statsCharts = [
-        { id: "gewicht", label: "Gewicht",   data: weightData,  color: C.weight,  unit: "kg",   dec: 1 },
-        { id: "kcal",    label: "kcal",      data: kcalData,    color: C.kcal,    unit: "kcal", dec: 0 },
+        { id: "gewicht", label: "Gewicht",   data: weightData,  color: C.weight,    unit: "kg",   dec: 1 },
+        { id: "kcal",    label: "kcal",      data: kcalData,    color: C.kcal,      unit: "kcal", dec: 0 },
         { id: "netto",   label: "Netto",     data: netKcalData, color: "#f59e0b88", unit: "kcal", dec: 0 },
-        { id: "burned",  label: "Verbrannt", data: burnedData,  color: C.carbs,   unit: "kcal", dec: 0 },
-        { id: "protein", label: "Eiweiß",  data: proteinData, color: C.protein, unit: "g",    dec: 0 },
-        { id: "carbs",   label: "KH",      data: carbsData,   color: C.carbs,   unit: "g",    dec: 0 },
-        { id: "fat",     label: "Fett",    data: fatData,     color: C.fat,     unit: "g",    dec: 0 },
+        { id: "burned",  label: "Verbrannt", data: burnedData,  color: C.carbs,     unit: "kcal", dec: 0 },
+        { id: "protein", label: "Eiweiß",    data: proteinData, color: C.protein,   unit: "g",    dec: 0 },
+        { id: "carbs",   label: "KH",        data: carbsData,   color: C.carbs,     unit: "g",    dec: 0 },
+        { id: "fat",     label: "Fett",      data: fatData,     color: C.fat,       unit: "g",    dec: 0 },
       ].filter(c => c.data.some(v => v != null));
       const activeSeries = statsCharts.filter(c => activeStats.has(c.id));
       const singleActive = activeSeries.length === 1 ? activeSeries[0] : null;
 
       return (
         <div style={{ padding: 16, display: "flex", flexDirection: "column", gap: 10 }}>
+          {/* Period selector */}
+          <div style={{ display: "flex", background: C.bg, borderRadius: 10, padding: 3, gap: 2, border: `1px solid ${C.border}` }}>
+            {PERIODS.map(p => {
+              const active = period === p.id;
+              return (
+                <button key={p.id} onClick={() => changePeriod(p.id)}
+                  style={{ flex: 1, padding: "6px 0", borderRadius: 8, border: "none", background: active ? C.card : "transparent", color: active ? C.text : C.muted, fontFamily: "Syne", fontSize: 12, fontWeight: active ? 700 : 400, cursor: "pointer", transition: "all 0.15s" }}>
+                  {p.label}
+                </button>
+              );
+            })}
+          </div>
+
           {statsCharts.length > 0 && (
             <Card style={{ padding: "14px 14px 12px" }}>
-              <div style={{ fontFamily: "Syne", fontSize: 10, color: C.muted, textTransform: "uppercase", letterSpacing: 1, marginBottom: 12 }}>7-Tage-Verlauf</div>
+              <div style={{ fontFamily: "Syne", fontSize: 10, color: C.muted, textTransform: "uppercase", letterSpacing: 1, marginBottom: 12 }}>{cfg.chartTitle}</div>
               <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginBottom: 14 }}>
                 {statsCharts.map(c => {
                   const on = activeStats.has(c.id);
                   return (
-                    <button key={c.id} onClick={() => toggleStat(c.id)} style={{ padding: "4px 10px", borderRadius: 20, border: `1px solid ${on ? c.color : C.border}`, background: on ? c.color + "1a" : "transparent", color: on ? c.color : C.muted, fontFamily: "Syne", fontSize: 11, fontWeight: on ? 700 : 400, cursor: "pointer", display: "flex", alignItems: "center", gap: 5 }}>
+                    <button key={c.id} onClick={() => toggleStat(c.id)}
+                      style={{ padding: "4px 10px", borderRadius: 20, border: `1px solid ${on ? c.color : C.border}`, background: on ? c.color + "1a" : "transparent", color: on ? c.color : C.muted, fontFamily: "Syne", fontSize: 11, fontWeight: on ? 700 : 400, cursor: "pointer", display: "flex", alignItems: "center", gap: 5 }}>
                       <span style={{ width: 7, height: 7, borderRadius: "50%", background: on ? c.color : "transparent", border: `1.5px solid ${on ? c.color : C.border}`, display: "inline-block", flexShrink: 0 }} />
                       {c.label}
                     </button>
@@ -1445,11 +1593,11 @@
                 })}
               </div>
               {activeSeries.length > 0 ? (<>
-                <MultiLineChart series={activeSeries} n={7} H={84} />
+                <MultiLineChart series={activeSeries} n={chartBuckets.length} H={84} />
                 <div style={{ display: "flex", marginTop: 6 }}>
-                  {chartDays.map((d, i) => (
-                    <div key={d.date} style={{ flex: 1, textAlign: "center" }}>
-                      <div style={{ fontFamily: "Inter", fontSize: 9, color: C.muted }}>{dayLabelShort(d.date)}</div>
+                  {chartBuckets.map((b, i) => (
+                    <div key={b.key} style={{ flex: 1, textAlign: "center" }}>
+                      <div style={{ fontFamily: "Inter", fontSize: 9, color: C.muted }}>{bucketLabel(b, true)}</div>
                       {singleActive && singleActive.data[i] != null && (
                         <div style={{ fontFamily: "Inter", fontSize: 9, color: singleActive.color, marginTop: 2 }}>
                           {Number(singleActive.data[i]).toFixed(singleActive.dec)}
@@ -1480,44 +1628,47 @@
               )}
             </Card>
           )}
-          <SectionLabel>Letzte 7 Tage</SectionLabel>
-          {days.map(day => {
-            const pct = Math.min((day.totals.kcal / targets.kcal) * 100, 100);
-            const w = bodyWeights[day.date];
-            return (
-              <Card key={day.date} onClick={() => openDay(day.date)}
-                style={{ padding: "12px 14px", opacity: day.entries > 0 || w != null ? 1 : 0.4, cursor: "pointer" }}>
-                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: day.entries > 0 ? 10 : 0 }}>
-                  <div style={{ display: "flex", alignItems: "baseline", gap: 8 }}>
-                    <span style={{ fontFamily: "Syne", fontSize: 14, fontWeight: 700, color: C.text }}>{dayLabel(day.date)}</span>
-                    {w != null && <Mono size={11} color={C.weight}>{w} kg</Mono>}
-                  </div>
-                  {day.entries > 0
-                    ? <div style={{ display: "flex", gap: 6, alignItems: "baseline" }}>
-                        <Mono size={14} color={C.kcal} bold>{Math.round(day.totals.kcal)}</Mono>
-                        <Mono size={10} color={C.muted}>kcal · {day.entries} Eintr.</Mono>
+
+          <SectionLabel>{cfg.label}</SectionLabel>
+
+          {period === "tage"
+            ? buckets.map(b => {
+                const day = days.find(d => d.date === b.key);
+                if (!day) return null;
+                return <DayCard key={b.key} day={day} onClick={() => openDay(b.key)} />;
+              })
+            : buckets.map(b => {
+                const hasData = b.entries > 0 || b.avgWeight != null;
+                return (
+                  <Card key={b.key} onClick={() => setSelectedBucket(b)}
+                    style={{ padding: "12px 14px", opacity: hasData ? 1 : 0.4, cursor: "pointer" }}>
+                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: b.entries > 0 ? 10 : 0 }}>
+                      <div style={{ display: "flex", alignItems: "baseline", gap: 8 }}>
+                        <span style={{ fontFamily: "Syne", fontSize: 14, fontWeight: 700, color: C.text }}>{bucketLabel(b)}</span>
+                        {b.avgWeight != null && <Mono size={11} color={C.weight}>Ø {b.avgWeight.toFixed(1)} kg</Mono>}
                       </div>
-                    : <Mono size={11} color={C.muted}>keine Daten</Mono>
-                  }
-                </div>
-                {day.entries > 0 && (
-                  <>
-                    <div style={{ height: 3, background: "#1e1e1e", borderRadius: 2, marginBottom: 10 }}>
-                      <div style={{ width: `${pct}%`, height: "100%", background: pct >= 90 ? C.carbs : C.kcal, borderRadius: 2 }} />
+                      {b.entries > 0
+                        ? <div style={{ display: "flex", gap: 6, alignItems: "baseline" }}>
+                            <Mono size={14} color={C.kcal} bold>{Math.round(b.totals.kcal)}</Mono>
+                            <Mono size={10} color={C.muted}>kcal · {b.entries} Eintr.</Mono>
+                          </div>
+                        : <Mono size={11} color={C.muted}>keine Daten</Mono>
+                      }
                     </div>
-                    <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 4 }}>
-                      {["protein", "carbs", "fat"].map(m => (
-                        <div key={m} style={{ textAlign: "center" }}>
-                          <Mono size={12} color={MC[m]}>{Math.round(day.totals[m])}g</Mono>
-                          <div style={{ fontFamily: "Inter", fontSize: 9, color: C.muted }}>{LABELS[m]}</div>
-                        </div>
-                      ))}
-                    </div>
-                  </>
-                )}
-              </Card>
-            );
-          })}
+                    {b.entries > 0 && (
+                      <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 4 }}>
+                        {["protein", "carbs", "fat"].map(m => (
+                          <div key={m} style={{ textAlign: "center" }}>
+                            <Mono size={12} color={MC[m]}>{Math.round(b.totals[m])}g</Mono>
+                            <div style={{ fontFamily: "Inter", fontSize: 9, color: C.muted }}>{LABELS[m]}</div>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </Card>
+                );
+              })
+          }
         </div>
       );
     }
