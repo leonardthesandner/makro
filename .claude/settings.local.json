@@ -1,0 +1,9 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(cp \"C:\\\\Users\\\\leona\\\\OneDrive\\\\Desktop\\\\makro\\\\makro-backend\\\\home\\\\claude\\\\makro-backend\\\\services\\\\usda.js\" \"C:\\\\Users\\\\leona\\\\Downloads\\\\makro-backend\\\\home\\\\claude\\\\makro-backend\\\\services\\\\usda.js\")",
+      "Bash(cp \"C:\\\\Users\\\\leona\\\\OneDrive\\\\Desktop\\\\makro\\\\makro-backend\\\\home\\\\claude\\\\makro-backend\\\\services\\\\foodLookup.js\" \"C:\\\\Users\\\\leona\\\\Downloads\\\\makro-backend\\\\home\\\\claude\\\\makro-backend\\\\services\\\\foodLookup.js\")",
+      "Bash(cp \"C:\\\\Users\\\\leona\\\\OneDrive\\\\Desktop\\\\makro\\\\makro-backend\\\\home\\\\claude\\\\makro-backend\\\\routes\\\\analyze.js\" \"C:\\\\Users\\\\leona\\\\Downloads\\\\makro-backend\\\\home\\\\claude\\\\makro-backend\\\\routes\\\\analyze.js\")"
+    ]
+  }
+}

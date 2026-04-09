@@ -1,4 +1,4 @@
-const CACHE = "makro-v4";
+const CACHE = "makro-v5";
 const STATIC = ["fonts.googleapis.com", "fonts.gstatic.com", "unpkg.com"];
 
 self.addEventListener("install", e => {

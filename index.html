@@ -63,7 +63,7 @@
     const C = {
       bg: "#0c0c0c", card: "#161616", border: "#222", accent: "#f59e0b",
       text: "#efefef", muted: "#555", soft: "#2a2a2a",
-      protein: "#60a5fa", carbs: "#34d399", fat: "#fb923c", kcal: "#f59e0b", weight: "#a78bfa",
+      protein: "#60a5fa", carbs: "#34d399", fat: "#f472b6", kcal: "#f59e0b", weight: "#a78bfa", danger: "#f87171",
     };
     const MACROS = ["kcal", "protein", "carbs", "fat"];
     const LABELS = { kcal: "Kalorien", protein: "Eiweiß", carbs: "Kohlenhydrate", fat: "Fett" };
@@ -230,12 +230,12 @@
           <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 5, alignItems: "baseline" }}>
             <span style={{ fontFamily: "Syne", fontSize: 11, color: C.muted, textTransform: "uppercase", letterSpacing: 1 }}>{label}</span>
             <div style={{ display: "flex", gap: 4, alignItems: "baseline" }}>
-              <Mono size={14} color={over ? C.fat : color} bold>{Math.round(current)}</Mono>
+              <Mono size={14} color={over ? C.danger : color} bold>{Math.round(current)}</Mono>
               <Mono size={10} color={C.muted}> / {target}{unit}</Mono>
             </div>
           </div>
           <div style={{ height: 3, background: "#1e1e1e", borderRadius: 2, overflow: "hidden" }}>
-            <div style={{ width: `${pct}%`, height: "100%", background: over ? C.fat : color, borderRadius: 2, transition: "width 0.5s ease" }} />
+            <div style={{ width: `${pct}%`, height: "100%", background: over ? C.danger : color, borderRadius: 2, transition: "width 0.5s ease" }} />
           </div>
         </div>
       );
@@ -243,7 +243,7 @@
 
     const Btn = ({ children, onClick, variant = "primary", disabled, small, full, style: sx }) => {
       const base = { fontFamily: "Syne", fontWeight: 700, borderRadius: 8, border: "none", cursor: disabled ? "not-allowed" : "pointer", opacity: disabled ? 0.45 : 1, padding: small ? "8px 14px" : "12px 20px", fontSize: small ? 13 : 14, width: full ? "100%" : undefined, transition: "opacity 0.15s", ...sx };
-      const v = { primary: { background: C.accent, color: "#000" }, ghost: { background: "transparent", color: C.text, border: `1px solid ${C.border}` }, danger: { background: "transparent", color: C.fat, border: `1px solid #f8717128` } };
+      const v = { primary: { background: C.accent, color: "#000" }, ghost: { background: "transparent", color: C.text, border: `1px solid ${C.border}` }, danger: { background: "transparent", color: C.danger, border: `1px solid #f8717128` } };
       return <button onClick={onClick} disabled={disabled} style={{ ...base, ...v[variant] }}>{children}</button>;
     };
 
@@ -479,12 +479,12 @@
               </div>
             )}
             {transcribing && <div style={{ padding: "2px 16px 6px", fontFamily: "Syne", fontSize: 13, color: C.muted, fontStyle: "italic" }} className="pulsing">Whisper erkennt Sprache…</div>}
-            <div style={{ textAlign: "right", padding: "0 16px 10px", fontFamily: "DM Mono", fontSize: 10, color: text.length >= 180 ? (text.length >= 200 ? C.fat : C.accent) : C.muted }}>{text.length}/200</div>
+            <div style={{ textAlign: "right", padding: "0 16px 10px", fontFamily: "DM Mono", fontSize: 10, color: text.length >= 180 ? (text.length >= 200 ? C.danger : C.accent) : C.muted }}>{text.length}/200</div>
             <div style={{ padding: "8px 12px 12px", display: "flex", justifyContent: "space-between", alignItems: "center", borderTop: `1px solid ${C.border}`, gap: 8 }}>
               <div style={{ display: "flex", gap: 8, flexShrink: 0 }}>
-                <button onClick={toggleVoice} disabled={transcribing} style={{ background: listening ? "#f8717122" : transcribing ? "#f59e0b22" : "transparent", border: `1px solid ${listening ? C.fat : transcribing ? C.accent : C.border}`, borderRadius: 8, padding: "8px 12px", color: listening ? C.fat : transcribing ? C.accent : C.muted, display: "flex", alignItems: "center", gap: 6 }}>
+                <button onClick={toggleVoice} disabled={transcribing} style={{ background: listening ? "#f8717122" : transcribing ? "#f59e0b22" : "transparent", border: `1px solid ${listening ? C.danger : transcribing ? C.accent : C.border}`, borderRadius: 8, padding: "8px 12px", color: listening ? C.danger : transcribing ? C.accent : C.muted, display: "flex", alignItems: "center", gap: 6 }}>
                   <svg className={listening || transcribing ? "pulsing" : ""} width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><rect x="9" y="2" width="6" height="11" rx="3"/><path d="M5 11a7 7 0 0 0 14 0" stroke="currentColor" strokeWidth="2" fill="none" strokeLinecap="round"/><line x1="12" y1="18" x2="12" y2="22" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/><line x1="8" y1="22" x2="16" y2="22" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/></svg>
-                  {listening && <Mono size={11} color={C.fat}>Aufnahme…</Mono>}
+                  {listening && <Mono size={11} color={C.danger}>Aufnahme…</Mono>}
                   {transcribing && <Mono size={11} color={C.accent}>Erkennt…</Mono>}
                 </button>
                 <button onClick={() => setScanning(true)} disabled={barcodeLoading} style={{ background: barcodeLoading ? "#f59e0b22" : "transparent", border: `1px solid ${C.border}`, borderRadius: 8, padding: "8px 12px", color: C.muted, display: "flex", alignItems: "center" }}>
@@ -499,7 +499,7 @@
           </Card>
 
           {loading && <div className="pulsing" style={{ textAlign: "center", padding: 24, fontFamily: "Syne", fontSize: 14, color: C.muted }}>Claude analysiert deine Mahlzeit…</div>}
-          {err && <div style={{ background: "#f8717112", border: `1px solid #f8717128`, borderRadius: 8, padding: "10px 14px", color: C.fat, fontFamily: "Syne", fontSize: 13 }}>{err}</div>}
+          {err && <div style={{ background: "#f8717112", border: `1px solid #f8717128`, borderRadius: 8, padding: "10px 14px", color: C.danger, fontFamily: "Syne", fontSize: 13 }}>{err}</div>}
 
           {recipes.length > 0 && items.length === 0 && !loading && (
             <div style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center" }}>
@@ -533,7 +533,7 @@
                   <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 10 }}>
                     <span style={{ fontFamily: "Syne", fontSize: 14, fontWeight: 700, color: C.text, flex: 1 }}>{item.name_de || item.name}</span>
                     <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
-                      <span style={{ fontFamily: "DM Mono", fontSize: 10, padding: "2px 7px", borderRadius: 4, background: item.found ? "#34d39918" : "#f8717118", color: item.found ? C.carbs : C.fat }}>{item.source === "recipe" ? "rezept" : item.source === "personal" ? "eigen" : item.source === "cache" || item.source === "off" ? "db" : item.found ? "ki" : "?"}</span>
+                      <span style={{ fontFamily: "DM Mono", fontSize: 10, padding: "2px 7px", borderRadius: 4, background: item.found ? "#34d39918" : "#f8717118", color: item.found ? C.carbs : C.danger }}>{item.source === "recipe" ? "rezept" : item.source === "personal" ? "eigen" : item.source === "cache" || item.source === "off" ? "db" : item.found ? "ki" : "?"}</span>
                       <button onClick={() => setItems(p => p.filter((_, idx) => idx !== i))} style={{ background: "none", border: "none", color: "#f8717150", fontSize: 16, padding: "2px 4px" }}>✕</button>
                     </div>
                   </div>
@@ -582,7 +582,7 @@
 
           {barcodeErr && (
             <div style={{ position: "fixed", inset: 0, background: "#000d", zIndex: 190, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", padding: 32, gap: 16 }}>
-              <div style={{ fontFamily: "Syne", fontSize: 14, color: C.fat, textAlign: "center" }}>{barcodeErr}</div>
+              <div style={{ fontFamily: "Syne", fontSize: 14, color: C.danger, textAlign: "center" }}>{barcodeErr}</div>
               <Btn onClick={() => setBarcodeErr(null)} small>OK</Btn>
             </div>
           )}
@@ -751,7 +751,7 @@
             {MACROS.map(m => (
               <Card key={m} style={{ padding: "10px 12px" }}>
                 <div style={{ fontFamily: "Syne", fontSize: 9, color: C.muted, textTransform: "uppercase", letterSpacing: 0.5, marginBottom: 4 }}>Rest {LABELS[m]}</div>
-                <Mono size={20} color={rest[m] < 0 ? C.fat : MC[m]} bold>{rest[m] > 0 ? "+" : ""}{Math.round(rest[m])}</Mono>
+                <Mono size={20} color={rest[m] < 0 ? C.danger : MC[m]} bold>{rest[m] > 0 ? "+" : ""}{Math.round(rest[m])}</Mono>
                 <Mono size={10} color={C.muted}> {UNITS[m]}</Mono>
               </Card>
             ))}
@@ -958,9 +958,9 @@
                 {mpTranscribing && <div style={{ padding: "2px 14px 6px", fontFamily: "Syne", fontSize: 13, color: C.muted, fontStyle: "italic" }} className="pulsing">Whisper erkennt Sprache…</div>}
                 <div style={{ padding: "8px 12px 12px", display: "flex", justifyContent: "space-between", alignItems: "center", borderTop: `1px solid ${C.border}`, gap: 8 }}>
                   <div style={{ display: "flex", gap: 8, flexShrink: 0 }}>
-                    <button onClick={toggleMpVoice} disabled={mpTranscribing} style={{ background: mpListening ? "#f8717122" : mpTranscribing ? "#f59e0b22" : "transparent", border: `1px solid ${mpListening ? C.fat : mpTranscribing ? C.accent : C.border}`, borderRadius: 8, padding: "8px 12px", color: mpListening ? C.fat : mpTranscribing ? C.accent : C.muted, display: "flex", alignItems: "center", gap: 6 }}>
+                    <button onClick={toggleMpVoice} disabled={mpTranscribing} style={{ background: mpListening ? "#f8717122" : mpTranscribing ? "#f59e0b22" : "transparent", border: `1px solid ${mpListening ? C.danger : mpTranscribing ? C.accent : C.border}`, borderRadius: 8, padding: "8px 12px", color: mpListening ? C.danger : mpTranscribing ? C.accent : C.muted, display: "flex", alignItems: "center", gap: 6 }}>
                       <svg className={mpListening || mpTranscribing ? "pulsing" : ""} width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><rect x="9" y="2" width="6" height="11" rx="3"/><path d="M5 11a7 7 0 0 0 14 0" stroke="currentColor" strokeWidth="2" fill="none" strokeLinecap="round"/><line x1="12" y1="18" x2="12" y2="22" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/><line x1="8" y1="22" x2="16" y2="22" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/></svg>
-                      {mpListening && <Mono size={11} color={C.fat}>Aufnahme…</Mono>}
+                      {mpListening && <Mono size={11} color={C.danger}>Aufnahme…</Mono>}
                       {mpTranscribing && <Mono size={11} color={C.accent}>Erkennt…</Mono>}
                     </button>
                     <button onClick={() => setMpScanning(true)} disabled={mpBarcodeLoading} style={{ background: mpBarcodeLoading ? "#f59e0b22" : "transparent", border: `1px solid ${C.border}`, borderRadius: 8, padding: "8px 12px", color: C.muted, display: "flex", alignItems: "center" }}>
@@ -976,7 +976,7 @@
             )}
 
             {step === STEP.analyzing && <div className="pulsing" style={{ textAlign: "center", padding: 32, fontFamily: "Syne", fontSize: 14, color: C.muted }}>Claude analysiert die Zutaten…</div>}
-            {err && <div style={{ background: "#f8717112", border: `1px solid #f8717128`, borderRadius: 8, padding: "10px 14px", color: C.fat, fontFamily: "Syne", fontSize: 13 }}>{err}</div>}
+            {err && <div style={{ background: "#f8717112", border: `1px solid #f8717128`, borderRadius: 8, padding: "10px 14px", color: C.danger, fontFamily: "Syne", fontSize: 13 }}>{err}</div>}
 
             {step === STEP.naming && (
               <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
@@ -1098,7 +1098,7 @@
 
           {mpBarcodeErr && (
             <div style={{ position: "fixed", inset: 0, background: "#000d", zIndex: 190, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", padding: 32, gap: 16 }}>
-              <div style={{ fontFamily: "Syne", fontSize: 14, color: C.fat, textAlign: "center" }}>{mpBarcodeErr}</div>
+              <div style={{ fontFamily: "Syne", fontSize: 14, color: C.danger, textAlign: "center" }}>{mpBarcodeErr}</div>
               <Btn onClick={() => setMpBarcodeErr(null)} small>OK</Btn>
             </div>
           )}
@@ -1351,7 +1351,7 @@
                     {MACROS.map(m => (
                       <Card key={m} style={{ padding: "10px 12px" }}>
                         <div style={{ fontFamily: "Syne", fontSize: 9, color: C.muted, textTransform: "uppercase", letterSpacing: 0.5, marginBottom: 4 }}>Rest {LABELS[m]}</div>
-                        <Mono size={20} color={rest[m] < 0 ? C.fat : MC[m]} bold>{rest[m] > 0 ? "+" : ""}{Math.round(rest[m])}</Mono>
+                        <Mono size={20} color={rest[m] < 0 ? C.danger : MC[m]} bold>{rest[m] > 0 ? "+" : ""}{Math.round(rest[m])}</Mono>
                         <Mono size={10} color={C.muted}> {UNITS[m]}</Mono>
                       </Card>
                     ))}
@@ -1532,15 +1532,15 @@
       const [confirm, setConfirm] = useState(false);
       const [loading, setLoading] = useState(false);
       if (!confirm) return (
-        <button onClick={() => setConfirm(true)} style={{ background: "none", border: `1px solid #f8717140`, borderRadius: 8, padding: "10px 14px", color: C.fat, fontFamily: "Syne", fontSize: 13, cursor: "pointer", width: "100%", textAlign: "left" }}>
+        <button onClick={() => setConfirm(true)} style={{ background: "none", border: `1px solid #f8717140`, borderRadius: 8, padding: "10px 14px", color: C.danger, fontFamily: "Syne", fontSize: 13, cursor: "pointer", width: "100%", textAlign: "left" }}>
           Account löschen
         </button>
       );
       return (
         <div style={{ background: "#f8717110", border: `1px solid #f8717130`, borderRadius: 8, padding: "12px 14px", display: "flex", flexDirection: "column", gap: 10 }}>
-          <div style={{ fontFamily: "Syne", fontSize: 13, color: C.fat, lineHeight: 1.5 }}>Wirklich löschen? Alle Daten (Tagebuch, Mealpreps, Gewicht) werden unwiderruflich gelöscht.</div>
+          <div style={{ fontFamily: "Syne", fontSize: 13, color: C.danger, lineHeight: 1.5 }}>Wirklich löschen? Alle Daten (Tagebuch, Mealpreps, Gewicht) werden unwiderruflich gelöscht.</div>
           <div style={{ display: "flex", gap: 8 }}>
-            <button onClick={async () => { setLoading(true); await onDelete(); }} disabled={loading} style={{ flex: 1, background: C.fat, border: "none", borderRadius: 6, padding: "10px", color: "#000", fontFamily: "Syne", fontSize: 13, fontWeight: 700, cursor: "pointer" }}>
+            <button onClick={async () => { setLoading(true); await onDelete(); }} disabled={loading} style={{ flex: 1, background: C.danger, border: "none", borderRadius: 6, padding: "10px", color: "#000", fontFamily: "Syne", fontSize: 13, fontWeight: 700, cursor: "pointer" }}>
               {loading ? "…" : "Ja, löschen"}
             </button>
             <button onClick={() => setConfirm(false)} style={{ flex: 1, background: "none", border: `1px solid ${C.border}`, borderRadius: 6, padding: "10px", color: C.muted, fontFamily: "Syne", fontSize: 13, cursor: "pointer" }}>
@@ -1616,7 +1616,7 @@
               <button onClick={calculate} disabled={calculating || !parseFloat(pForm.weight)} style={{ background: calculating ? C.soft : C.accent, border: "none", borderRadius: 8, padding: "10px 16px", color: calculating ? C.muted : "#000", fontFamily: "Syne", fontSize: 13, fontWeight: 700, cursor: calculating || !parseFloat(pForm.weight) ? "default" : "pointer", width: "100%" }}>
                 {calculating ? "KI berechnet…" : "Makros von KI berechnen lassen →"}
               </button>
-              {calcErr && <div style={{ fontFamily: "Syne", fontSize: 11, color: C.fat }}>{calcErr}</div>}
+              {calcErr && <div style={{ fontFamily: "Syne", fontSize: 11, color: C.danger }}>{calcErr}</div>}
             </div>
 
             <div style={{ fontFamily: "Syne", fontSize: 10, color: C.muted, textTransform: "uppercase", letterSpacing: 1, marginBottom: 10 }}>Tagesziele</div>
@@ -1862,7 +1862,7 @@
         ) : (
           <div style={{ width: "100%", display: "flex", flexDirection: "column", gap: 12 }}>
             <input type="email" placeholder="E-Mail-Adresse" value={email} onChange={e => setEmail(e.target.value)} onKeyDown={e => e.key === "Enter" && submitForgot()} style={inputStyle} />
-            {err && <div style={{ background: "#f8717112", border: `1px solid #f8717128`, borderRadius: 8, padding: "10px 14px", color: C.fat, fontFamily: "Syne", fontSize: 13 }}>{err}</div>}
+            {err && <div style={{ background: "#f8717112", border: `1px solid #f8717128`, borderRadius: 8, padding: "10px 14px", color: C.danger, fontFamily: "Syne", fontSize: 13 }}>{err}</div>}
             <Btn onClick={submitForgot} disabled={loading || !email.trim()} full>{loading ? "…" : "Reset-Link senden →"}</Btn>
             <button onClick={goLogin} style={{ background: "none", border: "none", color: C.muted, fontFamily: "Syne", fontSize: 13, cursor: "pointer", padding: 8, marginTop: 4 }}>Zurück zum Login</button>
           </div>
@@ -1882,7 +1882,7 @@
           <div style={{ width: "100%", display: "flex", flexDirection: "column", gap: 12 }}>
             <input type="password" placeholder="Neues Passwort" value={newPassword} onChange={e => setNewPassword(e.target.value)} style={inputStyle} />
             <input type="password" placeholder="Passwort bestätigen" value={newPassword2} onChange={e => setNewPassword2(e.target.value)} onKeyDown={e => e.key === "Enter" && submitReset()} style={inputStyle} />
-            {err && <div style={{ background: "#f8717112", border: `1px solid #f8717128`, borderRadius: 8, padding: "10px 14px", color: C.fat, fontFamily: "Syne", fontSize: 13 }}>{err}</div>}
+            {err && <div style={{ background: "#f8717112", border: `1px solid #f8717128`, borderRadius: 8, padding: "10px 14px", color: C.danger, fontFamily: "Syne", fontSize: 13 }}>{err}</div>}
             <Btn onClick={submitReset} disabled={loading || !newPassword || !newPassword2} full>{loading ? "…" : "Passwort speichern →"}</Btn>
           </div>
         )}
@@ -1895,7 +1895,7 @@
         <div style={{ width: "100%", display: "flex", flexDirection: "column", gap: 12 }}>
           <input type="email" placeholder="E-Mail-Adresse" value={email} onChange={e => setEmail(e.target.value)} onKeyDown={e => e.key === "Enter" && submit()} style={inputStyle} />
           <input type="password" placeholder="Passwort" value={password} onChange={e => setPassword(e.target.value)} onKeyDown={e => e.key === "Enter" && submit()} style={inputStyle} />
-          {err && <div style={{ background: "#f8717112", border: `1px solid #f8717128`, borderRadius: 8, padding: "10px 14px", color: C.fat, fontFamily: "Syne", fontSize: 13 }}>{err}</div>}
+          {err && <div style={{ background: "#f8717112", border: `1px solid #f8717128`, borderRadius: 8, padding: "10px 14px", color: C.danger, fontFamily: "Syne", fontSize: 13 }}>{err}</div>}
           <Btn onClick={submit} disabled={loading || !email.trim() || !password} full>
             {loading ? "…" : mode === "login" ? "Anmelden →" : "Registrieren →"}
           </Btn>
