@@ -537,7 +537,7 @@
                     {MACROS.map(m => (
                       <div key={m}>
                         <div style={{ fontFamily: "Syne", fontSize: 9, color: MC[m], textTransform: "uppercase", letterSpacing: 0.5, marginBottom: 3 }}>{m}</div>
-                        <input type="number" value={Math.round(item[m] * 10) / 10} onChange={e => update(i, m, e.target.value)} style={{ ...inputStyle, fontFamily: "DM Mono", fontSize: 13, color: MC[m], padding: "6px 8px" }} />
+                        <input type="number" value={item[m] ? Math.round(item[m] * 10) / 10 : ""} placeholder="0" onChange={e => update(i, m, e.target.value)} style={{ ...inputStyle, fontFamily: "DM Mono", fontSize: 13, color: MC[m], padding: "6px 8px" }} />
                       </div>
                     ))}
                   </div>
@@ -671,7 +671,7 @@
                   {MACROS.map(m => (
                     <div key={m}>
                       <div style={{ fontFamily: "Syne", fontSize: 9, color: MC[m], textTransform: "uppercase", letterSpacing: 0.5, marginBottom: 3 }}>{m}</div>
-                      <input type="number" value={Math.round(item[m] * 10) / 10} onChange={e => update(i, m, e.target.value)} style={{ ...inputStyle, color: MC[m] }} />
+                      <input type="number" value={item[m] ? Math.round(item[m] * 10) / 10 : ""} placeholder="0" onChange={e => update(i, m, e.target.value)} style={{ ...inputStyle, color: MC[m] }} />
                     </div>
                   ))}
                 </div>
@@ -779,11 +779,12 @@
       );
     }
 
-    function MealprepTab({ recipes, onAdd, onDelete, onArchive, archive, voiceLang }) {
+    function MealprepTab({ recipes, onAdd, onDelete, onArchive, archive, voiceLang, userFoods }) {
       const STEP = { idle: "idle", entering: "entering", analyzing: "analyzing", naming: "naming" };
       const [step, setStep] = useState(STEP.idle);
       const [subTab, setSubTab] = useState("aktiv");
       const [ingredientText, setIngredientText] = useState("");
+      const mpTextareaRef = useRef(null);
       const [items, setItems] = useState([]);
       const [mealName, setMealName] = useState("");
       const [cookedWeight, setCookedWeight] = useState("");
@@ -798,6 +799,28 @@
       const [mpScannedProduct, setMpScannedProduct] = useState(null);
       const [mpBarcodeWeight, setMpBarcodeWeight] = useState("100");
       const inputStyle = { background: "#111", border: `1px solid ${C.border}`, borderRadius: 6, padding: "9px 10px", color: C.text, fontFamily: "Syne", fontSize: 14, outline: "none", width: "100%" };
+
+      const getMpWord = () => {
+        const el = mpTextareaRef.current;
+        if (!el) return "";
+        const before = ingredientText.slice(0, el.selectionStart);
+        const match = before.match(/([a-zA-ZäöüÄÖÜß]+)$/);
+        return match ? match[1] : "";
+      };
+      const mpAcWord = step === STEP.entering && !mpTranscribing && userFoods ? getMpWord() : "";
+      const mpSuggestions = mpAcWord.length >= 2
+        ? userFoods.filter(f => f.name.toLowerCase().startsWith(mpAcWord.toLowerCase())).slice(0, 5)
+        : [];
+      const applyMpSuggestion = (food) => {
+        const el = mpTextareaRef.current;
+        if (!el) return;
+        const pos = el.selectionStart;
+        const before = ingredientText.slice(0, pos);
+        const after = ingredientText.slice(pos);
+        const newBefore = before.replace(/([a-zA-ZäöüÄÖÜß]+)$/, food.name);
+        setIngredientText(newBefore + after);
+        setTimeout(() => { el.focus(); el.setSelectionRange(newBefore.length, newBefore.length); }, 0);
+      };
 
       const analyze = async () => {
         if (!ingredientText.trim()) return;
@@ -910,9 +933,20 @@
             {step === STEP.entering && (
               <Card accent style={{ display: "flex", flexDirection: "column" }}>
                 <div style={{ padding: "12px 14px 0", fontFamily: "Syne", fontSize: 12, color: C.accent, marginBottom: 6 }}>Zutaten eingeben (roh, vor dem Kochen)</div>
-                <textarea value={ingredientText} onChange={e => setIngredientText(e.target.value)}
+                <textarea ref={mpTextareaRef} value={ingredientText} onChange={e => setIngredientText(e.target.value)}
                   placeholder={"1000g rohes Hühnchen\n1 Dose gehackte Tomaten\n1 EL Olivenöl\n1 Packung Sahne 20%\nSalz, Pfeffer, Knoblauch"}
                   style={{ width: "100%", minHeight: 140, background: "transparent", border: "none", outline: "none", padding: "8px 14px 12px", color: C.text, fontFamily: "Syne", fontSize: 15, lineHeight: 1.7 }} />
+                {mpSuggestions.length > 0 && (
+                  <div style={{ display: "flex", gap: 6, flexWrap: "wrap", padding: "0 12px 10px" }}>
+                    {mpSuggestions.map(f => (
+                      <button key={f.id} onMouseDown={e => { e.preventDefault(); applyMpSuggestion(f); }}
+                        style={{ fontFamily: "Syne", fontSize: 12, fontWeight: 600, padding: "4px 10px", borderRadius: 16, background: "#1a1a2e", border: `1px solid ${C.accent}44`, color: C.accent, cursor: "pointer" }}>
+                        {f.name}
+                        <span style={{ fontFamily: "DM Mono", fontSize: 10, color: C.muted, marginLeft: 5 }}>{Math.round(parseFloat(f.kcal_100))} kcal</span>
+                      </button>
+                    ))}
+                  </div>
+                )}
                 {mpTranscribing && <div style={{ padding: "2px 14px 6px", fontFamily: "Syne", fontSize: 13, color: C.muted, fontStyle: "italic" }} className="pulsing">Whisper erkennt Sprache…</div>}
                 <div style={{ padding: "8px 12px 12px", display: "flex", justifyContent: "space-between", alignItems: "center", borderTop: `1px solid ${C.border}`, gap: 8 }}>
                   <div style={{ display: "flex", gap: 8, flexShrink: 0 }}>
@@ -2157,7 +2191,7 @@
           <div style={{ flex: 1, overflowY: "auto", WebkitOverflowScrolling: "touch" }}>
             <div style={{ display: tab === "input" ? "contents" : "none" }}><InputTab recipes={recipes} onSave={addEntry} voiceLang={voiceLang} userFoods={userFoods} /></div>
             {tab === "today"     && <TodayTab entries={entries} targets={targets} onDelete={deleteEntry} onEdit={e => setEditingEntry(e)} burnedKcal={burnedToday} onSaveBurned={async (v) => { await saveBodyWeightAPI(todayStr(), null, v); setBurnedToday(v); }} />}
-            {tab === "mealprep"  && <MealprepTab recipes={recipes} onAdd={addRecipe} onDelete={removeRecipe} onArchive={archiveRecipe} archive={archive} voiceLang={voiceLang} />}
+            {tab === "mealprep"  && <MealprepTab recipes={recipes} onAdd={addRecipe} onDelete={removeRecipe} onArchive={archiveRecipe} archive={archive} voiceLang={voiceLang} userFoods={userFoods} />}
             {tab === "history"   && <HistoryTab targets={targets} loadRange={loadDiaryRange} loadDay={loadDiaryEntries} onDelete={deleteEntry} updateEntry={updateDiaryEntry} loadBodyWeights={loadBodyWeightRange} saveBodyWeight={saveBodyWeightAPI} />}
             {tab === "userfoods" && <UserFoodsTab userFoods={userFoods} onAdd={addUserFood} onUpdate={updateUserFood} onDelete={deleteUserFood} />}
           </div>
