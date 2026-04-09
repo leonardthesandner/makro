@@ -36,12 +36,16 @@
     ::-webkit-scrollbar-thumb { background: #2a2a2a; border-radius: 2px; }
     @keyframes fadeUp { from { opacity:0; transform:translateY(10px); } to { opacity:1; transform:translateY(0); } }
     @keyframes pulse { 0%,100% { opacity:1; } 50% { opacity:0.3; } }
-    @keyframes slideFromRight { from { opacity:0.4; transform:translateX(48px); } to { opacity:1; transform:translateX(0); } }
-    @keyframes slideFromLeft  { from { opacity:0.4; transform:translateX(-48px); } to { opacity:1; transform:translateX(0); } }
+    @keyframes slideFromRight { from { transform:translateX(100%); } to { transform:translateX(0); } }
+    @keyframes slideFromLeft  { from { transform:translateX(-100%); } to { transform:translateX(0); } }
+    @keyframes slideToLeft    { from { transform:translateX(0); } to { transform:translateX(-100%); } }
+    @keyframes slideToRight   { from { transform:translateX(0); } to { transform:translateX(100%); } }
     .fade-up { animation: fadeUp 0.25s ease forwards; }
     .pulsing { animation: pulse 1.4s ease infinite; }
-    .slide-from-right { animation: slideFromRight 0.22s cubic-bezier(0.25,0.46,0.45,0.94) forwards; }
-    .slide-from-left  { animation: slideFromLeft  0.22s cubic-bezier(0.25,0.46,0.45,0.94) forwards; }
+    .slide-from-right { animation: slideFromRight 0.28s ease-out forwards; }
+    .slide-from-left  { animation: slideFromLeft  0.28s ease-out forwards; }
+    .slide-to-left    { animation: slideToLeft    0.28s ease-out forwards; }
+    .slide-to-right   { animation: slideToRight   0.28s ease-out forwards; }
   </style>
 </head>
 <body>
@@ -2165,13 +2169,17 @@
       };
 
       const [slideDir, setSlideDir] = useState("right");
+      const [outTab, setOutTab] = useState(null);
       const swipeRef = useRef({});
       const TAB_IDS = TABS.map(t => t.id);
       const changeTab = (newId) => {
+        if (newId === tab || outTab) return;
         const dir = TAB_IDS.indexOf(newId) > TAB_IDS.indexOf(tab) ? "right" : "left";
         setSlideDir(dir);
+        setOutTab(tab);
         setTab(newId);
       };
+      const onAnimEnd = () => setOutTab(null);
       const onTouchStart = (e) => {
         swipeRef.current = { x: e.touches[0].clientX, y: e.touches[0].clientY };
       };
@@ -2212,16 +2220,32 @@
               <button onClick={() => setSettings(true)} style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 10, padding: "8px 12px", color: C.muted, fontSize: 16 }}>⚙</button>
             </div>
           </div>
-          <div style={{ flex: 1, overflowY: "auto", WebkitOverflowScrolling: "touch", position: "relative" }} onTouchStart={onTouchStart} onTouchEnd={onTouchEnd}>
-            {/* InputTab stays always mounted to preserve state */}
-            <div style={{ display: tab === "input" ? "block" : "none" }}><InputTab recipes={recipes} onSave={addEntry} voiceLang={voiceLang} userFoods={userFoods} /></div>
-            {/* Other tabs animate in/out */}
+          <div style={{ flex: 1, overflow: "hidden", position: "relative" }} onTouchStart={onTouchStart} onTouchEnd={onTouchEnd}>
+            {/* InputTab always mounted — shown as positioned panel when active or animating */}
+            <div style={tab === "input" || outTab === "input" ? { position: "absolute", inset: 0, overflowY: "auto", WebkitOverflowScrolling: "touch", zIndex: 1 } : { display: "none" }}
+              className={tab === "input" && outTab ? `slide-from-${slideDir}` : outTab === "input" ? `slide-to-${slideDir === "right" ? "left" : "right"}` : ""}
+              onAnimationEnd={outTab === "input" ? onAnimEnd : undefined}>
+              <InputTab recipes={recipes} onSave={addEntry} voiceLang={voiceLang} userFoods={userFoods} />
+            </div>
+            {/* Incoming non-input tab */}
             {tab !== "input" && (
-              <div key={tab} className={`slide-from-${slideDir}`}>
+              <div key={"in-" + tab} style={{ position: "absolute", inset: 0, overflowY: "auto", WebkitOverflowScrolling: "touch", zIndex: 1 }}
+                className={outTab ? `slide-from-${slideDir}` : ""}>
                 {tab === "today"     && <TodayTab entries={entries} targets={targets} onDelete={deleteEntry} onEdit={e => setEditingEntry(e)} burnedKcal={burnedToday} onSaveBurned={async (v) => { await saveBodyWeightAPI(todayStr(), null, v); setBurnedToday(v); }} />}
                 {tab === "mealprep"  && <MealprepTab recipes={recipes} onAdd={addRecipe} onDelete={removeRecipe} onArchive={archiveRecipe} archive={archive} voiceLang={voiceLang} userFoods={userFoods} />}
                 {tab === "history"   && <HistoryTab targets={targets} loadRange={loadDiaryRange} loadDay={loadDiaryEntries} onDelete={deleteEntry} updateEntry={updateDiaryEntry} loadBodyWeights={loadBodyWeightRange} saveBodyWeight={saveBodyWeightAPI} />}
                 {tab === "userfoods" && <UserFoodsTab userFoods={userFoods} onAdd={addUserFood} onUpdate={updateUserFood} onDelete={deleteUserFood} />}
+              </div>
+            )}
+            {/* Outgoing non-input tab */}
+            {outTab && outTab !== "input" && (
+              <div key={"out-" + outTab} style={{ position: "absolute", inset: 0, overflowY: "auto", WebkitOverflowScrolling: "touch", zIndex: 1 }}
+                className={`slide-to-${slideDir === "right" ? "left" : "right"}`}
+                onAnimationEnd={onAnimEnd}>
+                {outTab === "today"     && <TodayTab entries={entries} targets={targets} onDelete={deleteEntry} onEdit={e => setEditingEntry(e)} burnedKcal={burnedToday} onSaveBurned={async (v) => { await saveBodyWeightAPI(todayStr(), null, v); setBurnedToday(v); }} />}
+                {outTab === "mealprep"  && <MealprepTab recipes={recipes} onAdd={addRecipe} onDelete={removeRecipe} onArchive={archiveRecipe} archive={archive} voiceLang={voiceLang} userFoods={userFoods} />}
+                {outTab === "history"   && <HistoryTab targets={targets} loadRange={loadDiaryRange} loadDay={loadDiaryEntries} onDelete={deleteEntry} updateEntry={updateDiaryEntry} loadBodyWeights={loadBodyWeightRange} saveBodyWeight={saveBodyWeightAPI} />}
+                {outTab === "userfoods" && <UserFoodsTab userFoods={userFoods} onAdd={addUserFood} onUpdate={updateUserFood} onDelete={deleteUserFood} />}
               </div>
             )}
           </div>
