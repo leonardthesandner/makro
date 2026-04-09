@@ -328,7 +328,7 @@
         return match ? match[1] : "";
       };
 
-      const acWord = items.length === 0 && !loading ? getCurrentWord() : "";
+      const acWord = !loading ? getCurrentWord() : "";
       const acSuggestions = acWord.length >= 2 && userFoods
         ? userFoods.filter(f => f.name.toLowerCase().startsWith(acWord.toLowerCase())).slice(0, 5)
         : [];
@@ -339,8 +339,9 @@
         const p = parseFloat(food.protein_100) || 0;
         const c = parseFloat(food.carbs_100) || 0;
         const f = parseFloat(food.fat_100) || 0;
-        setText(food.name);
-        setItems([{ name_de: food.name, weight_g: w, kcal: Math.round(k * w / 100), protein: Math.round(p * w / 100 * 10) / 10, carbs: Math.round(c * w / 100 * 10) / 10, fat: Math.round(f * w / 100 * 10) / 10, kcal_100: k, protein_100: p, carbs_100: c, fat_100: f, source: "personal" }]);
+        setItems(prev => [...prev, { name_de: food.name, weight_g: w, kcal: Math.round(k * w / 100), protein: Math.round(p * w / 100 * 10) / 10, carbs: Math.round(c * w / 100 * 10) / 10, fat: Math.round(f * w / 100 * 10) / 10, kcal_100: k, protein_100: p, carbs_100: c, fat_100: f, source: "personal" }]);
+        setText("");
+        setTimeout(() => textareaRef.current?.focus(), 0);
       };
 
       const toggleVoice = async () => {
