@@ -28,7 +28,7 @@
   <style>
     * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
     html, body, #root { height: 100%; height: -webkit-fill-available; background: #0c0c0c; }
-    body { overflow: hidden; }
+    body { overflow: hidden; font-feature-settings: "zero" 0; }
     textarea { resize: none; -webkit-appearance: none; }
     input { -webkit-appearance: none; }
     input[type=number]::-webkit-inner-spin-button { opacity: 0.4; }
@@ -217,7 +217,7 @@
     }
 
     const Mono = ({ children, size = 15, color = C.text, bold }) => (
-      <span style={{ fontFamily: "DM Mono, monospace", fontSize: size, color, fontWeight: bold ? 500 : 400 }}>
+      <span style={{ fontFamily: "DM Mono, monospace", fontSize: size, color, fontWeight: bold ? 500 : 400, fontFeatureSettings: '"zero" 0' }}>
         {children}
       </span>
     );
