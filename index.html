@@ -329,13 +329,13 @@
         : [];
 
       const applySuggestion = (food) => {
-        const w = 100;
+        const w = parseFloat(food.serving_g) || 100;
         const k = parseFloat(food.kcal_100) || 0;
         const p = parseFloat(food.protein_100) || 0;
         const c = parseFloat(food.carbs_100) || 0;
         const f = parseFloat(food.fat_100) || 0;
         setText(food.name);
-        setItems([{ name_de: food.name, weight_g: w, kcal: Math.round(k), protein: Math.round(p * 10) / 10, carbs: Math.round(c * 10) / 10, fat: Math.round(f * 10) / 10, kcal_100: k, protein_100: p, carbs_100: c, fat_100: f, source: "personal" }]);
+        setItems([{ name_de: food.name, weight_g: w, kcal: Math.round(k * w / 100), protein: Math.round(p * w / 100 * 10) / 10, carbs: Math.round(c * w / 100 * 10) / 10, fat: Math.round(f * w / 100 * 10) / 10, kcal_100: k, protein_100: p, carbs_100: c, fat_100: f, source: "personal" }]);
       };
 
       const toggleVoice = async () => {
