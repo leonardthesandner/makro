@@ -278,10 +278,23 @@
           (text) => {
             if (done) return;
             done = true;
-            onScan(text); // Cleanup stoppt den Scanner — kein doppelter Stop
+            onScan(text);
           },
           () => {}
-        ).catch(() => {
+        ).then(() => {
+          // Kontinuierlichen Autofokus erzwingen (Makro-Modus für Nahaufnahmen)
+          const video = document.querySelector("#bc-div video");
+          if (video?.srcObject) {
+            const track = video.srcObject.getVideoTracks()[0];
+            if (track) {
+              const caps = track.getCapabilities?.() || {};
+              const constraints = { advanced: [] };
+              if (caps.focusMode?.includes("continuous")) constraints.advanced.push({ focusMode: "continuous" });
+              if (caps.zoom) constraints.advanced.push({ zoom: caps.zoom.min ?? 1 });
+              if (constraints.advanced.length) track.applyConstraints(constraints).catch(() => {});
+            }
+          }
+        }).catch(() => {
           if (!done) setErr("Kamera-Zugriff verweigert oder nicht verfügbar.");
         });
 
