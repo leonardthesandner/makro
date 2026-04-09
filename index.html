@@ -554,12 +554,12 @@
                   <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr 1fr 1fr", gap: 8 }}>
                     <div>
                       <div style={{ fontFamily: "Syne", fontSize: 9, color: C.muted, textTransform: "uppercase", letterSpacing: 0.5, marginBottom: 3 }}>Gramm</div>
-                      <input type="number" value={item.weight_g} onChange={e => update(i, "weight_g", e.target.value)} style={{ ...inputStyle, fontFamily: "Inconsolata", fontSize: 13, color: C.text, padding: "6px 8px" }} />
+                      <input type="text" inputMode="decimal" value={item.weight_g} onChange={e => update(i, "weight_g", e.target.value)} style={{ ...inputStyle, fontFamily: "Inconsolata", fontSize: 13, color: C.text, padding: "6px 8px" }} />
                     </div>
                     {MACROS.map(m => (
                       <div key={m}>
                         <div style={{ fontFamily: "Syne", fontSize: 9, color: MC[m], textTransform: "uppercase", letterSpacing: 0.5, marginBottom: 3 }}>{m}</div>
-                        <input type="number" value={item[m] ? Math.round(item[m] * 10) / 10 : ""} placeholder="0" onChange={e => update(i, m, e.target.value)} style={{ ...inputStyle, fontFamily: "Inconsolata", fontSize: 13, color: MC[m], padding: "6px 8px" }} />
+                        <input type="text" inputMode="decimal" value={item[m] ? Math.round(item[m] * 10) / 10 : ""} placeholder="0" onChange={e => update(i, m, e.target.value)} style={{ ...inputStyle, fontFamily: "Inconsolata", fontSize: 13, color: MC[m], padding: "6px 8px" }} />
                       </div>
                     ))}
                   </div>
@@ -618,7 +618,7 @@
                   )}
                 </div>
                 <div style={{ display: "flex", gap: 10, alignItems: "center", marginBottom: 16 }}>
-                  <input type="number" value={barcodeWeight} onChange={e => setBarcodeWeight(e.target.value)} autoFocus
+                  <input type="text" inputMode="decimal" value={barcodeWeight} onChange={e => setBarcodeWeight(e.target.value)} autoFocus
                     style={{ flex: 1, background: "#111", border: `1px solid ${C.border}`, borderRadius: 8, padding: "12px 14px", color: C.text, fontFamily: "Inconsolata", fontSize: 18, outline: "none", textAlign: "center" }} />
                   <span style={{ fontFamily: "Syne", fontSize: 16, color: C.muted }}>g</span>
                 </div>
@@ -688,12 +688,12 @@
                 <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr 1fr 1fr", gap: 8 }}>
                   <div>
                     <div style={{ fontFamily: "Syne", fontSize: 9, color: C.muted, textTransform: "uppercase", letterSpacing: 0.5, marginBottom: 3 }}>Gramm</div>
-                    <input type="number" value={item.weight_g} onChange={e => update(i, "weight_g", e.target.value)} style={{ ...inputStyle, color: C.text }} />
+                    <input type="text" inputMode="decimal" value={item.weight_g} onChange={e => update(i, "weight_g", e.target.value)} style={{ ...inputStyle, color: C.text }} />
                   </div>
                   {MACROS.map(m => (
                     <div key={m}>
                       <div style={{ fontFamily: "Syne", fontSize: 9, color: MC[m], textTransform: "uppercase", letterSpacing: 0.5, marginBottom: 3 }}>{m}</div>
-                      <input type="number" value={item[m] ? Math.round(item[m] * 10) / 10 : ""} placeholder="0" onChange={e => update(i, m, e.target.value)} style={{ ...inputStyle, color: MC[m] }} />
+                      <input type="text" inputMode="decimal" value={item[m] ? Math.round(item[m] * 10) / 10 : ""} placeholder="0" onChange={e => update(i, m, e.target.value)} style={{ ...inputStyle, color: MC[m] }} />
                     </div>
                   ))}
                 </div>
@@ -755,7 +755,7 @@
           <Card style={{ padding: "12px 14px" }}>
             <div style={{ fontFamily: "Syne", fontSize: 10, color: C.muted, textTransform: "uppercase", letterSpacing: 1, marginBottom: 10 }}>Aktiv verbrannte kcal</div>
             <div style={{ display: "flex", gap: 10, alignItems: "center" }}>
-              <input type="number" value={burnedInput} onChange={e => { setBurnedInput(e.target.value); setBurnedSaved(false); }} placeholder="0" min="0" max="5000" style={inputStyle} />
+              <input type="text" inputMode="decimal" value={burnedInput} onChange={e => { setBurnedInput(e.target.value); setBurnedSaved(false); }} placeholder="0" min="0" max="5000" style={inputStyle} />
               <span style={{ fontFamily: "Syne", fontSize: 13, color: C.muted }}>kcal</span>
               <Btn small onClick={saveBurned} disabled={burnedSaving}>{burnedSaving ? "…" : "Speichern"}</Btn>
               {burnedSaved && <Mono size={11} color={C.carbs}>✓</Mono>}
@@ -1005,7 +1005,7 @@
                       {MACROS.map(m => (
                         <div key={m}>
                           <div style={{ fontFamily: "Syne", fontSize: 9, color: MC[m], textTransform: "uppercase", marginBottom: 2 }}>{m}</div>
-                          <input type="number" value={Math.round(item[m] * 10) / 10} onChange={e => updateItem(i, m, e.target.value)} style={{ ...inputStyle, fontFamily: "Inconsolata", fontSize: 13, color: MC[m], padding: "6px 8px" }} />
+                          <input type="text" inputMode="decimal" value={Math.round(item[m] * 10) / 10} onChange={e => updateItem(i, m, e.target.value)} style={{ ...inputStyle, fontFamily: "Inconsolata", fontSize: 13, color: MC[m], padding: "6px 8px" }} />
                         </div>
                       ))}
                     </div>
@@ -1028,7 +1028,7 @@
                     </div>
                     <div>
                       <div style={{ fontFamily: "Syne", fontSize: 10, color: C.muted, marginBottom: 4 }}>Fertig gekochtes Gesamtgewicht (g) — bitte abwiegen!</div>
-                      <input type="number" placeholder="z.B. 1400" value={cookedWeight} onChange={e => setCookedWeight(e.target.value)} style={inputStyle} />
+                      <input type="text" inputMode="decimal" placeholder="z.B. 1400" value={cookedWeight} onChange={e => setCookedWeight(e.target.value)} style={inputStyle} />
                     </div>
                   </div>
                 </Card>
@@ -1134,7 +1134,7 @@
                   )}
                 </div>
                 <div style={{ display: "flex", gap: 10, alignItems: "center", marginBottom: 16 }}>
-                  <input type="number" value={mpBarcodeWeight} onChange={e => setMpBarcodeWeight(e.target.value)} autoFocus
+                  <input type="text" inputMode="decimal" value={mpBarcodeWeight} onChange={e => setMpBarcodeWeight(e.target.value)} autoFocus
                     style={{ flex: 1, background: "#111", border: `1px solid ${C.border}`, borderRadius: 8, padding: "12px 14px", color: C.text, fontFamily: "Inconsolata", fontSize: 18, outline: "none", textAlign: "center" }} />
                   <span style={{ fontFamily: "Syne", fontSize: 16, color: C.muted }}>g</span>
                 </div>
@@ -1341,7 +1341,7 @@
                     <Card style={{ padding: "12px 14px" }}>
                       <div style={{ fontFamily: "Syne", fontSize: 10, color: C.muted, textTransform: "uppercase", letterSpacing: 1, marginBottom: 10 }}>Körpergewicht</div>
                       <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
-                        <input type="number" value={dayWeight} onChange={e => { setDayWeight(e.target.value); setDayWeightSaved(false); }} step="0.1" min="20" max="500" placeholder="– –" style={inputStyle} />
+                        <input type="text" inputMode="decimal" value={dayWeight} onChange={e => { setDayWeight(e.target.value); setDayWeightSaved(false); }} step="0.1" min="20" max="500" placeholder="– –" style={inputStyle} />
                         <span style={{ fontFamily: "Syne", fontSize: 13, color: C.muted }}>kg</span>
                         <Btn small onClick={saveDayWeight} disabled={!dayWeight || dayWeightSaving}>{dayWeightSaving ? "…" : "Speichern"}</Btn>
                         {dayWeightSaved && <Mono size={11} color={C.carbs}>✓</Mono>}
@@ -1350,7 +1350,7 @@
                     <Card style={{ padding: "12px 14px" }}>
                       <div style={{ fontFamily: "Syne", fontSize: 10, color: C.muted, textTransform: "uppercase", letterSpacing: 1, marginBottom: 10 }}>Aktiv verbrannt</div>
                       <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
-                        <input type="number" value={dayBurned} onChange={e => { setDayBurned(e.target.value); setDayBurnedSaved(false); }} min="0" max="5000" placeholder="0" style={inputStyle} />
+                        <input type="text" inputMode="decimal" value={dayBurned} onChange={e => { setDayBurned(e.target.value); setDayBurnedSaved(false); }} min="0" max="5000" placeholder="0" style={inputStyle} />
                         <span style={{ fontFamily: "Syne", fontSize: 13, color: C.muted }}>kcal</span>
                         <Btn small onClick={saveDayBurned} disabled={dayBurnedSaving}>{dayBurnedSaving ? "…" : "Speichern"}</Btn>
                         {dayBurnedSaved && <Mono size={11} color={C.carbs}>✓</Mono>}
@@ -1616,7 +1616,7 @@
             <div style={{ display: "flex", flexDirection: "column", gap: 10, marginBottom: 20 }}>
               <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
                 <span style={{ fontFamily: "Syne", fontSize: 13, color: C.text, width: 115, flexShrink: 0 }}>Gewicht</span>
-                <input type="number" value={pForm.weight} onChange={e => setPForm(p => ({ ...p, weight: e.target.value }))} placeholder="kg" style={inputStyle} />
+                <input type="text" inputMode="decimal" value={pForm.weight} onChange={e => setPForm(p => ({ ...p, weight: e.target.value }))} placeholder="kg" style={inputStyle} />
                 <Mono size={11} color={C.muted} style={{ width: 32 }}>kg</Mono>
               </div>
               <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
@@ -1638,7 +1638,7 @@
               {MACROS.map(m => (
                 <div key={m} style={{ display: "flex", alignItems: "center", gap: 10 }}>
                   <span style={{ fontFamily: "Syne", fontSize: 13, color: MC[m], width: 115, flexShrink: 0 }}>{LABELS[m]}</span>
-                  <input type="number" value={form[m]} onChange={e => setForm(p => ({ ...p, [m]: e.target.value }))} style={inputStyle} />
+                  <input type="text" inputMode="decimal" value={form[m]} onChange={e => setForm(p => ({ ...p, [m]: e.target.value }))} style={inputStyle} />
                   <Mono size={11} color={C.muted} style={{ width: 32 }}>{UNITS[m]}</Mono>
                 </div>
               ))}
@@ -1719,7 +1719,7 @@
             <div key={label}>
               <div style={{ fontFamily: "Syne", fontSize: 11, color: C.muted, textTransform: "uppercase", letterSpacing: 1, marginBottom: 6 }}>{label}</div>
               <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-                <input type="number" value={val} onChange={e => set(e.target.value)} placeholder="0" style={inStyle} />
+                <input type="text" inputMode="decimal" value={val} onChange={e => set(e.target.value)} placeholder="0" style={inStyle} />
                 <span style={{ fontFamily: "Syne", fontSize: 13, color: C.muted, width: 38 }}>{unit}</span>
               </div>
             </div>
@@ -1939,7 +1939,7 @@
             {[["kcal_100", "kcal", C.kcal], ["protein_100", "Eiweiß", C.protein], ["carbs_100", "Kohlenhydrate", C.carbs], ["fat_100", "Fett", C.fat]].map(([key, label, color]) => (
               <div key={key}>
                 <div style={{ fontFamily: "Syne", fontSize: 10, color, marginBottom: 4 }}>{label} / 100g</div>
-                <input type="number" value={form[key]} onChange={e => setForm(p => ({ ...p, [key]: e.target.value }))}
+                <input type="text" inputMode="decimal" value={form[key]} onChange={e => setForm(p => ({ ...p, [key]: e.target.value }))}
                   placeholder="0" style={foodFormInputStyle} />
               </div>
             ))}
