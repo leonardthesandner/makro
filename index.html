@@ -36,8 +36,12 @@
     ::-webkit-scrollbar-thumb { background: #2a2a2a; border-radius: 2px; }
     @keyframes fadeUp { from { opacity:0; transform:translateY(10px); } to { opacity:1; transform:translateY(0); } }
     @keyframes pulse { 0%,100% { opacity:1; } 50% { opacity:0.3; } }
+    @keyframes slideFromRight { from { opacity:0.4; transform:translateX(48px); } to { opacity:1; transform:translateX(0); } }
+    @keyframes slideFromLeft  { from { opacity:0.4; transform:translateX(-48px); } to { opacity:1; transform:translateX(0); } }
     .fade-up { animation: fadeUp 0.25s ease forwards; }
     .pulsing { animation: pulse 1.4s ease infinite; }
+    .slide-from-right { animation: slideFromRight 0.22s cubic-bezier(0.25,0.46,0.45,0.94) forwards; }
+    .slide-from-left  { animation: slideFromLeft  0.22s cubic-bezier(0.25,0.46,0.45,0.94) forwards; }
   </style>
 </head>
 <body>
@@ -2160,8 +2164,14 @@
         saveSettings(t, { ...(p ? { profile: p } : {}), ...(vl ? { voiceLang: vl } : {}) }).catch(() => {});
       };
 
+      const [slideDir, setSlideDir] = useState("right");
       const swipeRef = useRef({});
       const TAB_IDS = TABS.map(t => t.id);
+      const changeTab = (newId) => {
+        const dir = TAB_IDS.indexOf(newId) > TAB_IDS.indexOf(tab) ? "right" : "left";
+        setSlideDir(dir);
+        setTab(newId);
+      };
       const onTouchStart = (e) => {
         swipeRef.current = { x: e.touches[0].clientX, y: e.touches[0].clientY };
       };
@@ -2170,8 +2180,8 @@
         const dy = e.changedTouches[0].clientY - swipeRef.current.y;
         if (Math.abs(dx) < 60 || Math.abs(dx) < Math.abs(dy)) return;
         const idx = TAB_IDS.indexOf(tab);
-        if (dx < 0 && idx < TAB_IDS.length - 1) setTab(TAB_IDS[idx + 1]);
-        if (dx > 0 && idx > 0) setTab(TAB_IDS[idx - 1]);
+        if (dx < 0 && idx < TAB_IDS.length - 1) changeTab(TAB_IDS[idx + 1]);
+        if (dx > 0 && idx > 0) changeTab(TAB_IDS[idx - 1]);
       };
 
       const resetToken = new URLSearchParams(window.location.search).get("reset");
@@ -2202,16 +2212,22 @@
               <button onClick={() => setSettings(true)} style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 10, padding: "8px 12px", color: C.muted, fontSize: 16 }}>⚙</button>
             </div>
           </div>
-          <div style={{ flex: 1, overflowY: "auto", WebkitOverflowScrolling: "touch" }} onTouchStart={onTouchStart} onTouchEnd={onTouchEnd}>
-            <div style={{ display: tab === "input" ? "contents" : "none" }}><InputTab recipes={recipes} onSave={addEntry} voiceLang={voiceLang} userFoods={userFoods} /></div>
-            {tab === "today"     && <TodayTab entries={entries} targets={targets} onDelete={deleteEntry} onEdit={e => setEditingEntry(e)} burnedKcal={burnedToday} onSaveBurned={async (v) => { await saveBodyWeightAPI(todayStr(), null, v); setBurnedToday(v); }} />}
-            {tab === "mealprep"  && <MealprepTab recipes={recipes} onAdd={addRecipe} onDelete={removeRecipe} onArchive={archiveRecipe} archive={archive} voiceLang={voiceLang} userFoods={userFoods} />}
-            {tab === "history"   && <HistoryTab targets={targets} loadRange={loadDiaryRange} loadDay={loadDiaryEntries} onDelete={deleteEntry} updateEntry={updateDiaryEntry} loadBodyWeights={loadBodyWeightRange} saveBodyWeight={saveBodyWeightAPI} />}
-            {tab === "userfoods" && <UserFoodsTab userFoods={userFoods} onAdd={addUserFood} onUpdate={updateUserFood} onDelete={deleteUserFood} />}
+          <div style={{ flex: 1, overflowY: "auto", WebkitOverflowScrolling: "touch", position: "relative" }} onTouchStart={onTouchStart} onTouchEnd={onTouchEnd}>
+            {/* InputTab stays always mounted to preserve state */}
+            <div style={{ display: tab === "input" ? "block" : "none" }}><InputTab recipes={recipes} onSave={addEntry} voiceLang={voiceLang} userFoods={userFoods} /></div>
+            {/* Other tabs animate in/out */}
+            {tab !== "input" && (
+              <div key={tab} className={`slide-from-${slideDir}`}>
+                {tab === "today"     && <TodayTab entries={entries} targets={targets} onDelete={deleteEntry} onEdit={e => setEditingEntry(e)} burnedKcal={burnedToday} onSaveBurned={async (v) => { await saveBodyWeightAPI(todayStr(), null, v); setBurnedToday(v); }} />}
+                {tab === "mealprep"  && <MealprepTab recipes={recipes} onAdd={addRecipe} onDelete={removeRecipe} onArchive={archiveRecipe} archive={archive} voiceLang={voiceLang} userFoods={userFoods} />}
+                {tab === "history"   && <HistoryTab targets={targets} loadRange={loadDiaryRange} loadDay={loadDiaryEntries} onDelete={deleteEntry} updateEntry={updateDiaryEntry} loadBodyWeights={loadBodyWeightRange} saveBodyWeight={saveBodyWeightAPI} />}
+                {tab === "userfoods" && <UserFoodsTab userFoods={userFoods} onAdd={addUserFood} onUpdate={updateUserFood} onDelete={deleteUserFood} />}
+              </div>
+            )}
           </div>
           <div style={{ display: "flex", borderTop: `1px solid ${C.border}`, background: C.bg, flexShrink: 0, paddingBottom: "env(safe-area-inset-bottom)" }}>
             {TABS.map(t => (
-              <button key={t.id} onClick={() => setTab(t.id)} style={{ flex: 1, padding: "10px 0 12px", background: "none", border: "none", display: "flex", flexDirection: "column", alignItems: "center", gap: 3 }}>
+              <button key={t.id} onClick={() => changeTab(t.id)} style={{ flex: 1, padding: "10px 0 12px", background: "none", border: "none", display: "flex", flexDirection: "column", alignItems: "center", gap: 3 }}>
                 <span style={{ fontSize: 16, color: tab === t.id ? C.accent : C.soft }}>{t.sym}</span>
                 <span style={{ fontFamily: "Syne", fontSize: 9, fontWeight: tab === t.id ? 700 : 400, color: tab === t.id ? C.accent : C.muted, textTransform: "uppercase", letterSpacing: 0.6 }}>{t.label}</span>
               </button>
