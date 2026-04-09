@@ -1958,6 +1958,7 @@
       const [editId, setEditId] = useState(null);
       const [editForm, setEditForm] = useState({});
       const [saving, setSaving] = useState(false);
+      const [search, setSearch] = useState("");
 
       const startEdit = (f) => {
         setEditId(f.id);
@@ -1978,12 +1979,32 @@
         setShowAdd(false); setSaving(false);
       };
 
+      const sorted = [...userFoods].sort((a, b) => a.name.localeCompare(b.name, "de", { sensitivity: "base" }));
+      const filtered = search.trim()
+        ? sorted.filter(f => f.name.toLowerCase().includes(search.trim().toLowerCase()))
+        : sorted;
+
       return (
         <div style={{ padding: 16, display: "flex", flexDirection: "column", gap: 12 }}>
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
             <SectionLabel>Eigene Lebensmittel ({userFoods.length})</SectionLabel>
             {!showAdd && <Btn onClick={() => { setShowAdd(true); setEditId(null); }} small variant="ghost">+ Hinzufügen</Btn>}
           </div>
+
+          {userFoods.length > 0 && (
+            <div style={{ position: "relative" }}>
+              <input
+                type="text"
+                placeholder="Suchen…"
+                value={search}
+                onChange={e => setSearch(e.target.value)}
+                style={{ background: "#111", border: `1px solid ${C.border}`, borderRadius: 8, padding: "9px 36px 9px 12px", color: C.text, fontFamily: "Syne", fontSize: 14, outline: "none", width: "100%" }}
+              />
+              {search && (
+                <button onClick={() => setSearch("")} style={{ position: "absolute", right: 10, top: "50%", transform: "translateY(-50%)", background: "none", border: "none", color: C.muted, fontSize: 16, cursor: "pointer", padding: 2 }}>✕</button>
+              )}
+            </div>
+          )}
 
           {showAdd && (
             <Card accent style={{ padding: 14 }}>
@@ -1998,7 +2019,13 @@
             </div>
           )}
 
-          {userFoods.map(f => (
+          {filtered.length === 0 && search.trim() && (
+            <div style={{ textAlign: "center", padding: 24, color: C.muted, fontFamily: "Syne", fontSize: 13 }}>
+              Kein Treffer für „{search}"
+            </div>
+          )}
+
+          {filtered.map(f => (
             <Card key={f.id} onClick={() => editId !== f.id && (startEdit(f), setShowAdd(false))} style={{ padding: "12px 14px", cursor: editId === f.id ? "default" : "pointer" }}>
               {editId === f.id ? (
                 <FoodForm form={editForm} setForm={setEditForm} onSave={saveEdit} onCancel={() => setEditId(null)} saveLabel="Speichern ✓" saving={saving} />
