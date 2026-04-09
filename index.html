@@ -12,7 +12,7 @@
   <link rel="manifest" href="manifest.json" />
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-  <link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Syne:wght@400;600;700;800&display=swap" rel="stylesheet" />
+  <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=Syne:wght@400;600;700;800&display=swap" rel="stylesheet" />
   <script>
     // iOS PWA standalone: inputs sometimes don't focus on tap — force focus on touchend
     if (window.navigator.standalone) {
@@ -28,7 +28,7 @@
   <style>
     * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
     html, body, #root { height: 100%; height: -webkit-fill-available; background: #0c0c0c; }
-    body { overflow: hidden; font-feature-settings: "zero" 0; }
+    body { overflow: hidden; }
     textarea { resize: none; -webkit-appearance: none; }
     input { -webkit-appearance: none; }
     input[type=number]::-webkit-inner-spin-button { opacity: 0.4; }
@@ -217,7 +217,7 @@
     }
 
     const Mono = ({ children, size = 15, color = C.text, bold }) => (
-      <span style={{ fontFamily: "DM Mono, monospace", fontSize: size, color, fontWeight: bold ? 500 : 400, fontFeatureSettings: '"zero" 0' }}>
+      <span style={{ fontFamily: "IBM Plex Mono, monospace", fontSize: size, color, fontWeight: bold ? 500 : 400 }}>
         {children}
       </span>
     );
@@ -486,13 +486,13 @@
                   <button key={f.id} onMouseDown={e => { e.preventDefault(); applySuggestion(f); }}
                     style={{ fontFamily: "Syne", fontSize: 12, fontWeight: 600, padding: "4px 10px", borderRadius: 16, background: "#1a1a2e", border: `1px solid ${C.accent}44`, color: C.accent, cursor: "pointer" }}>
                     {f.name}
-                    <span style={{ fontFamily: "DM Mono", fontSize: 10, color: C.muted, marginLeft: 5 }}>{Math.round(f.kcal_100)} kcal</span>
+                    <span style={{ fontFamily: "IBM Plex Mono", fontSize: 10, color: C.muted, marginLeft: 5 }}>{Math.round(f.kcal_100)} kcal</span>
                   </button>
                 ))}
               </div>
             )}
             {transcribing && <div style={{ padding: "2px 16px 6px", fontFamily: "Syne", fontSize: 13, color: C.muted, fontStyle: "italic" }} className="pulsing">Whisper erkennt Sprache…</div>}
-            <div style={{ textAlign: "right", padding: "0 16px 10px", fontFamily: "DM Mono", fontSize: 10, color: text.length >= 180 ? (text.length >= 200 ? C.danger : C.accent) : C.muted }}>{text.length}/200</div>
+            <div style={{ textAlign: "right", padding: "0 16px 10px", fontFamily: "IBM Plex Mono", fontSize: 10, color: text.length >= 180 ? (text.length >= 200 ? C.danger : C.accent) : C.muted }}>{text.length}/200</div>
             <div style={{ padding: "8px 12px 12px", display: "flex", justifyContent: "space-between", alignItems: "center", borderTop: `1px solid ${C.border}`, gap: 8 }}>
               <div style={{ display: "flex", gap: 8, flexShrink: 0 }}>
                 <button onClick={toggleVoice} disabled={transcribing} style={{ background: listening ? "#f8717122" : transcribing ? "#f59e0b22" : "transparent", border: `1px solid ${listening ? C.danger : transcribing ? C.accent : C.border}`, borderRadius: 8, padding: "8px 12px", color: listening ? C.danger : transcribing ? C.accent : C.muted, display: "flex", alignItems: "center", gap: 6 }}>
@@ -546,19 +546,19 @@
                   <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 10 }}>
                     <span style={{ fontFamily: "Syne", fontSize: 14, fontWeight: 700, color: C.text, flex: 1 }}>{item.name_de || item.name}</span>
                     <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
-                      <span style={{ fontFamily: "DM Mono", fontSize: 10, padding: "2px 7px", borderRadius: 4, background: item.found ? "#34d39918" : "#f8717118", color: item.found ? C.carbs : C.danger }}>{item.source === "recipe" ? "rezept" : item.source === "personal" ? "eigen" : item.source === "cache" || item.source === "off" ? "db" : item.found ? "ki" : "?"}</span>
+                      <span style={{ fontFamily: "IBM Plex Mono", fontSize: 10, padding: "2px 7px", borderRadius: 4, background: item.found ? "#34d39918" : "#f8717118", color: item.found ? C.carbs : C.danger }}>{item.source === "recipe" ? "rezept" : item.source === "personal" ? "eigen" : item.source === "cache" || item.source === "off" ? "db" : item.found ? "ki" : "?"}</span>
                       <button onClick={() => setItems(p => p.filter((_, idx) => idx !== i))} style={{ background: "none", border: "none", color: "#f8717150", fontSize: 16, padding: "2px 4px" }}>✕</button>
                     </div>
                   </div>
                   <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr 1fr 1fr", gap: 8 }}>
                     <div>
                       <div style={{ fontFamily: "Syne", fontSize: 9, color: C.muted, textTransform: "uppercase", letterSpacing: 0.5, marginBottom: 3 }}>Gramm</div>
-                      <input type="number" value={item.weight_g} onChange={e => update(i, "weight_g", e.target.value)} style={{ ...inputStyle, fontFamily: "DM Mono", fontSize: 13, color: C.text, padding: "6px 8px" }} />
+                      <input type="number" value={item.weight_g} onChange={e => update(i, "weight_g", e.target.value)} style={{ ...inputStyle, fontFamily: "IBM Plex Mono", fontSize: 13, color: C.text, padding: "6px 8px" }} />
                     </div>
                     {MACROS.map(m => (
                       <div key={m}>
                         <div style={{ fontFamily: "Syne", fontSize: 9, color: MC[m], textTransform: "uppercase", letterSpacing: 0.5, marginBottom: 3 }}>{m}</div>
-                        <input type="number" value={item[m] ? Math.round(item[m] * 10) / 10 : ""} placeholder="0" onChange={e => update(i, m, e.target.value)} style={{ ...inputStyle, fontFamily: "DM Mono", fontSize: 13, color: MC[m], padding: "6px 8px" }} />
+                        <input type="number" value={item[m] ? Math.round(item[m] * 10) / 10 : ""} placeholder="0" onChange={e => update(i, m, e.target.value)} style={{ ...inputStyle, fontFamily: "IBM Plex Mono", fontSize: 13, color: MC[m], padding: "6px 8px" }} />
                       </div>
                     ))}
                   </div>
@@ -570,7 +570,7 @@
                   {MACROS.map(m => (
                     <div key={m} style={{ textAlign: "center" }}>
                       <Mono size={18} color={MC[m]} bold>{Math.round(totals[m])}</Mono>
-                      <div style={{ fontFamily: "DM Mono", fontSize: 9, color: C.muted, marginTop: 2 }}>{UNITS[m]}</div>
+                      <div style={{ fontFamily: "IBM Plex Mono", fontSize: 9, color: C.muted, marginTop: 2 }}>{UNITS[m]}</div>
                     </div>
                   ))}
                 </div>
@@ -618,7 +618,7 @@
                 </div>
                 <div style={{ display: "flex", gap: 10, alignItems: "center", marginBottom: 16 }}>
                   <input type="number" value={barcodeWeight} onChange={e => setBarcodeWeight(e.target.value)} autoFocus
-                    style={{ flex: 1, background: "#111", border: `1px solid ${C.border}`, borderRadius: 8, padding: "12px 14px", color: C.text, fontFamily: "DM Mono", fontSize: 18, outline: "none", textAlign: "center" }} />
+                    style={{ flex: 1, background: "#111", border: `1px solid ${C.border}`, borderRadius: 8, padding: "12px 14px", color: C.text, fontFamily: "IBM Plex Mono", fontSize: 18, outline: "none", textAlign: "center" }} />
                   <span style={{ fontFamily: "Syne", fontSize: 16, color: C.muted }}>g</span>
                 </div>
                 {barcodeWeight && parseFloat(barcodeWeight) > 0 && (
@@ -643,7 +643,7 @@
     function EditEntryModal({ entry, onSave, onClose }) {
       const [items, setItems] = useState(() => (entry.items || []).map(it => ({ ...it })));
       const [saving, setSaving] = useState(false);
-      const inputStyle = { background: "#111", border: `1px solid ${C.border}`, borderRadius: 6, padding: "6px 8px", color: C.text, fontFamily: "DM Mono", fontSize: 13, outline: "none", width: "100%" };
+      const inputStyle = { background: "#111", border: `1px solid ${C.border}`, borderRadius: 6, padding: "6px 8px", color: C.text, fontFamily: "IBM Plex Mono", fontSize: 13, outline: "none", width: "100%" };
 
       const update = (i, field, val) => setItems(p => p.map((it, idx) => {
         if (idx !== i) return it;
@@ -704,7 +704,7 @@
                 {MACROS.map(m => (
                   <div key={m} style={{ textAlign: "center" }}>
                     <Mono size={18} color={MC[m]} bold>{Math.round(totals[m])}</Mono>
-                    <div style={{ fontFamily: "DM Mono", fontSize: 9, color: C.muted, marginTop: 2 }}>{UNITS[m]}</div>
+                    <div style={{ fontFamily: "IBM Plex Mono", fontSize: 9, color: C.muted, marginTop: 2 }}>{UNITS[m]}</div>
                   </div>
                 ))}
               </div>
@@ -734,7 +734,7 @@
         try { await onSaveBurned(v); setBurnedSaved(true); setTimeout(() => setBurnedSaved(false), 2000); } catch {}
         setBurnedSaving(false);
       };
-      const inputStyle = { background: "#111", border: `1px solid ${C.border}`, borderRadius: 6, padding: "8px 10px", color: C.text, fontFamily: "DM Mono", fontSize: 15, outline: "none", width: 90 };
+      const inputStyle = { background: "#111", border: `1px solid ${C.border}`, borderRadius: 6, padding: "8px 10px", color: C.text, fontFamily: "IBM Plex Mono", fontSize: 15, outline: "none", width: 90 };
       return (
         <div style={{ padding: 16, display: "flex", flexDirection: "column", gap: 14 }}>
           <Card style={{ padding: 16 }}>
@@ -787,7 +787,7 @@
                         {MACROS.map(m => (
                           <div key={m} style={{ textAlign: "center" }}>
                             <Mono size={13} color={MC[m]} bold>{Math.round(e.totals[m])}</Mono>
-                            <div style={{ fontFamily: "DM Mono", fontSize: 9, color: C.muted }}>{UNITS[m]}</div>
+                            <div style={{ fontFamily: "IBM Plex Mono", fontSize: 9, color: C.muted }}>{UNITS[m]}</div>
                           </div>
                         ))}
                       </div>
@@ -963,7 +963,7 @@
                       <button key={f.id} onMouseDown={e => { e.preventDefault(); applyMpSuggestion(f); }}
                         style={{ fontFamily: "Syne", fontSize: 12, fontWeight: 600, padding: "4px 10px", borderRadius: 16, background: "#1a1a2e", border: `1px solid ${C.accent}44`, color: C.accent, cursor: "pointer" }}>
                         {f.name}
-                        <span style={{ fontFamily: "DM Mono", fontSize: 10, color: C.muted, marginLeft: 5 }}>{Math.round(parseFloat(f.kcal_100))} kcal</span>
+                        <span style={{ fontFamily: "IBM Plex Mono", fontSize: 10, color: C.muted, marginLeft: 5 }}>{Math.round(parseFloat(f.kcal_100))} kcal</span>
                       </button>
                     ))}
                   </div>
@@ -1004,7 +1004,7 @@
                       {MACROS.map(m => (
                         <div key={m}>
                           <div style={{ fontFamily: "Syne", fontSize: 9, color: MC[m], textTransform: "uppercase", marginBottom: 2 }}>{m}</div>
-                          <input type="number" value={Math.round(item[m] * 10) / 10} onChange={e => updateItem(i, m, e.target.value)} style={{ ...inputStyle, fontFamily: "DM Mono", fontSize: 13, color: MC[m], padding: "6px 8px" }} />
+                          <input type="number" value={Math.round(item[m] * 10) / 10} onChange={e => updateItem(i, m, e.target.value)} style={{ ...inputStyle, fontFamily: "IBM Plex Mono", fontSize: 13, color: MC[m], padding: "6px 8px" }} />
                         </div>
                       ))}
                     </div>
@@ -1016,7 +1016,7 @@
                     {MACROS.map(m => (
                       <div key={m} style={{ textAlign: "center" }}>
                         <Mono size={18} color={MC[m]} bold>{Math.round(totals[m])}</Mono>
-                        <div style={{ fontFamily: "DM Mono", fontSize: 9, color: C.muted, marginTop: 2 }}>{UNITS[m]}</div>
+                        <div style={{ fontFamily: "IBM Plex Mono", fontSize: 9, color: C.muted, marginTop: 2 }}>{UNITS[m]}</div>
                       </div>
                     ))}
                   </div>
@@ -1062,7 +1062,7 @@
                   {MACROS.map(m => (
                     <div key={m} style={{ textAlign: "center" }}>
                       <Mono size={14} color={MC[m]} bold>{Math.round(r[`${m}_total`])}</Mono>
-                      <div style={{ fontFamily: "DM Mono", fontSize: 9, color: C.muted }}>gesamt</div>
+                      <div style={{ fontFamily: "IBM Plex Mono", fontSize: 9, color: C.muted }}>gesamt</div>
                     </div>
                   ))}
                 </div>
@@ -1134,7 +1134,7 @@
                 </div>
                 <div style={{ display: "flex", gap: 10, alignItems: "center", marginBottom: 16 }}>
                   <input type="number" value={mpBarcodeWeight} onChange={e => setMpBarcodeWeight(e.target.value)} autoFocus
-                    style={{ flex: 1, background: "#111", border: `1px solid ${C.border}`, borderRadius: 8, padding: "12px 14px", color: C.text, fontFamily: "DM Mono", fontSize: 18, outline: "none", textAlign: "center" }} />
+                    style={{ flex: 1, background: "#111", border: `1px solid ${C.border}`, borderRadius: 8, padding: "12px 14px", color: C.text, fontFamily: "IBM Plex Mono", fontSize: 18, outline: "none", textAlign: "center" }} />
                   <span style={{ fontFamily: "Syne", fontSize: 16, color: C.muted }}>g</span>
                 </div>
                 {mpBarcodeWeight && parseFloat(mpBarcodeWeight) > 0 && (
@@ -1321,7 +1321,7 @@
       if (selectedDay) {
         const totals = sumEntries(dayEntries);
         const rest = Object.fromEntries(MACROS.map(m => [m, targets[m] - totals[m]]));
-        const inputStyle = { background: "#111", border: `1px solid ${C.border}`, borderRadius: 6, padding: "8px 10px", color: C.text, fontFamily: "DM Mono", fontSize: 15, outline: "none", width: 90 };
+        const inputStyle = { background: "#111", border: `1px solid ${C.border}`, borderRadius: 6, padding: "8px 10px", color: C.text, fontFamily: "IBM Plex Mono", fontSize: 15, outline: "none", width: 90 };
         return (
           <>
             <div style={{ padding: 16, display: "flex", flexDirection: "column", gap: 14 }}>
@@ -1387,7 +1387,7 @@
                                 {MACROS.map(m => (
                                   <div key={m} style={{ textAlign: "center" }}>
                                     <Mono size={13} color={MC[m]} bold>{Math.round(e.totals[m])}</Mono>
-                                    <div style={{ fontFamily: "DM Mono", fontSize: 9, color: C.muted }}>{UNITS[m]}</div>
+                                    <div style={{ fontFamily: "IBM Plex Mono", fontSize: 9, color: C.muted }}>{UNITS[m]}</div>
                                   </div>
                                 ))}
                               </div>
@@ -1448,9 +1448,9 @@
                 <div style={{ display: "flex", marginTop: 6 }}>
                   {chartDays.map((d, i) => (
                     <div key={d.date} style={{ flex: 1, textAlign: "center" }}>
-                      <div style={{ fontFamily: "DM Mono", fontSize: 9, color: C.muted }}>{dayLabelShort(d.date)}</div>
+                      <div style={{ fontFamily: "IBM Plex Mono", fontSize: 9, color: C.muted }}>{dayLabelShort(d.date)}</div>
                       {singleActive && singleActive.data[i] != null && (
-                        <div style={{ fontFamily: "DM Mono", fontSize: 9, color: singleActive.color, marginTop: 2 }}>
+                        <div style={{ fontFamily: "IBM Plex Mono", fontSize: 9, color: singleActive.color, marginTop: 2 }}>
                           {Number(singleActive.data[i]).toFixed(singleActive.dec)}
                         </div>
                       )}
@@ -1508,7 +1508,7 @@
                       {["protein", "carbs", "fat"].map(m => (
                         <div key={m} style={{ textAlign: "center" }}>
                           <Mono size={12} color={MC[m]}>{Math.round(day.totals[m])}g</Mono>
-                          <div style={{ fontFamily: "DM Mono", fontSize: 9, color: C.muted }}>{LABELS[m]}</div>
+                          <div style={{ fontFamily: "IBM Plex Mono", fontSize: 9, color: C.muted }}>{LABELS[m]}</div>
                         </div>
                       ))}
                     </div>
@@ -1603,7 +1603,7 @@
         onClose();
       };
 
-      const inputStyle = { background: "#111", border: `1px solid ${C.border}`, borderRadius: 6, padding: "9px 10px", color: C.text, fontFamily: "DM Mono", fontSize: 14, outline: "none", flex: 1 };
+      const inputStyle = { background: "#111", border: `1px solid ${C.border}`, borderRadius: 6, padding: "9px 10px", color: C.text, fontFamily: "IBM Plex Mono", fontSize: 14, outline: "none", flex: 1 };
       const goalOpts = [{ k: "abnehmen", l: "Abnehmen" }, { k: "halten", l: "Halten" }, { k: "aufbauen", l: "Aufbauen" }];
 
       return (
@@ -1681,7 +1681,7 @@
       };
 
       const bodyValid = parseFloat(age) > 0 && parseFloat(weight) > 0 && parseFloat(height) > 0;
-      const inStyle = { background: "#111", border: `1px solid ${C.border}`, borderRadius: 8, padding: "12px 14px", color: C.text, fontFamily: "DM Mono", fontSize: 18, outline: "none", flex: 1 };
+      const inStyle = { background: "#111", border: `1px solid ${C.border}`, borderRadius: 8, padding: "12px 14px", color: C.text, fontFamily: "IBM Plex Mono", fontSize: 18, outline: "none", flex: 1 };
       const bigBtn = (onClick, children, active = true) => (
         <button onClick={onClick} disabled={!active} style={{ background: active ? C.card : C.soft, border: `1px solid ${active ? C.border : "transparent"}`, borderRadius: 12, padding: "16px 20px", color: active ? C.text : C.muted, fontFamily: "Syne", fontSize: 15, fontWeight: 600, cursor: active ? "pointer" : "default", textAlign: "left", width: "100%" }}>
           {children}
@@ -1738,7 +1738,7 @@
           ].map(({ key, label, sub }) => (
             <button key={key} onClick={() => selectGoal(key)} style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 12, padding: "16px 20px", color: C.text, fontFamily: "Syne", fontSize: 15, fontWeight: 600, cursor: "pointer", textAlign: "left", width: "100%" }}>
               <div>{label}</div>
-              <div style={{ fontFamily: "DM Mono", fontSize: 10, color: C.muted, marginTop: 4 }}>{sub}</div>
+              <div style={{ fontFamily: "IBM Plex Mono", fontSize: 10, color: C.muted, marginTop: 4 }}>{sub}</div>
             </button>
           ))}
         </div>
@@ -1751,7 +1751,7 @@
           {MACROS.map(m => (
             <div key={m} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", background: C.card, borderRadius: 10, padding: "14px 16px" }}>
               <span style={{ fontFamily: "Syne", fontSize: 14, fontWeight: 600, color: MC[m] }}>{LABELS[m]}</span>
-              <span style={{ fontFamily: "DM Mono", fontSize: 20, fontWeight: 700, color: C.text }}>{targets[m]}<span style={{ fontSize: 11, color: C.muted, marginLeft: 4 }}>{UNITS[m]}</span></span>
+              <span style={{ fontFamily: "IBM Plex Mono", fontSize: 20, fontWeight: 700, color: C.text }}>{targets[m]}<span style={{ fontSize: 11, color: C.muted, marginLeft: 4 }}>{UNITS[m]}</span></span>
             </div>
           ))}
         </div>
@@ -1924,7 +1924,7 @@
       </>);
     }
 
-    const foodFormInputStyle = { background: "#111", border: `1px solid ${C.border}`, borderRadius: 6, padding: "8px 10px", color: C.text, fontFamily: "DM Mono", fontSize: 14, outline: "none", width: "100%" };
+    const foodFormInputStyle = { background: "#111", border: `1px solid ${C.border}`, borderRadius: 6, padding: "8px 10px", color: C.text, fontFamily: "IBM Plex Mono", fontSize: 14, outline: "none", width: "100%" };
 
     function FoodForm({ form, setForm, onSave, onCancel, saveLabel, saving }) {
       return (
@@ -2011,7 +2011,7 @@
                     {[["kcal", "kcal", C.kcal], ["protein_100", "Eiweiß", C.protein], ["carbs_100", "KH", C.carbs], ["fat_100", "Fett", C.fat]].map(([key, label, color]) => (
                       <div key={key} style={{ textAlign: "center" }}>
                         <Mono size={14} color={color} bold>{Math.round(parseFloat(f[key === "kcal" ? "kcal_100" : key]) * 10) / 10}</Mono>
-                        <div style={{ fontFamily: "DM Mono", fontSize: 9, color: C.muted }}>{label}</div>
+                        <div style={{ fontFamily: "IBM Plex Mono", fontSize: 9, color: C.muted }}>{label}</div>
                       </div>
                     ))}
                   </div>
