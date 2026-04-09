@@ -297,7 +297,7 @@
       );
     }
 
-    function InputTab({ recipes, onSave, voiceLang }) {
+    function InputTab({ recipes, onSave, voiceLang, userFoods }) {
       const [text, setText] = useState("");
       const [loading, setLoading] = useState(false);
       const [items, setItems] = useState([]);
@@ -311,6 +311,38 @@
       const [scannedProduct, setScannedProduct] = useState(null);
       const [barcodeWeight, setBarcodeWeight] = useState("100");
       const [barcodeErr, setBarcodeErr] = useState(null);
+      const textareaRef = useRef(null);
+
+      // Autocomplete: extract the current word at cursor position
+      const getCurrentWord = () => {
+        const el = textareaRef.current;
+        if (!el) return "";
+        const pos = el.selectionStart;
+        const before = text.slice(0, pos);
+        const match = before.match(/([a-zA-ZäöüÄÖÜß]+)$/);
+        return match ? match[1] : "";
+      };
+
+      const acWord = items.length === 0 && !loading ? getCurrentWord() : "";
+      const acSuggestions = acWord.length >= 2 && userFoods
+        ? userFoods.filter(f => f.name.toLowerCase().startsWith(acWord.toLowerCase())).slice(0, 5)
+        : [];
+
+      const applySuggestion = (name) => {
+        const el = textareaRef.current;
+        if (!el) return;
+        const pos = el.selectionStart;
+        const before = text.slice(0, pos);
+        const after = text.slice(pos);
+        const newBefore = before.replace(/([a-zA-ZäöüÄÖÜß]+)$/, name);
+        setText(newBefore + after);
+        // restore focus and move cursor to end of inserted word
+        setTimeout(() => {
+          el.focus();
+          const newPos = newBefore.length;
+          el.setSelectionRange(newPos, newPos);
+        }, 0);
+      };
 
       const toggleVoice = async () => {
         if (listening) {
@@ -417,11 +449,23 @@
         <div style={{ padding: 16, display: "flex", flexDirection: "column", gap: 14 }}>
           <Card>
             <textarea
+              ref={textareaRef}
               value={text} onChange={e => setText(e.target.value.slice(0, 200))}
               placeholder={"Was hast du gegessen?"}
               maxLength={200}
               style={{ width: "100%", minHeight: 120, background: "transparent", border: "none", outline: "none", padding: "16px 16px 6px", color: C.text, fontFamily: "Syne", fontSize: 15, lineHeight: 1.7 }}
             />
+            {acSuggestions.length > 0 && (
+              <div style={{ display: "flex", gap: 6, flexWrap: "wrap", padding: "0 12px 10px" }}>
+                {acSuggestions.map(f => (
+                  <button key={f.id} onMouseDown={e => { e.preventDefault(); applySuggestion(f.name); }}
+                    style={{ fontFamily: "Syne", fontSize: 12, fontWeight: 600, padding: "4px 10px", borderRadius: 16, background: "#1a1a2e", border: `1px solid ${C.accent}44`, color: C.accent, cursor: "pointer" }}>
+                    {f.name}
+                    <span style={{ fontFamily: "DM Mono", fontSize: 10, color: C.muted, marginLeft: 5 }}>{Math.round(f.kcal_100)} kcal</span>
+                  </button>
+                ))}
+              </div>
+            )}
             {transcribing && <div style={{ padding: "2px 16px 6px", fontFamily: "Syne", fontSize: 13, color: C.muted, fontStyle: "italic" }} className="pulsing">Whisper erkennt Sprache…</div>}
             <div style={{ textAlign: "right", padding: "0 16px 10px", fontFamily: "DM Mono", fontSize: 10, color: text.length >= 180 ? (text.length >= 200 ? C.fat : C.accent) : C.muted }}>{text.length}/200</div>
             <div style={{ padding: "8px 12px 12px", display: "flex", justifyContent: "space-between", alignItems: "center", borderTop: `1px solid ${C.border}`, gap: 8 }}>
@@ -2032,7 +2076,7 @@
             </div>
           </div>
           <div style={{ flex: 1, overflowY: "auto", WebkitOverflowScrolling: "touch" }}>
-            <div style={{ display: tab === "input" ? "contents" : "none" }}><InputTab recipes={recipes} onSave={addEntry} voiceLang={voiceLang} /></div>
+            <div style={{ display: tab === "input" ? "contents" : "none" }}><InputTab recipes={recipes} onSave={addEntry} voiceLang={voiceLang} userFoods={userFoods} /></div>
             {tab === "today"     && <TodayTab entries={entries} targets={targets} onDelete={deleteEntry} onEdit={e => setEditingEntry(e)} />}
             {tab === "mealprep"  && <MealprepTab recipes={recipes} onAdd={addRecipe} onDelete={removeRecipe} onArchive={archiveRecipe} archive={archive} voiceLang={voiceLang} />}
             {tab === "history"   && <HistoryTab targets={targets} loadRange={loadDiaryRange} loadDay={loadDiaryEntries} onDelete={deleteEntry} updateEntry={updateDiaryEntry} loadBodyWeights={loadBodyWeightRange} saveBodyWeight={saveBodyWeightAPI} />}
