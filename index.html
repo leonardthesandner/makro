@@ -176,7 +176,12 @@
 
     // Körpergewicht
     async function loadBodyWeightRange(from, to) { return apiCall(`/api/body-weight?from=${from}&to=${to}`); }
-    async function saveBodyWeightAPI(date, weight_kg) { return apiCall("/api/body-weight", "POST", { date, weight_kg }); }
+    async function saveBodyWeightAPI(date, weight_kg, burned_kcal) {
+      const body = { date };
+      if (weight_kg != null) body.weight_kg = weight_kg;
+      if (burned_kcal != null) body.burned_kcal = burned_kcal;
+      return apiCall("/api/body-weight", "POST", body);
+    }
 
     // Passwort zurücksetzen (kein Auth nötig)
     async function forgotPassword(email) { return authApiCall("/api/auth/forgot-password", "POST", { email }); }
@@ -688,14 +693,46 @@
       );
     }
 
-    function TodayTab({ entries, targets, onDelete, onEdit }) {
+    function TodayTab({ entries, targets, onDelete, onEdit, burnedKcal, onSaveBurned }) {
       const totals = sumEntries(entries);
-      const rest = Object.fromEntries(MACROS.map(m => [m, targets[m] - totals[m]]));
+      const burned = burnedKcal || 0;
+      const netKcal = totals.kcal - burned;
+      const kcalRest = targets.kcal - netKcal;
+      const rest = Object.fromEntries(MACROS.map(m => [m, m === "kcal" ? kcalRest : targets[m] - totals[m]]));
+      const [burnedInput, setBurnedInput] = useState(burned > 0 ? String(burned) : "");
+      const [burnedSaving, setBurnedSaving] = useState(false);
+      const [burnedSaved, setBurnedSaved] = useState(false);
+      const saveBurned = async () => {
+        const v = parseFloat(burnedInput) || 0;
+        setBurnedSaving(true);
+        try { await onSaveBurned(v); setBurnedSaved(true); setTimeout(() => setBurnedSaved(false), 2000); } catch {}
+        setBurnedSaving(false);
+      };
+      const inputStyle = { background: "#111", border: `1px solid ${C.border}`, borderRadius: 6, padding: "8px 10px", color: C.text, fontFamily: "DM Mono", fontSize: 15, outline: "none", width: 90 };
       return (
         <div style={{ padding: 16, display: "flex", flexDirection: "column", gap: 14 }}>
           <Card style={{ padding: 16 }}>
             <SectionLabel>Tagesfortschritt</SectionLabel>
-            {MACROS.map(m => <MacroBar key={m} label={LABELS[m]} current={totals[m]} target={targets[m]} color={MC[m]} unit={UNITS[m]} />)}
+            {MACROS.map(m => <MacroBar key={m} label={LABELS[m]} current={m === "kcal" ? netKcal : totals[m]} target={targets[m]} color={MC[m]} unit={UNITS[m]} />)}
+            {burned > 0 && (
+              <div style={{ display: "flex", justifyContent: "flex-end", marginTop: 8, gap: 6, alignItems: "center" }}>
+                <span style={{ fontFamily: "Syne", fontSize: 11, color: C.muted }}>gegessen</span>
+                <Mono size={11} color={C.kcal}>{Math.round(totals.kcal)}</Mono>
+                <span style={{ fontFamily: "Syne", fontSize: 11, color: C.muted }}>− verbrannt</span>
+                <Mono size={11} color={C.carbs}>{Math.round(burned)}</Mono>
+                <span style={{ fontFamily: "Syne", fontSize: 11, color: C.muted }}>= netto</span>
+                <Mono size={11} color={C.text} bold>{Math.round(netKcal)}</Mono>
+              </div>
+            )}
+          </Card>
+          <Card style={{ padding: "12px 14px" }}>
+            <div style={{ fontFamily: "Syne", fontSize: 10, color: C.muted, textTransform: "uppercase", letterSpacing: 1, marginBottom: 10 }}>Aktiv verbrannte kcal</div>
+            <div style={{ display: "flex", gap: 10, alignItems: "center" }}>
+              <input type="number" value={burnedInput} onChange={e => { setBurnedInput(e.target.value); setBurnedSaved(false); }} placeholder="0" min="0" max="5000" style={inputStyle} />
+              <span style={{ fontFamily: "Syne", fontSize: 13, color: C.muted }}>kcal</span>
+              <Btn small onClick={saveBurned} disabled={burnedSaving}>{burnedSaving ? "…" : "Speichern"}</Btn>
+              {burnedSaved && <Mono size={11} color={C.carbs}>✓</Mono>}
+            </div>
           </Card>
           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
             {MACROS.map(m => (
@@ -1100,9 +1137,13 @@
       const [dayLoading, setDayLoading] = useState(false);
       const [editingEntry, setEditingEntry] = useState(null);
       const [bodyWeights, setBodyWeights] = useState({});
+      const [burnedMap, setBurnedMap] = useState({});
       const [dayWeight, setDayWeight] = useState("");
       const [dayWeightSaving, setDayWeightSaving] = useState(false);
       const [dayWeightSaved, setDayWeightSaved] = useState(false);
+      const [dayBurned, setDayBurned] = useState("");
+      const [dayBurnedSaving, setDayBurnedSaving] = useState(false);
+      const [dayBurnedSaved, setDayBurnedSaved] = useState(false);
       const [activeStats, setActiveStats] = useState(new Set(["gewicht", "kcal"]));
       const toggleStat = (id) => setActiveStats(prev => { const n = new Set(prev); n.has(id) ? n.delete(id) : n.add(id); return n; });
 
@@ -1124,9 +1165,13 @@
               result.push({ date: ds, entries: entries.length, totals: sumEntries(entries) });
             }
             setDays(result);
-            const wMap = {};
-            weights.forEach(w => { wMap[w.date] = parseFloat(w.weight_kg); });
+            const wMap = {}, bMap = {};
+            weights.forEach(w => {
+              if (w.weight_kg != null) wMap[w.date] = parseFloat(w.weight_kg);
+              if (w.burned_kcal != null) bMap[w.date] = parseFloat(w.burned_kcal);
+            });
             setBodyWeights(wMap);
+            setBurnedMap(bMap);
           })
           .catch(() => setDays([]))
           .finally(() => setLoading(false));
@@ -1158,6 +1203,8 @@
         setSelectedDay({ date, label: dayLabel(date) });
         setDayWeight(bodyWeights[date] != null ? String(bodyWeights[date]) : getPrevWeight(date));
         setDayWeightSaved(false);
+        setDayBurned(burnedMap[date] != null ? String(burnedMap[date]) : "");
+        setDayBurnedSaved(false);
         setDayLoading(true);
         try { setDayEntries(await loadDay(date)); }
         catch { setDayEntries([]); }
@@ -1174,6 +1221,18 @@
           setDayWeightSaved(true);
         } catch {}
         setDayWeightSaving(false);
+      };
+
+      const saveDayBurned = async () => {
+        const b = parseFloat(dayBurned) || 0;
+        setDayBurnedSaving(true);
+        try {
+          await saveBodyWeight(selectedDay.date, null, b);
+          setBurnedMap(p => ({ ...p, [selectedDay.date]: b }));
+          setDayBurnedSaved(true);
+          setTimeout(() => setDayBurnedSaved(false), 2000);
+        } catch {}
+        setDayBurnedSaving(false);
       };
 
       const handleDelete = (id) => {
@@ -1217,15 +1276,26 @@
                 <div className="pulsing" style={{ textAlign: "center", padding: 40, fontFamily: "Syne", fontSize: 14, color: C.muted }}>Lädt…</div>
               ) : (
                 <>
-                  <Card style={{ padding: "12px 14px" }}>
-                    <div style={{ fontFamily: "Syne", fontSize: 10, color: C.muted, textTransform: "uppercase", letterSpacing: 1, marginBottom: 10 }}>Körpergewicht</div>
-                    <div style={{ display: "flex", gap: 10, alignItems: "center" }}>
-                      <input type="number" value={dayWeight} onChange={e => { setDayWeight(e.target.value); setDayWeightSaved(false); }} step="0.1" min="20" max="500" placeholder="– –" style={inputStyle} />
-                      <span style={{ fontFamily: "Syne", fontSize: 13, color: C.muted }}>kg</span>
-                      <Btn small onClick={saveDayWeight} disabled={!dayWeight || dayWeightSaving}>{dayWeightSaving ? "…" : "Speichern"}</Btn>
-                      {dayWeightSaved && <Mono size={11} color={C.carbs}>✓</Mono>}
-                    </div>
-                  </Card>
+                  <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
+                    <Card style={{ padding: "12px 14px" }}>
+                      <div style={{ fontFamily: "Syne", fontSize: 10, color: C.muted, textTransform: "uppercase", letterSpacing: 1, marginBottom: 10 }}>Körpergewicht</div>
+                      <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
+                        <input type="number" value={dayWeight} onChange={e => { setDayWeight(e.target.value); setDayWeightSaved(false); }} step="0.1" min="20" max="500" placeholder="– –" style={inputStyle} />
+                        <span style={{ fontFamily: "Syne", fontSize: 13, color: C.muted }}>kg</span>
+                        <Btn small onClick={saveDayWeight} disabled={!dayWeight || dayWeightSaving}>{dayWeightSaving ? "…" : "Speichern"}</Btn>
+                        {dayWeightSaved && <Mono size={11} color={C.carbs}>✓</Mono>}
+                      </div>
+                    </Card>
+                    <Card style={{ padding: "12px 14px" }}>
+                      <div style={{ fontFamily: "Syne", fontSize: 10, color: C.muted, textTransform: "uppercase", letterSpacing: 1, marginBottom: 10 }}>Aktiv verbrannt</div>
+                      <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
+                        <input type="number" value={dayBurned} onChange={e => { setDayBurned(e.target.value); setDayBurnedSaved(false); }} min="0" max="5000" placeholder="0" style={inputStyle} />
+                        <span style={{ fontFamily: "Syne", fontSize: 13, color: C.muted }}>kcal</span>
+                        <Btn small onClick={saveDayBurned} disabled={dayBurnedSaving}>{dayBurnedSaving ? "…" : "Speichern"}</Btn>
+                        {dayBurnedSaved && <Mono size={11} color={C.carbs}>✓</Mono>}
+                      </div>
+                    </Card>
+                  </div>
                   <Card style={{ padding: 16 }}>
                     <SectionLabel>Tagesfortschritt</SectionLabel>
                     {MACROS.map(m => <MacroBar key={m} label={LABELS[m]} current={totals[m]} target={targets[m]} color={MC[m]} unit={UNITS[m]} />)}
@@ -1277,15 +1347,19 @@
       // Statistik-Daten (ältester Tag links)
       const chartDays = [...days].reverse();
       const weightData  = chartDays.map(d => bodyWeights[d.date] ?? null);
+      const burnedData  = chartDays.map(d => burnedMap[d.date] ?? null);
       const kcalData    = chartDays.map(d => d.entries > 0 ? Math.round(d.totals.kcal) : null);
+      const netKcalData = chartDays.map(d => d.entries > 0 ? Math.round(d.totals.kcal - (burnedMap[d.date] || 0)) : null);
       const proteinData = chartDays.map(d => d.entries > 0 ? Math.round(d.totals.protein * 10) / 10 : null);
       const carbsData   = chartDays.map(d => d.entries > 0 ? Math.round(d.totals.carbs * 10) / 10 : null);
       const fatData     = chartDays.map(d => d.entries > 0 ? Math.round(d.totals.fat * 10) / 10 : null);
       const hasWeightData = weightData.some(v => v != null);
       const hasKcalData   = kcalData.some(v => v != null);
       const statsCharts = [
-        { id: "gewicht", label: "Gewicht", data: weightData,  color: C.weight,  unit: "kg",   dec: 1 },
-        { id: "kcal",    label: "kcal",    data: kcalData,    color: C.kcal,    unit: "kcal", dec: 0 },
+        { id: "gewicht", label: "Gewicht",   data: weightData,  color: C.weight,  unit: "kg",   dec: 1 },
+        { id: "kcal",    label: "kcal",      data: kcalData,    color: C.kcal,    unit: "kcal", dec: 0 },
+        { id: "netto",   label: "Netto",     data: netKcalData, color: "#f59e0b88", unit: "kcal", dec: 0 },
+        { id: "burned",  label: "Verbrannt", data: burnedData,  color: C.carbs,   unit: "kcal", dec: 0 },
         { id: "protein", label: "Eiweiß",  data: proteinData, color: C.protein, unit: "g",    dec: 0 },
         { id: "carbs",   label: "KH",      data: carbsData,   color: C.carbs,   unit: "g",    dec: 0 },
         { id: "fat",     label: "Fett",    data: fatData,     color: C.fat,     unit: "g",    dec: 0 },
@@ -1911,6 +1985,7 @@
       const [voiceLang, setVoiceLang] = useState(() => store.get("mk_voicelang") || "de");
       const [editingEntry, setEditingEntry] = useState(null);
       const [userFoods, setUserFoods] = useState([]);
+      const [burnedToday, setBurnedToday] = useState(0);
 
       // Load all data on auth
       useEffect(() => {
@@ -1919,6 +1994,11 @@
         // Load today's entries
         loadDiaryEntries(todayStr())
           .then(r => setEntries(r))
+          .catch(() => {});
+
+        // Load today's burned kcal
+        loadBodyWeightRange(todayStr(), todayStr())
+          .then(r => { if (r[0]?.burned_kcal) setBurnedToday(parseFloat(r[0].burned_kcal) || 0); })
           .catch(() => {});
 
         // Load recipes
@@ -2071,7 +2151,7 @@
           </div>
           <div style={{ flex: 1, overflowY: "auto", WebkitOverflowScrolling: "touch" }}>
             <div style={{ display: tab === "input" ? "contents" : "none" }}><InputTab recipes={recipes} onSave={addEntry} voiceLang={voiceLang} userFoods={userFoods} /></div>
-            {tab === "today"     && <TodayTab entries={entries} targets={targets} onDelete={deleteEntry} onEdit={e => setEditingEntry(e)} />}
+            {tab === "today"     && <TodayTab entries={entries} targets={targets} onDelete={deleteEntry} onEdit={e => setEditingEntry(e)} burnedKcal={burnedToday} onSaveBurned={async (v) => { await saveBodyWeightAPI(todayStr(), null, v); setBurnedToday(v); }} />}
             {tab === "mealprep"  && <MealprepTab recipes={recipes} onAdd={addRecipe} onDelete={removeRecipe} onArchive={archiveRecipe} archive={archive} voiceLang={voiceLang} />}
             {tab === "history"   && <HistoryTab targets={targets} loadRange={loadDiaryRange} loadDay={loadDiaryEntries} onDelete={deleteEntry} updateEntry={updateDiaryEntry} loadBodyWeights={loadBodyWeightRange} saveBodyWeight={saveBodyWeightAPI} />}
             {tab === "userfoods" && <UserFoodsTab userFoods={userFoods} onAdd={addUserFood} onUpdate={updateUserFood} onDelete={deleteUserFood} />}
