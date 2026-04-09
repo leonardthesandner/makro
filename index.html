@@ -328,20 +328,14 @@
         ? userFoods.filter(f => f.name.toLowerCase().startsWith(acWord.toLowerCase())).slice(0, 5)
         : [];
 
-      const applySuggestion = (name) => {
-        const el = textareaRef.current;
-        if (!el) return;
-        const pos = el.selectionStart;
-        const before = text.slice(0, pos);
-        const after = text.slice(pos);
-        const newBefore = before.replace(/([a-zA-ZäöüÄÖÜß]+)$/, name);
-        setText(newBefore + after);
-        // restore focus and move cursor to end of inserted word
-        setTimeout(() => {
-          el.focus();
-          const newPos = newBefore.length;
-          el.setSelectionRange(newPos, newPos);
-        }, 0);
+      const applySuggestion = (food) => {
+        const w = 100;
+        const k = parseFloat(food.kcal_100) || 0;
+        const p = parseFloat(food.protein_100) || 0;
+        const c = parseFloat(food.carbs_100) || 0;
+        const f = parseFloat(food.fat_100) || 0;
+        setText(food.name);
+        setItems([{ name_de: food.name, weight_g: w, kcal: Math.round(k), protein: Math.round(p * 10) / 10, carbs: Math.round(c * 10) / 10, fat: Math.round(f * 10) / 10, kcal_100: k, protein_100: p, carbs_100: c, fat_100: f, source: "personal" }]);
       };
 
       const toggleVoice = async () => {
@@ -458,7 +452,7 @@
             {acSuggestions.length > 0 && (
               <div style={{ display: "flex", gap: 6, flexWrap: "wrap", padding: "0 12px 10px" }}>
                 {acSuggestions.map(f => (
-                  <button key={f.id} onMouseDown={e => { e.preventDefault(); applySuggestion(f.name); }}
+                  <button key={f.id} onMouseDown={e => { e.preventDefault(); applySuggestion(f); }}
                     style={{ fontFamily: "Syne", fontSize: 12, fontWeight: 600, padding: "4px 10px", borderRadius: 16, background: "#1a1a2e", border: `1px solid ${C.accent}44`, color: C.accent, cursor: "pointer" }}>
                     {f.name}
                     <span style={{ fontFamily: "DM Mono", fontSize: 10, color: C.muted, marginLeft: 5 }}>{Math.round(f.kcal_100)} kcal</span>
