@@ -448,7 +448,17 @@
         setLoading(true); setErr(null); setItems([]);
         try {
           const data = await analyzeMeal(text, recipes);
-          setItems(data.items || []);
+          const enriched = (data.items || []).map(item => {
+            if (item.source === "recipe" && item.recipe_name) {
+              const r = recipes.find(r => r.name === item.recipe_name);
+              if (r) {
+                const storedItems = r.items ? (typeof r.items === "string" ? JSON.parse(r.items) : r.items) : [];
+                return { ...item, recipeItems: storedItems, recipeTotalWeight: parseFloat(r.total_weight) };
+              }
+            }
+            return item;
+          });
+          setItems(enriched);
         } catch (e) { setErr("Analyse fehlgeschlagen: " + e.message); }
         setLoading(false);
       };
