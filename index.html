@@ -1913,7 +1913,10 @@
       return (
         <div onClick={onClose} style={{ position: "fixed", inset: 0, background: "#000c", display: "flex", alignItems: "flex-end", zIndex: 100 }}>
           <div onClick={e => e.stopPropagation()} style={{ background: "#181818", borderRadius: "20px 20px 0 0", padding: "20px 16px", width: "100%", border: `1px solid ${C.border}`, paddingBottom: "calc(20px + env(safe-area-inset-bottom))", maxHeight: "92vh", overflowY: "auto", WebkitOverflowScrolling: "touch" }}>
-            <div style={{ fontFamily: "Syne", fontSize: 17, fontWeight: 800, color: C.text, marginBottom: 20 }}>Einstellungen</div>
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 20 }}>
+              <div style={{ fontFamily: "Syne", fontSize: 17, fontWeight: 800, color: C.text }}>Einstellungen</div>
+              <button onClick={onClose} style={{ background: "none", border: "none", color: C.muted, fontSize: 20, cursor: "pointer", padding: "0 2px", lineHeight: 1 }}>✕</button>
+            </div>
 
             <div style={{ fontFamily: "Syne", fontSize: 10, color: C.muted, textTransform: "uppercase", letterSpacing: 1, marginBottom: 10 }}>Körperprofil</div>
             <div style={{ display: "flex", flexDirection: "column", gap: 10, marginBottom: 20 }}>
@@ -1954,7 +1957,7 @@
             </div>
 
             <div style={{ display: "flex", gap: 8 }}>
-              <Btn onClick={save} style={{ flex: 1 }}>Speichern</Btn>
+              <Btn onClick={save} disabled={!MACROS.some(m => parseFloat(form[m]) > 0)} style={{ flex: 1 }}>Speichern</Btn>
               <Btn onClick={onClose} variant="ghost">Abbrechen</Btn>
             </div>
 
@@ -2360,7 +2363,7 @@
 
     const TABS = [
       { id: "input",     label: "Eingabe",  sym: "✦" },
-      { id: "today",     label: "Heute",    sym: "◉" },
+      { id: "today",     label: "Heute",    sym: "◎" },
       { id: "history",   label: "Verlauf",  sym: "◈" },
       { id: "mealprep",  label: "Mealprep", sym: "⬡" },
       { id: "userfoods", label: "Eigene",   sym: "◫" },
