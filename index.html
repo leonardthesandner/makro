@@ -522,7 +522,7 @@
           {loading && <div className="pulsing" style={{ textAlign: "center", padding: 24, fontFamily: "Syne", fontSize: 14, color: C.muted }}>Claude analysiert deine Mahlzeit…</div>}
           {err && <div style={{ background: "#f8717112", border: `1px solid #f8717128`, borderRadius: 8, padding: "10px 14px", color: C.danger, fontFamily: "Syne", fontSize: 13 }}>{err}</div>}
 
-          {recipes.length > 0 && items.length === 0 && !loading && (
+          {recipes.length > 0 && !loading && (
             <div style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center" }}>
               <span style={{ fontFamily: "Syne", fontSize: 10, color: C.muted, textTransform: "uppercase", letterSpacing: 1 }}>Mealprep:</span>
               {recipes.map(r => (
@@ -536,9 +536,10 @@
                   const protein = parseFloat(r.protein_total) || Math.round(p100 * w / 100 * 10) / 10;
                   const carbs   = parseFloat(r.carbs_total)   || Math.round(c100 * w / 100 * 10) / 10;
                   const fat     = parseFloat(r.fat_total)     || Math.round(f100 * w / 100 * 10) / 10;
-                  setText(r.name);
                   const recipeItemsStored = r.items ? (typeof r.items === "string" ? JSON.parse(r.items) : r.items) : [];
-                  setItems([{ name_de: r.name, weight_g: w, kcal, protein, carbs, fat, kcal_100: k100, protein_100: p100, carbs_100: c100, fat_100: f100, source: "recipe", recipeItems: recipeItemsStored, recipeTotalWeight: w }]);
+                  const newItem = { name_de: r.name, weight_g: w, kcal, protein, carbs, fat, kcal_100: k100, protein_100: p100, carbs_100: c100, fat_100: f100, source: "recipe", recipeItems: recipeItemsStored, recipeTotalWeight: w };
+                  setText(p => p.trim() ? p.trim() + "\n" + r.name : r.name);
+                  setItems(p => [...p, newItem]);
                 }}
                   style={{ fontFamily: "Syne", fontSize: 12, fontWeight: 600, padding: "5px 12px", borderRadius: 20, background: C.card, border: `1px solid ${C.border}`, color: C.text, cursor: "pointer" }}>
                   {r.name}
