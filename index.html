@@ -2363,7 +2363,7 @@
 
     const TABS = [
       { id: "input",     label: "Eingabe",  sym: "✦" },
-      { id: "today",     label: "Heute",    sym: "◎" },
+      { id: "today",     label: "Heute",    sym: "◉" },
       { id: "history",   label: "Verlauf",  sym: "◈" },
       { id: "mealprep",  label: "Mealprep", sym: "⬡" },
       { id: "userfoods", label: "Eigene",   sym: "◫" },
@@ -2614,7 +2614,7 @@
           <div style={{ display: "flex", borderTop: `1px solid ${C.border}`, background: C.bg, flexShrink: 0, paddingBottom: "env(safe-area-inset-bottom)" }}>
             {TABS.map(t => (
               <button key={t.id} onClick={() => changeTab(t.id)} style={{ flex: 1, padding: "10px 0 12px", background: "none", border: "none", display: "flex", flexDirection: "column", alignItems: "center", gap: 3 }}>
-                <span style={{ fontSize: 16, color: tab === t.id ? C.accent : C.soft }}>{t.sym}</span>
+                <span style={{ fontSize: 16, lineHeight: 1, display: "block", textAlign: "center", color: tab === t.id ? C.accent : C.soft }}>{t.sym}</span>
                 <span style={{ fontFamily: "Syne", fontSize: 9, fontWeight: tab === t.id ? 700 : 400, color: tab === t.id ? C.accent : C.muted, textTransform: "uppercase", letterSpacing: 0.6 }}>{t.label}</span>
               </button>
             ))}
