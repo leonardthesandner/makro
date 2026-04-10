@@ -2615,7 +2615,7 @@
             {TABS.map(t => (
               <button key={t.id} onClick={() => changeTab(t.id)} style={{ flex: 1, padding: "10px 0 12px", background: "none", border: "none", display: "flex", flexDirection: "column", alignItems: "center", gap: 3 }}>
                 <span style={{ fontSize: 16, lineHeight: 1, display: "block", textAlign: "center", color: tab === t.id ? C.accent : C.soft }}>{t.sym}</span>
-                <span style={{ fontFamily: "Syne", fontSize: 9, fontWeight: tab === t.id ? 700 : 400, color: tab === t.id ? C.accent : C.muted, textTransform: "uppercase", letterSpacing: 0.6 }}>{t.label}</span>
+                <span style={{ fontFamily: "Syne", fontSize: 9, lineHeight: 1, display: "block", textAlign: "center", fontWeight: tab === t.id ? 700 : 400, color: tab === t.id ? C.accent : C.muted, textTransform: "uppercase", letterSpacing: 0.6 }}>{t.label}</span>
               </button>
             ))}
           </div>
