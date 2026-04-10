@@ -660,10 +660,17 @@
               const newVal = parseFloat(val) || 0;
               setBreakdownModal(p => ({ ...p, scaledItems: p.scaledItems.map((it, idx) => {
                 if (idx !== si) return it;
-                if (field === "weight_g" && it.weight_g > 0) {
-                  // scale macros proportionally when weight changes
-                  const ratio = newVal / it.weight_g;
-                  return { ...it, weight_g: newVal, kcal: Math.round((it.kcal||0)*ratio*10)/10, protein: Math.round((it.protein||0)*ratio*10)/10, carbs: Math.round((it.carbs||0)*ratio*10)/10, fat: Math.round((it.fat||0)*ratio*10)/10 };
+                if (field === "weight_g") {
+                  if (newVal <= 0) return { ...it, weight_g: newVal }; // nur Gramm auf 0, Makros unangetastet
+                  if (it.kcal_100 != null) {
+                    // per-100g vorhanden → immer korrekt skalieren, auch nach Null-Zustand
+                    return { ...it, weight_g: newVal, kcal: Math.round((it.kcal_100||0)*newVal/100*10)/10, protein: Math.round((it.protein_100||0)*newVal/100*10)/10, carbs: Math.round((it.carbs_100||0)*newVal/100*10)/10, fat: Math.round((it.fat_100||0)*newVal/100*10)/10 };
+                  }
+                  if (it.weight_g > 0) {
+                    const ratio = newVal / it.weight_g;
+                    return { ...it, weight_g: newVal, kcal: Math.round((it.kcal||0)*ratio*10)/10, protein: Math.round((it.protein||0)*ratio*10)/10, carbs: Math.round((it.carbs||0)*ratio*10)/10, fat: Math.round((it.fat||0)*ratio*10)/10 };
+                  }
+                  return { ...it, weight_g: newVal };
                 }
                 return { ...it, [field]: newVal };
               }) }));
