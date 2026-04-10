@@ -61,6 +61,7 @@
   <script type="text/babel">
     const { useState, useEffect, useRef } = React;
 
+    const APP_VERSION = "1.6.0";
     const C = {
       bg: "#0c0c0c", card: "#161616", border: "#222", accent: "#f59e0b",
       text: "#efefef", muted: "#555", soft: "#2a2a2a",
@@ -1221,6 +1222,7 @@
                   Pro 100g: {Math.round(r.kcal_100)} kcal · {Math.round(r.protein_100 * 10) / 10}g E · {Math.round(r.carbs_100 * 10) / 10}g KH · {Math.round(r.fat_100 * 10) / 10}g F
                 </div>
                 {r.ingredients && <div style={{ fontFamily: "Syne", fontSize: 10, color: "#444", borderTop: `1px solid ${C.border}`, paddingTop: 8, marginBottom: 10, lineHeight: 1.5 }}>{r.ingredients}</div>}
+                {!r.items && <div style={{ fontFamily: "Syne", fontSize: 10, color: C.muted, fontStyle: "italic", marginBottom: 8 }}>Für Bearbeitung & Aufschlüsselung bitte neu anlegen.</div>}
                 <Btn onClick={() => onArchive(r)} full variant="ghost" small>Aufgegessen ✓</Btn>
               </Card>
             ))}
@@ -1960,6 +1962,9 @@
               <div style={{ fontFamily: "Syne", fontSize: 10, color: C.muted, textTransform: "uppercase", letterSpacing: 1, marginBottom: 10 }}>Account</div>
               {onDeleteAccount && <DeleteAccountButton onDelete={onDeleteAccount} />}
             </div>
+            <div style={{ marginTop: 20, textAlign: "center" }}>
+              <span style={{ fontFamily: "Inter", fontSize: 11, color: "#333", letterSpacing: 0.5 }}>makro v{APP_VERSION}</span>
+            </div>
           </div>
         </div>
       );
@@ -2356,8 +2361,8 @@
     const TABS = [
       { id: "input",     label: "Eingabe",  sym: "✦" },
       { id: "today",     label: "Heute",    sym: "◉" },
-      { id: "mealprep",  label: "Mealprep", sym: "⬡" },
       { id: "history",   label: "Verlauf",  sym: "◈" },
+      { id: "mealprep",  label: "Mealprep", sym: "⬡" },
       { id: "userfoods", label: "Eigene",   sym: "◫" },
     ];
 
