@@ -1466,7 +1466,7 @@
       const [activeIdx, setActiveIdx] = React.useState(null);
       const svgRef = React.useRef(null);
       const VW = 280, VH = H;
-      const padT = 16, padB = 8, padL = 0, padR = 0;
+      const padT = 8, padB = 8, padL = 0, padR = 0;
       const chartW = VW - padL - padR;
       const step = n > 1 ? chartW / (n - 1) : 0;
       const toX = i => padL + i * step;
@@ -1511,47 +1511,44 @@
 
       if (seriesScales.every(s => s.data.every(v => v == null))) return null;
 
+      const activePoints = activeIdx !== null
+        ? seriesScales.map(s => ({ ...s, v: s.data[activeIdx] })).filter(s => s.v != null)
+        : [];
+
       return (
-        <svg ref={svgRef} viewBox={`0 0 ${VW} ${VH}`} style={{ width: "100%", display: "block", touchAction: "none", userSelect: "none" }}
-          onPointerDown={onDown} onPointerMove={onMove} onPointerUp={onUp} onPointerLeave={onUp}
-          onTouchStart={onDown} onTouchMove={onMove} onTouchEnd={onUp}>
-          {/* Lines only */}
-          {seriesScales.map(s => {
-            const d = smoothPath(s.data, s.toY);
-            if (!d) return null;
-            return <path key={s.id} d={d} fill="none" stroke={s.color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" opacity={activeIdx !== null ? 0.35 : 1} />;
-          })}
-          {/* Active scrubber */}
-          {activeIdx !== null && (() => {
-            const x = toX(activeIdx);
-            const points = seriesScales.map(s => ({ ...s, v: s.data[activeIdx] })).filter(s => s.v != null);
-            // stack labels to avoid overlap
-            const labelSlots = [];
-            return (
-              <g>
-                <line x1={x} y1={padT - 8} x2={x} y2={VH - padB} stroke="#ffffff22" strokeWidth="1" />
-                {points.map((s, pi) => {
-                  const y = s.toY(s.v);
-                  const label = `${s.label} ${Number(s.v).toFixed(s.dec || 0)}${s.unit ? " " + s.unit : ""}`;
-                  const lw = label.length * 5.2 + 10;
-                  let lx = Math.min(Math.max(x - lw / 2, 2), VW - lw - 2);
-                  let ly = Math.max(y - 20, 2);
-                  // push down if overlapping a previous label
-                  labelSlots.forEach(slot => { if (Math.abs(ly - slot) < 18) ly = slot + 18; });
-                  ly = Math.min(ly, VH - 18);
-                  labelSlots.push(ly);
-                  return (
-                    <g key={s.id}>
-                      <circle cx={x} cy={y} r="4" fill={s.color} />
-                      <rect x={lx} y={ly} width={lw} height={15} rx="4" fill={s.color + "ee"} />
-                      <text x={lx + lw / 2} y={ly + 10.5} textAnchor="middle" fill="#fff" fontSize="8.5" fontFamily="Inter" fontWeight="700">{label}</text>
-                    </g>
-                  );
-                })}
-              </g>
-            );
-          })()}
-        </svg>
+        <div>
+          {/* Fixed info row above chart — never covered by finger */}
+          <div style={{ minHeight: 20, marginBottom: 6, display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center" }}>
+            {activePoints.length > 0
+              ? activePoints.map(s => (
+                  <span key={s.id} style={{ fontFamily: "Inter", fontSize: 11, fontWeight: 700, color: s.color }}>
+                    {s.label} {Number(s.v).toFixed(s.dec || 0)}{s.unit ? "\u202f" + s.unit : ""}
+                  </span>
+                ))
+              : <span style={{ fontFamily: "Inter", fontSize: 10, color: "transparent" }}>·</span>
+            }
+          </div>
+          <svg ref={svgRef} viewBox={`0 0 ${VW} ${VH}`} style={{ width: "100%", display: "block", touchAction: "none", userSelect: "none" }}
+            onPointerDown={onDown} onPointerMove={onMove} onPointerUp={onUp} onPointerLeave={onUp}
+            onTouchStart={onDown} onTouchMove={onMove} onTouchEnd={onUp}>
+            {seriesScales.map(s => {
+              const d = smoothPath(s.data, s.toY);
+              if (!d) return null;
+              return <path key={s.id} d={d} fill="none" stroke={s.color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" opacity={activeIdx !== null ? 0.4 : 1} />;
+            })}
+            {activeIdx !== null && (() => {
+              const x = toX(activeIdx);
+              return (
+                <g>
+                  <line x1={x} y1={0} x2={x} y2={VH} stroke="#ffffff20" strokeWidth="1" />
+                  {activePoints.map(s => (
+                    <circle key={s.id} cx={x} cy={s.toY(s.v)} r="4" fill={s.color} />
+                  ))}
+                </g>
+              );
+            })()}
+          </svg>
+        </div>
       );
     }
 
