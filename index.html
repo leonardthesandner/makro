@@ -1468,6 +1468,23 @@
       const chartW = VW - padL - padR;
       const step = n > 1 ? chartW / (n - 1) : 0;
       const toX = i => padL + i * step;
+
+      // Build a smooth cubic bezier path through the non-null points
+      const smoothPath = (data, toY) => {
+        const pts = [];
+        data.forEach((v, i) => { if (v != null) pts.push([toX(i), toY(v)]); });
+        if (pts.length < 2) return pts.length === 1 ? `M${pts[0][0]} ${pts[0][1]}` : "";
+        let d = `M${pts[0][0]} ${pts[0][1]}`;
+        for (let i = 1; i < pts.length; i++) {
+          const [x0, y0] = pts[i - 1];
+          const [x1, y1] = pts[i];
+          const tension = 0.4;
+          const dx = (x1 - x0) * tension;
+          d += ` C${x0 + dx} ${y0} ${x1 - dx} ${y1} ${x1} ${y1}`;
+        }
+        return d;
+      };
+
       return (
         <svg viewBox={`0 0 ${VW} ${VH}`} style={{ width: "100%", display: "block" }}>
           {series.map(s => {
@@ -1477,11 +1494,7 @@
             const mx = Math.max(...valid);
             const range = mx - mn || 1;
             const toY = v => padT + (1 - (v - mn) / range) * (VH - padT - padB);
-            let d = "";
-            s.data.forEach((v, i) => {
-              if (v == null) return;
-              d += d ? ` L${toX(i)} ${toY(v)}` : `M${toX(i)} ${toY(v)}`;
-            });
+            const d = smoothPath(s.data, toY);
             return (
               <g key={s.id}>
                 <path d={d} fill="none" stroke={s.color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
