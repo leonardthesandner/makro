@@ -362,13 +362,28 @@
       const [imagePreview, setImagePreview] = useState(null);
       const imageInputRef = useRef(null);
 
+      const resizeImage = (file, maxPx = 1024, quality = 0.85) => new Promise((resolve) => {
+        const img = new Image();
+        img.onload = () => {
+          const scale = Math.min(1, maxPx / Math.max(img.width, img.height));
+          const w = Math.round(img.width * scale);
+          const h = Math.round(img.height * scale);
+          const canvas = document.createElement("canvas");
+          canvas.width = w; canvas.height = h;
+          canvas.getContext("2d").drawImage(img, 0, 0, w, h);
+          canvas.toBlob(resolve, "image/jpeg", quality);
+        };
+        img.src = URL.createObjectURL(file);
+      });
+
       const handleImageCapture = async (e) => {
         const file = e.target.files?.[0];
         if (!file) return;
         setImagePreview(URL.createObjectURL(file));
         setImageAnalyzing(true); setErr(null); setItems([]);
         try {
-          const data = await analyzeImageMeal(file);
+          const compressed = await resizeImage(file);
+          const data = await analyzeImageMeal(compressed);
           const enriched = (data.items || []).map(item => {
             if (item.source === "recipe" && item.recipe_name) {
               const r = recipes.find(r => r.name === item.recipe_name);
