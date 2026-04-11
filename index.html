@@ -1708,34 +1708,6 @@
                       </Card>
                     ))}
                   </div>
-                  <div>
-                    <SectionLabel>Einträge ({dayEntries.length})</SectionLabel>
-                    {dayEntries.length === 0
-                      ? <div style={{ textAlign: "center", padding: 40, color: C.muted, fontFamily: "Syne", fontSize: 14 }}>Keine Einträge.</div>
-                      : <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-                          {[...dayEntries].reverse().map(e => (
-                            <Card key={e.id} onClick={() => setEditingEntry(e)} style={{ padding: "12px 14px", cursor: "pointer" }}>
-                              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 8 }}>
-                                <div style={{ flex: 1, marginRight: 8 }}>
-                                  <div style={{ fontFamily: "Syne", fontSize: 13, color: C.text, marginBottom: 3, lineHeight: 1.4 }}>{e.raw_input}</div>
-                                  <Mono size={11} color={C.muted}>{new Date(e.timestamp).toLocaleTimeString("de-DE", { hour: "2-digit", minute: "2-digit" })} Uhr</Mono>
-                                </div>
-                                <button onClick={ev => { ev.stopPropagation(); handleDelete(e.id); }} style={{ background: "none", border: "none", color: "#f8717140", fontSize: 18, padding: 4 }}>✕</button>
-                              </div>
-                              <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 6 }}>
-                                {MACROS.map(m => (
-                                  <div key={m} style={{ textAlign: "center" }}>
-                                    <Mono size={13} color={MC[m]} bold>{Math.round(e.totals[m])}</Mono>
-                                    <div style={{ fontFamily: "Inter", fontSize: 9, color: C.muted }}>{UNITS[m]}</div>
-                                  </div>
-                                ))}
-                              </div>
-                            </Card>
-                          ))}
-                        </div>
-                    }
-                  </div>
-
                   {/* ── Nachträglich hinzufügen ── */}
                   <div>
                     <SectionLabel>Eintrag hinzufügen</SectionLabel>
@@ -1791,6 +1763,34 @@
                         </>
                       )}
                     </Card>
+                  </div>
+
+                  <div>
+                    <SectionLabel>Einträge ({dayEntries.length})</SectionLabel>
+                    {dayEntries.length === 0
+                      ? <div style={{ textAlign: "center", padding: 40, color: C.muted, fontFamily: "Syne", fontSize: 14 }}>Keine Einträge.</div>
+                      : <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+                          {[...dayEntries].reverse().map(e => (
+                            <Card key={e.id} onClick={() => setEditingEntry(e)} style={{ padding: "12px 14px", cursor: "pointer" }}>
+                              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 8 }}>
+                                <div style={{ flex: 1, marginRight: 8 }}>
+                                  <div style={{ fontFamily: "Syne", fontSize: 13, color: C.text, marginBottom: 3, lineHeight: 1.4 }}>{e.raw_input}</div>
+                                  <Mono size={11} color={C.muted}>{new Date(e.timestamp).toLocaleTimeString("de-DE", { hour: "2-digit", minute: "2-digit" })} Uhr</Mono>
+                                </div>
+                                <button onClick={ev => { ev.stopPropagation(); handleDelete(e.id); }} style={{ background: "none", border: "none", color: "#f8717140", fontSize: 18, padding: 4 }}>✕</button>
+                              </div>
+                              <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 6 }}>
+                                {MACROS.map(m => (
+                                  <div key={m} style={{ textAlign: "center" }}>
+                                    <Mono size={13} color={MC[m]} bold>{Math.round(e.totals[m])}</Mono>
+                                    <div style={{ fontFamily: "Inter", fontSize: 9, color: C.muted }}>{UNITS[m]}</div>
+                                  </div>
+                                ))}
+                              </div>
+                            </Card>
+                          ))}
+                        </div>
+                    }
                   </div>
                 </>
               )}
