@@ -1360,7 +1360,7 @@
       );
     }
 
-    function HistoryTab({ targets, loadRange, loadDay, onDelete, updateEntry, loadBodyWeights, saveBodyWeight }) {
+    function HistoryTab({ targets, loadRange, loadDay, onDelete, updateEntry, loadBodyWeights, saveBodyWeight, onAdd, recipes, userFoods, voiceLang }) {
       const PERIODS = [
         { id: "tage",   label: "Tage",   daysBack: 6,    chartTitle: "Tagesverlauf" },
         { id: "wochen", label: "Wochen", daysBack: 83,   chartTitle: "Wochenverlauf" },
@@ -1386,6 +1386,14 @@
       const [dayBurnedSaved, setDayBurnedSaved] = useState(false);
       const [activeStats, setActiveStats] = useState(new Set(["gewicht", "kcal"]));
       const toggleStat = (id) => setActiveStats(prev => { const n = new Set(prev); n.has(id) ? n.delete(id) : n.add(id); return n; });
+
+      // ── Add-entry form state ───────────────────────────────────────────────────
+      const [addText, setAddText] = useState("");
+      const [addItems, setAddItems] = useState([]);
+      const [addLoading, setAddLoading] = useState(false);
+      const [addErr, setAddErr] = useState(null);
+      const [addSaving, setAddSaving] = useState(false);
+      useEffect(() => { setAddText(""); setAddItems([]); setAddErr(null); }, [selectedDay?.date]);
 
       const loadData = (p) => {
         const cfg = PERIODS.find(x => x.id === p);
@@ -1555,6 +1563,51 @@
         } catch {
           setDayEntries(p => p.map(e => e.id === updated.id ? updated : e));
         }
+      };
+
+      const addAnalyze = async () => {
+        if (!addText.trim()) return;
+        setAddLoading(true); setAddErr(null); setAddItems([]);
+        try {
+          const data = await analyzeMeal(addText, recipes || []);
+          const enriched = (data.items || []).map(item => {
+            if (item.source === "recipe" && item.recipe_name && recipes) {
+              const r = recipes.find(r => r.name === item.recipe_name);
+              if (r) {
+                const si = r.items ? (typeof r.items === "string" ? JSON.parse(r.items) : r.items) : [];
+                return { ...item, recipeItems: si, recipeTotalWeight: parseFloat(r.total_weight) };
+              }
+            }
+            return item;
+          });
+          setAddItems(enriched);
+        } catch (e) { setAddErr("Analyse fehlgeschlagen: " + e.message); }
+        setAddLoading(false);
+      };
+
+      const updateAddItem = (i, field, val) => setAddItems(p => p.map((it, idx) => {
+        if (idx !== i) return it;
+        if (field === "weight_g") {
+          const w = parseFloat(val) || 0;
+          if (w > 0 && it.kcal_100 != null) return { ...it, weight_g: w, kcal: Math.round(it.kcal_100*w/100), protein: Math.round(it.protein_100*w/100*10)/10, carbs: Math.round(it.carbs_100*w/100*10)/10, fat: Math.round(it.fat_100*w/100*10)/10 };
+          return { ...it, weight_g: parseFloat(val)||0 };
+        }
+        return { ...it, [field]: parseFloat(val)||0 };
+      }));
+
+      const saveAddEntry = async () => {
+        if (!addItems.length || addSaving) return;
+        setAddSaving(true);
+        const t = addItems.reduce((a, it) => ({ kcal: a.kcal+(it.kcal||0), protein: a.protein+(it.protein||0), carbs: a.carbs+(it.carbs||0), fat: a.fat+(it.fat||0) }), { kcal:0, protein:0, carbs:0, fat:0 });
+        const entry = { id: Date.now(), raw_input: addText, items: addItems, totals: t, timestamp: new Date(selectedDay.date + "T12:00:00").toISOString() };
+        try {
+          const saved = await onAdd(selectedDay.date, entry);
+          const next = [...dayEntries, saved];
+          setDayEntries(next);
+          setDays(p => p.map(d => d.date === selectedDay.date ? { ...d, entries: next.length, totals: sumEntries(next) } : d));
+          setAddText(""); setAddItems([]); setAddErr(null);
+        } catch {}
+        setAddSaving(false);
         setEditingEntry(null);
       };
 
@@ -1681,6 +1734,63 @@
                           ))}
                         </div>
                     }
+                  </div>
+
+                  {/* ── Nachträglich hinzufügen ── */}
+                  <div>
+                    <SectionLabel>Eintrag hinzufügen</SectionLabel>
+                    <Card style={{ padding: "12px 14px" }}>
+                      {recipes && recipes.length > 0 && addItems.length === 0 && !addLoading && (
+                        <div style={{ display: "flex", gap: 6, flexWrap: "wrap", alignItems: "center", marginBottom: 10 }}>
+                          <span style={{ fontFamily: "Syne", fontSize: 10, color: C.muted, textTransform: "uppercase", letterSpacing: 1 }}>Mealprep:</span>
+                          {recipes.map(r => (
+                            <button key={r.id} onClick={() => {
+                              const w = parseFloat(r.total_weight)||100;
+                              const k100=parseFloat(r.kcal_100)||0, p100=parseFloat(r.protein_100)||0, c100=parseFloat(r.carbs_100)||0, f100=parseFloat(r.fat_100)||0;
+                              const si = r.items ? (typeof r.items==="string" ? JSON.parse(r.items) : r.items) : [];
+                              const ni = { name_de: r.name, weight_g: w, kcal: parseFloat(r.kcal_total)||Math.round(k100*w/100), protein: parseFloat(r.protein_total)||Math.round(p100*w/100*10)/10, carbs: parseFloat(r.carbs_total)||Math.round(c100*w/100*10)/10, fat: parseFloat(r.fat_total)||Math.round(f100*w/100*10)/10, kcal_100: k100, protein_100: p100, carbs_100: c100, fat_100: f100, source: "recipe", recipeItems: si, recipeTotalWeight: w };
+                              setAddText(p => p.trim() ? p.trim() + "\n" + r.name : r.name);
+                              setAddItems(p => [...p, ni]);
+                            }} style={{ fontFamily: "Syne", fontSize: 11, fontWeight: 600, padding: "4px 10px", borderRadius: 20, background: C.soft, border: `1px solid ${C.border}`, color: C.text, cursor: "pointer" }}>{r.name}</button>
+                          ))}
+                        </div>
+                      )}
+                      <div style={{ display: "flex", gap: 8, marginBottom: addItems.length ? 10 : 0 }}>
+                        <textarea value={addText} onChange={e => setAddText(e.target.value)} placeholder="z.B. 200g Hähnchen, 150g Reis" rows={2} style={{ flex: 1, background: "#111", border: `1px solid ${C.border}`, borderRadius: 8, padding: "9px 10px", color: C.text, fontFamily: "Inter", fontSize: 13, outline: "none", resize: "none" }} />
+                        <Btn small onClick={addAnalyze} disabled={!addText.trim() || addLoading}>{addLoading ? "…" : "Analysieren →"}</Btn>
+                      </div>
+                      {addErr && <div style={{ fontFamily: "Syne", fontSize: 11, color: C.danger, marginBottom: 8 }}>{addErr}</div>}
+                      {addItems.length > 0 && (
+                        <>
+                          <div style={{ display: "flex", flexDirection: "column", gap: 6, marginBottom: 10 }}>
+                            {addItems.map((item, i) => {
+                              const iStyle = { background: "#0a0a0a", border: `1px solid ${C.border}`, borderRadius: 5, padding: "5px 7px", color: C.text, fontFamily: "Inter", fontSize: 12, outline: "none", width: "100%" };
+                              return (
+                                <div key={i} style={{ background: C.soft, borderRadius: 8, padding: "8px 10px" }}>
+                                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 6 }}>
+                                    <span style={{ fontFamily: "Syne", fontSize: 12, fontWeight: 700, color: C.text }}>{item.name_de || item.name}</span>
+                                    <button onClick={() => setAddItems(p => p.filter((_,idx)=>idx!==i))} style={{ background: "none", border: "none", color: "#f8717150", fontSize: 14, padding: "2px 4px" }}>✕</button>
+                                  </div>
+                                  <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr 1fr 1fr", gap: 4 }}>
+                                    <div>
+                                      <div style={{ fontFamily: "Syne", fontSize: 8, color: C.muted, textTransform: "uppercase", marginBottom: 2 }}>Gramm</div>
+                                      <input type="text" inputMode="decimal" value={item.weight_g} onChange={e => updateAddItem(i,"weight_g",e.target.value)} style={iStyle} />
+                                    </div>
+                                    {MACROS.map(m => (
+                                      <div key={m}>
+                                        <div style={{ fontFamily: "Syne", fontSize: 8, color: MC[m], textTransform: "uppercase", marginBottom: 2 }}>{m}</div>
+                                        <input type="text" inputMode="decimal" value={Math.round((item[m]||0)*10)/10} onChange={e => updateAddItem(i,m,e.target.value)} style={{ ...iStyle, color: MC[m] }} />
+                                      </div>
+                                    ))}
+                                  </div>
+                                </div>
+                              );
+                            })}
+                          </div>
+                          <Btn onClick={saveAddEntry} disabled={addSaving} style={{ width: "100%" }}>{addSaving ? "…" : "Hinzufügen ✓"}</Btn>
+                        </>
+                      )}
+                    </Card>
                   </div>
                 </>
               )}
@@ -2458,6 +2568,14 @@
       };
 
       // Entry functions
+      const addEntryForDate = async (date, entry) => {
+        try {
+          const saved = await saveDiaryEntry(date, entry);
+          loadUserFoods().then(r => setUserFoods(r)).catch(() => {});
+          return saved;
+        } catch { return entry; }
+      };
+
       const addEntry = async (entry) => {
         try {
           const saved = await saveDiaryEntry(todayStr(), entry);
@@ -2613,7 +2731,7 @@
                 className={outTab ? `slide-from-${slideDir}` : ""}>
                 {tab === "today"     && <TodayTab entries={entries} targets={targets} onDelete={deleteEntry} onEdit={e => setEditingEntry(e)} burnedKcal={burnedToday} onSaveBurned={async (v) => { await saveBodyWeightAPI(todayStr(), null, v); setBurnedToday(v); }} />}
                 {tab === "mealprep"  && <MealprepTab recipes={recipes} onAdd={addRecipe} onEdit={editRecipe} onDelete={removeRecipe} onArchive={archiveRecipe} archive={archive} voiceLang={voiceLang} userFoods={userFoods} />}
-                {tab === "history"   && <HistoryTab targets={targets} loadRange={loadDiaryRange} loadDay={loadDiaryEntries} onDelete={deleteEntry} updateEntry={updateDiaryEntry} loadBodyWeights={loadBodyWeightRange} saveBodyWeight={saveBodyWeightAPI} />}
+                {tab === "history"   && <HistoryTab targets={targets} loadRange={loadDiaryRange} loadDay={loadDiaryEntries} onDelete={deleteEntry} updateEntry={updateDiaryEntry} loadBodyWeights={loadBodyWeightRange} saveBodyWeight={saveBodyWeightAPI} onAdd={addEntryForDate} recipes={recipes} userFoods={userFoods} voiceLang={voiceLang} />}
                 {tab === "userfoods" && <UserFoodsTab userFoods={userFoods} onAdd={addUserFood} onUpdate={updateUserFood} onDelete={deleteUserFood} />}
               </div>
             )}
@@ -2624,7 +2742,7 @@
                 onAnimationEnd={onAnimEnd}>
                 {outTab === "today"     && <TodayTab entries={entries} targets={targets} onDelete={deleteEntry} onEdit={e => setEditingEntry(e)} burnedKcal={burnedToday} onSaveBurned={async (v) => { await saveBodyWeightAPI(todayStr(), null, v); setBurnedToday(v); }} />}
                 {outTab === "mealprep"  && <MealprepTab recipes={recipes} onAdd={addRecipe} onEdit={editRecipe} onDelete={removeRecipe} onArchive={archiveRecipe} archive={archive} voiceLang={voiceLang} userFoods={userFoods} />}
-                {outTab === "history"   && <HistoryTab targets={targets} loadRange={loadDiaryRange} loadDay={loadDiaryEntries} onDelete={deleteEntry} updateEntry={updateDiaryEntry} loadBodyWeights={loadBodyWeightRange} saveBodyWeight={saveBodyWeightAPI} />}
+                {outTab === "history"   && <HistoryTab targets={targets} loadRange={loadDiaryRange} loadDay={loadDiaryEntries} onDelete={deleteEntry} updateEntry={updateDiaryEntry} loadBodyWeights={loadBodyWeightRange} saveBodyWeight={saveBodyWeightAPI} onAdd={addEntryForDate} recipes={recipes} userFoods={userFoods} voiceLang={voiceLang} />}
                 {outTab === "userfoods" && <UserFoodsTab userFoods={userFoods} onAdd={addUserFood} onUpdate={updateUserFood} onDelete={deleteUserFood} />}
               </div>
             )}
