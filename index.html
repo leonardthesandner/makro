@@ -204,6 +204,7 @@
     // Körpergewicht
     async function loadBodyWeightRange(from, to) { return apiCall(`/api/body-weight?from=${from}&to=${to}`); }
     async function loadStravaActivities(from, to) { return apiCall(`/api/strava/activities?from=${from}&to=${to}`).catch(() => []); }
+    async function deleteStravaActivityAPI(stravaId) { return apiCall(`/api/strava/activities/${stravaId}`, "DELETE"); }
     async function saveBodyWeightAPI(date, weight_kg, burned_kcal) {
       const body = { date };
       if (weight_kg != null) body.weight_kg = weight_kg;
@@ -885,9 +886,10 @@
       );
     }
 
-    function TodayTab({ entries, targets, onDelete, onEdit, burnedKcal, onSaveBurned, todayWeight, onSaveWeight, stravaActivities }) {
+    function TodayTab({ entries, targets, onDelete, onEdit, burnedKcal, onSaveBurned, todayWeight, onSaveWeight, stravaActivities, onDeleteStrava }) {
       const totals = sumEntries(entries);
-      const burned = burnedKcal || 0;
+      const stravaBurned = (stravaActivities || []).reduce((s, a) => s + (a.calories || 0), 0);
+      const burned = (burnedKcal || 0) + stravaBurned;
       const netKcal = totals.kcal - burned;
       const kcalRest = targets.kcal - netKcal;
       const rest = Object.fromEntries(MACROS.map(m => [m, m === "kcal" ? kcalRest : targets[m] - totals[m]]));
@@ -972,10 +974,11 @@
                           {[a.type, distKm ? distKm + " km" : null, dur].filter(Boolean).join(" · ")}
                         </div>
                       </div>
-                      <div style={{ textAlign: "right" }}>
+                      <div style={{ textAlign: "right", marginRight: 4 }}>
                         <Mono size={15} color="#fc4c02" bold>{a.calories}</Mono>
                         <div style={{ fontFamily: "Inter", fontSize: 9, color: C.muted }}>kcal</div>
                       </div>
+                      <button onClick={() => onDeleteStrava && onDeleteStrava(a.strava_id)} style={{ background: "none", border: "none", color: "#f8717140", fontSize: 18, padding: 4, cursor: "pointer", flexShrink: 0 }}>✕</button>
                     </Card>
                   );
                 })}
@@ -1480,7 +1483,7 @@
       );
     }
 
-    function HistoryTab({ targets, loadRange, loadDay, onDelete, updateEntry, loadBodyWeights, saveBodyWeight, onAdd, recipes, userFoods, voiceLang, loadActivities }) {
+    function HistoryTab({ targets, loadRange, loadDay, onDelete, updateEntry, loadBodyWeights, saveBodyWeight, onAdd, recipes, userFoods, voiceLang, loadActivities, onDeleteStrava }) {
       const PERIODS = [
         { id: "tage",   label: "Tage",   daysBack: 6,    chartTitle: "Tagesverlauf" },
         { id: "wochen", label: "Wochen", daysBack: 83,   chartTitle: "Wochenverlauf" },
@@ -1619,7 +1622,7 @@
           b.entries += day.entries;
           MACROS.forEach(m => { b.totals[m] += day.totals[m]; });
           if (bodyWeights[day.date] != null) b.wvals.push(bodyWeights[day.date]);
-          b.burned += burnedMap[day.date] || 0;
+          b.burned += (burnedMap[day.date] || 0) + (stravaActivities[day.date] || []).reduce((s, a) => s + (a.calories || 0), 0);
         });
         return Array.from(map.values()).map(b => ({
           ...b,
@@ -1787,7 +1790,9 @@
       // ── Day detail view ───────────────────────────────────────────────────────
       if (selectedDay) {
         const totals = sumEntries(dayEntries);
-        const rest = Object.fromEntries(MACROS.map(m => [m, targets[m] - totals[m]]));
+        const dayStravaBurned = (stravaActivities[selectedDay.date] || []).reduce((s, a) => s + (a.calories || 0), 0);
+        const dayTotalBurned = (parseFloat(dayBurned) || 0) + dayStravaBurned;
+        const rest = Object.fromEntries(MACROS.map(m => [m, m === "kcal" ? targets.kcal - (totals.kcal - dayTotalBurned) : targets[m] - totals[m]]));
         const inputStyle = { background: "#111", border: `1px solid ${C.border}`, borderRadius: 6, padding: "8px 10px", color: C.text, fontFamily: "Inter", fontSize: 15, outline: "none", width: 90 };
         return (
           <>
@@ -1836,10 +1841,11 @@
                                   {[a.type, distKm ? distKm + " km" : null, dur].filter(Boolean).join(" · ")}
                                 </div>
                               </div>
-                              <div style={{ textAlign: "right" }}>
+                              <div style={{ textAlign: "right", marginRight: 4 }}>
                                 <Mono size={15} color="#fc4c02" bold>{a.calories}</Mono>
                                 <div style={{ fontFamily: "Inter", fontSize: 9, color: C.muted }}>kcal</div>
                               </div>
+                              <button onClick={() => { if (onDeleteStrava) { onDeleteStrava(a.strava_id); setStravaActivities(p => { const n = {...p}; n[selectedDay.date] = (n[selectedDay.date]||[]).filter(x => x.strava_id !== a.strava_id); return n; }); } }} style={{ background: "none", border: "none", color: "#f8717140", fontSize: 18, padding: 4, cursor: "pointer", flexShrink: 0 }}>✕</button>
                             </Card>
                           );
                         })}
@@ -1848,7 +1854,17 @@
                   )}
                   <Card style={{ padding: 16 }}>
                     <SectionLabel>Tagesfortschritt</SectionLabel>
-                    {MACROS.map(m => <MacroBar key={m} label={LABELS[m]} current={totals[m]} target={targets[m]} color={MC[m]} unit={UNITS[m]} />)}
+                    {MACROS.map(m => <MacroBar key={m} label={LABELS[m]} current={m === "kcal" ? totals.kcal - dayTotalBurned : totals[m]} target={targets[m]} color={MC[m]} unit={UNITS[m]} />)}
+                    {dayTotalBurned > 0 && (
+                      <div style={{ display: "flex", justifyContent: "flex-end", marginTop: 8, gap: 6, alignItems: "center" }}>
+                        <span style={{ fontFamily: "Syne", fontSize: 11, color: C.muted }}>gegessen</span>
+                        <Mono size={11} color={C.kcal}>{Math.round(totals.kcal)}</Mono>
+                        <span style={{ fontFamily: "Syne", fontSize: 11, color: C.muted }}>− verbrannt</span>
+                        <Mono size={11} color="#fc4c02">{Math.round(dayTotalBurned)}</Mono>
+                        <span style={{ fontFamily: "Syne", fontSize: 11, color: C.muted }}>= netto</span>
+                        <Mono size={11} color={C.text} bold>{Math.round(totals.kcal - dayTotalBurned)}</Mono>
+                      </div>
+                    )}
                   </Card>
                   <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
                     {MACROS.map(m => (
@@ -2938,9 +2954,9 @@
             {tab !== "input" && (
               <div key={"in-" + tab} style={{ position: "absolute", inset: 0, overflowY: "auto", WebkitOverflowScrolling: "touch", zIndex: 1 }}
                 className={outTab ? `slide-from-${slideDir}` : ""}>
-                {tab === "today"     && <TodayTab entries={entries} targets={targets} onDelete={deleteEntry} onEdit={e => setEditingEntry(e)} burnedKcal={burnedToday} onSaveBurned={async (v) => { await saveBodyWeightAPI(todayStr(), null, v); setBurnedToday(v); }} todayWeight={todayWeight} onSaveWeight={async (v) => { await saveBodyWeightAPI(todayStr(), v, null); setTodayWeight(v); }} stravaActivities={stravaToday} />}
+                {tab === "today"     && <TodayTab entries={entries} targets={targets} onDelete={deleteEntry} onEdit={e => setEditingEntry(e)} burnedKcal={burnedToday} onSaveBurned={async (v) => { await saveBodyWeightAPI(todayStr(), null, v); setBurnedToday(v); }} todayWeight={todayWeight} onSaveWeight={async (v) => { await saveBodyWeightAPI(todayStr(), v, null); setTodayWeight(v); }} stravaActivities={stravaToday} onDeleteStrava={async (id) => { await deleteStravaActivityAPI(id); setStravaToday(p => p.filter(a => a.strava_id !== id)); }} />}
                 {tab === "mealprep"  && <MealprepTab recipes={recipes} onAdd={addRecipe} onEdit={editRecipe} onDelete={removeRecipe} onArchive={archiveRecipe} archive={archive} voiceLang={voiceLang} userFoods={userFoods} />}
-                {tab === "history"   && <HistoryTab targets={targets} loadRange={loadDiaryRange} loadDay={loadDiaryEntries} onDelete={deleteEntry} updateEntry={updateDiaryEntry} loadBodyWeights={loadBodyWeightRange} saveBodyWeight={saveBodyWeightAPI} onAdd={addEntryForDate} recipes={recipes} userFoods={userFoods} voiceLang={voiceLang} loadActivities={loadStravaActivities} />}
+                {tab === "history"   && <HistoryTab targets={targets} loadRange={loadDiaryRange} loadDay={loadDiaryEntries} onDelete={deleteEntry} updateEntry={updateDiaryEntry} loadBodyWeights={loadBodyWeightRange} saveBodyWeight={saveBodyWeightAPI} onAdd={addEntryForDate} recipes={recipes} userFoods={userFoods} voiceLang={voiceLang} loadActivities={loadStravaActivities} onDeleteStrava={async (id) => { await deleteStravaActivityAPI(id); }} />}
                 {tab === "userfoods" && <UserFoodsTab userFoods={userFoods} onAdd={addUserFood} onUpdate={updateUserFood} onDelete={deleteUserFood} />}
               </div>
             )}
@@ -2949,9 +2965,9 @@
               <div key={"out-" + outTab} style={{ position: "absolute", inset: 0, overflowY: "auto", WebkitOverflowScrolling: "touch", zIndex: 1 }}
                 className={`slide-to-${slideDir === "right" ? "left" : "right"}`}
                 onAnimationEnd={onAnimEnd}>
-                {outTab === "today"     && <TodayTab entries={entries} targets={targets} onDelete={deleteEntry} onEdit={e => setEditingEntry(e)} burnedKcal={burnedToday} onSaveBurned={async (v) => { await saveBodyWeightAPI(todayStr(), null, v); setBurnedToday(v); }} todayWeight={todayWeight} onSaveWeight={async (v) => { await saveBodyWeightAPI(todayStr(), v, null); setTodayWeight(v); }} stravaActivities={stravaToday} />}
+                {outTab === "today"     && <TodayTab entries={entries} targets={targets} onDelete={deleteEntry} onEdit={e => setEditingEntry(e)} burnedKcal={burnedToday} onSaveBurned={async (v) => { await saveBodyWeightAPI(todayStr(), null, v); setBurnedToday(v); }} todayWeight={todayWeight} onSaveWeight={async (v) => { await saveBodyWeightAPI(todayStr(), v, null); setTodayWeight(v); }} stravaActivities={stravaToday} onDeleteStrava={async (id) => { await deleteStravaActivityAPI(id); setStravaToday(p => p.filter(a => a.strava_id !== id)); }} />}
                 {outTab === "mealprep"  && <MealprepTab recipes={recipes} onAdd={addRecipe} onEdit={editRecipe} onDelete={removeRecipe} onArchive={archiveRecipe} archive={archive} voiceLang={voiceLang} userFoods={userFoods} />}
-                {outTab === "history"   && <HistoryTab targets={targets} loadRange={loadDiaryRange} loadDay={loadDiaryEntries} onDelete={deleteEntry} updateEntry={updateDiaryEntry} loadBodyWeights={loadBodyWeightRange} saveBodyWeight={saveBodyWeightAPI} onAdd={addEntryForDate} recipes={recipes} userFoods={userFoods} voiceLang={voiceLang} loadActivities={loadStravaActivities} />}
+                {outTab === "history"   && <HistoryTab targets={targets} loadRange={loadDiaryRange} loadDay={loadDiaryEntries} onDelete={deleteEntry} updateEntry={updateDiaryEntry} loadBodyWeights={loadBodyWeightRange} saveBodyWeight={saveBodyWeightAPI} onAdd={addEntryForDate} recipes={recipes} userFoods={userFoods} voiceLang={voiceLang} loadActivities={loadStravaActivities} onDeleteStrava={async (id) => { await deleteStravaActivityAPI(id); }} />}
                 {outTab === "userfoods" && <UserFoodsTab userFoods={userFoods} onAdd={addUserFood} onUpdate={updateUserFood} onDelete={deleteUserFood} />}
               </div>
             )}
