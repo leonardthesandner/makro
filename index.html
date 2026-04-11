@@ -230,6 +230,14 @@
       return apiCall("/api/settings", "POST", { targets, ...extra });
     }
 
+    function entryLabel(e) {
+      if (e.items && e.items.length > 0) {
+        const names = e.items.map(it => it.name_de || it.name || "").filter(Boolean);
+        if (names.length > 0) return names.join(", ");
+      }
+      return e.raw_input || "";
+    }
+
     function sumEntries(entries) {
       return entries.reduce((a, e) => ({
         kcal: a.kcal + e.totals.kcal, protein: a.protein + e.totals.protein,
@@ -845,7 +853,7 @@
             <button onClick={onClose} style={{ background: "none", border: "none", color: C.muted, fontSize: 22, padding: 4 }}>✕</button>
           </div>
           <div style={{ flex: 1, overflowY: "auto", WebkitOverflowScrolling: "touch", padding: 16, display: "flex", flexDirection: "column", gap: 10 }}>
-            <div style={{ fontFamily: "Syne", fontSize: 12, color: C.muted, lineHeight: 1.5, marginBottom: 2 }}>{entry.raw_input}</div>
+            <div style={{ fontFamily: "Syne", fontSize: 12, color: C.muted, lineHeight: 1.5, marginBottom: 2 }}>{entryLabel(entry)}</div>
             {items.map((item, i) => (
               <Card key={i} style={{ padding: "12px 14px" }}>
                 <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 10 }}>
@@ -995,7 +1003,7 @@
                     <Card key={e.id} onClick={() => onEdit(e)} style={{ padding: "12px 14px", cursor: "pointer" }}>
                       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 8 }}>
                         <div style={{ flex: 1, marginRight: 8 }}>
-                          <div style={{ fontFamily: "Syne", fontSize: 13, color: C.text, marginBottom: 3, lineHeight: 1.4 }}>{e.raw_input}</div>
+                          <div style={{ fontFamily: "Syne", fontSize: 13, color: C.text, marginBottom: 3, lineHeight: 1.4 }}>{entryLabel(e)}</div>
                           <Mono size={11} color={C.muted}>{new Date(e.timestamp).toLocaleTimeString("de-DE", { hour: "2-digit", minute: "2-digit" })} Uhr</Mono>
                         </div>
                         <button onClick={ev => { ev.stopPropagation(); onDelete(e.id); }} style={{ background: "none", border: "none", color: "#f8717140", fontSize: 18, padding: 4 }}>✕</button>
@@ -2015,7 +2023,7 @@
                             <Card key={e.id} onClick={() => setEditingEntry(e)} style={{ padding: "12px 14px", cursor: "pointer" }}>
                               <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 8 }}>
                                 <div style={{ flex: 1, marginRight: 8 }}>
-                                  <div style={{ fontFamily: "Syne", fontSize: 13, color: C.text, marginBottom: 3, lineHeight: 1.4 }}>{e.raw_input}</div>
+                                  <div style={{ fontFamily: "Syne", fontSize: 13, color: C.text, marginBottom: 3, lineHeight: 1.4 }}>{entryLabel(e)}</div>
                                   <Mono size={11} color={C.muted}>{new Date(e.timestamp).toLocaleTimeString("de-DE", { hour: "2-digit", minute: "2-digit" })} Uhr</Mono>
                                 </div>
                                 <button onClick={ev => { ev.stopPropagation(); handleDelete(e.id); }} style={{ background: "none", border: "none", color: "#f8717140", fontSize: 18, padding: 4 }}>✕</button>
