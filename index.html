@@ -1628,19 +1628,23 @@
         const map = new Map();
         days.forEach(day => {
           const k = bucketKey(day.date, period);
-          if (!map.has(k)) map.set(k, { key: k, dates: [], entries: 0, totals: { kcal: 0, protein: 0, carbs: 0, fat: 0 }, wvals: [], burned: 0 });
+          if (!map.has(k)) map.set(k, { key: k, dates: [], entries: 0, totals: { kcal: 0, protein: 0, carbs: 0, fat: 0 }, wvals: [], burned: 0, daysWithData: 0 });
           const b = map.get(k);
           b.dates.push(day.date);
           b.entries += day.entries;
           MACROS.forEach(m => { b.totals[m] += day.totals[m]; });
           if (bodyWeights[day.date] != null) b.wvals.push(bodyWeights[day.date]);
           b.burned += (burnedMap[day.date] || 0) + (stravaActivities[day.date] || []).reduce((s, a) => s + (a.calories || 0), 0);
+          if (day.entries > 0) b.daysWithData += 1;
         });
         return Array.from(map.values()).map(b => ({
           ...b,
           avgWeight: b.wvals.length > 0 ? b.wvals.reduce((a, v) => a + v, 0) / b.wvals.length : null,
         }));
       };
+      // For multi-day buckets show daily average, for single-day show total
+      const bucketDiv = (b) => period === "tage" ? 1 : (b.daysWithData || 1);
+      const bucketAvg = (val, b) => Math.round((val / bucketDiv(b)) * 10) / 10;
 
       const getPrevWeight = (date) => {
         for (let i = 1; i <= 30; i++) {
@@ -2003,12 +2007,12 @@
       // chart data: buckets oldest→newest
       const chartBuckets = [...buckets].reverse();
       const weightData  = chartBuckets.map(b => b.avgWeight != null ? parseFloat(b.avgWeight.toFixed(1)) : null);
-      const kcalData    = chartBuckets.map(b => b.entries > 0 ? Math.round(b.totals.kcal) : null);
-      const burnedData  = chartBuckets.map(b => b.burned > 0 ? Math.round(b.burned) : null);
-      const netKcalData = chartBuckets.map(b => b.entries > 0 ? Math.round(b.totals.kcal - b.burned) : null);
-      const proteinData = chartBuckets.map(b => b.entries > 0 ? Math.round(b.totals.protein * 10) / 10 : null);
-      const carbsData   = chartBuckets.map(b => b.entries > 0 ? Math.round(b.totals.carbs * 10) / 10 : null);
-      const fatData     = chartBuckets.map(b => b.entries > 0 ? Math.round(b.totals.fat * 10) / 10 : null);
+      const kcalData    = chartBuckets.map(b => b.entries > 0 ? Math.round(bucketAvg(b.totals.kcal, b)) : null);
+      const burnedData  = chartBuckets.map(b => b.burned > 0 ? Math.round(bucketAvg(b.burned, b)) : null);
+      const netKcalData = chartBuckets.map(b => b.entries > 0 ? Math.round(bucketAvg(b.totals.kcal - b.burned, b)) : null);
+      const proteinData = chartBuckets.map(b => b.entries > 0 ? bucketAvg(b.totals.protein, b) : null);
+      const carbsData   = chartBuckets.map(b => b.entries > 0 ? bucketAvg(b.totals.carbs, b) : null);
+      const fatData     = chartBuckets.map(b => b.entries > 0 ? bucketAvg(b.totals.fat, b) : null);
       const statsCharts = [
         { id: "gewicht", label: "Gewicht",   data: weightData,  color: C.weight,    unit: "kg",   dec: 1 },
         { id: "kcal",    label: "kcal",      data: kcalData,    color: C.kcal,      unit: "kcal", dec: 0 },
@@ -2108,7 +2112,7 @@
                       </div>
                       {b.entries > 0
                         ? <div style={{ display: "flex", gap: 6, alignItems: "baseline" }}>
-                            <Mono size={14} color={C.kcal} bold>{Math.round(b.totals.kcal)}</Mono>
+                            <Mono size={14} color={C.kcal} bold>{period !== "tage" ? "Ø " : ""}{Math.round(bucketAvg(b.totals.kcal, b))}</Mono>
                             <Mono size={10} color={C.muted}>kcal · {b.entries} Eintr.</Mono>
                           </div>
                         : <Mono size={11} color={C.muted}>keine Daten</Mono>
