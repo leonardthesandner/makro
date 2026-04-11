@@ -1499,42 +1499,52 @@
       const onMove = (e) => { if (activeIdx !== null) { e.preventDefault(); setActiveIdx(getIdxFromEvent(e)); } };
       const onUp   = () => setActiveIdx(null);
 
-      // Shared y-scale across all series for stable layout
-      const allValid = series.flatMap(s => s.data.filter(v => v != null));
-      if (allValid.length === 0) return null;
-      const globalMn = Math.min(...allValid);
-      const globalMx = Math.max(...allValid);
-      const globalRange = globalMx - globalMn || 1;
-      const toY = v => padT + (1 - (v - globalMn) / globalRange) * (VH - padT - padB);
+      // Per-series y-scale so every line uses the full chart height
+      const seriesScales = series.map(s => {
+        const valid = s.data.filter(v => v != null);
+        const mn = valid.length ? Math.min(...valid) : 0;
+        const mx = valid.length ? Math.max(...valid) : 1;
+        const range = mx - mn || 1;
+        const toY = v => padT + (1 - (v - mn) / range) * (VH - padT - padB);
+        return { ...s, toY, mn, mx };
+      });
+
+      if (seriesScales.every(s => s.data.every(v => v == null))) return null;
 
       return (
         <svg ref={svgRef} viewBox={`0 0 ${VW} ${VH}`} style={{ width: "100%", display: "block", touchAction: "none", userSelect: "none" }}
           onPointerDown={onDown} onPointerMove={onMove} onPointerUp={onUp} onPointerLeave={onUp}
           onTouchStart={onDown} onTouchMove={onMove} onTouchEnd={onUp}>
           {/* Lines only */}
-          {series.map(s => {
-            const d = smoothPath(s.data, toY);
+          {seriesScales.map(s => {
+            const d = smoothPath(s.data, s.toY);
             if (!d) return null;
             return <path key={s.id} d={d} fill="none" stroke={s.color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" opacity={activeIdx !== null ? 0.35 : 1} />;
           })}
           {/* Active scrubber */}
           {activeIdx !== null && (() => {
             const x = toX(activeIdx);
-            const points = series.map(s => ({ ...s, v: s.data[activeIdx] })).filter(s => s.v != null);
+            const points = seriesScales.map(s => ({ ...s, v: s.data[activeIdx] })).filter(s => s.v != null);
+            // stack labels to avoid overlap
+            const labelSlots = [];
             return (
               <g>
                 <line x1={x} y1={padT - 8} x2={x} y2={VH - padB} stroke="#ffffff22" strokeWidth="1" />
-                {points.map(s => {
-                  const y = toY(s.v);
-                  const label = Number(s.v).toFixed(s.dec || 0);
-                  const lw = label.length * 5.5 + 12;
-                  const lx = Math.min(Math.max(x - lw / 2, 2), VW - lw - 2);
-                  const ly = Math.max(y - 22, 2);
+                {points.map((s, pi) => {
+                  const y = s.toY(s.v);
+                  const label = `${s.label} ${Number(s.v).toFixed(s.dec || 0)}${s.unit ? " " + s.unit : ""}`;
+                  const lw = label.length * 5.2 + 10;
+                  let lx = Math.min(Math.max(x - lw / 2, 2), VW - lw - 2);
+                  let ly = Math.max(y - 20, 2);
+                  // push down if overlapping a previous label
+                  labelSlots.forEach(slot => { if (Math.abs(ly - slot) < 18) ly = slot + 18; });
+                  ly = Math.min(ly, VH - 18);
+                  labelSlots.push(ly);
                   return (
                     <g key={s.id}>
                       <circle cx={x} cy={y} r="4" fill={s.color} />
-                      <rect x={lx} y={ly} width={lw} height={16} rx="4" fill={s.color + "dd"} />
-                      <text x={lx + lw / 2} y={ly + 11} textAnchor="middle" fill="#fff" fontSize="9" fontFamily="Inter" fontWeight="700">{label}</text>
+                      <rect x={lx} y={ly} width={lw} height={15} rx="4" fill={s.color + "ee"} />
+                      <text x={lx + lw / 2} y={ly + 10.5} textAnchor="middle" fill="#fff" fontSize="8.5" fontFamily="Inter" fontWeight="700">{label}</text>
                     </g>
                   );
                 })}
