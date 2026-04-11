@@ -2080,6 +2080,27 @@
       const [calculating, setCalculating] = useState(false);
       const [calcErr, setCalcErr] = useState(null);
       const [vlForm, setVlForm] = useState(voiceLang || "de");
+      const [stravaStatus, setStravaStatus] = useState(null); // null=loading, {connected,athleteName}
+      const [stravaLoading, setStravaLoading] = useState(false);
+
+      useEffect(() => {
+        apiCall("/api/strava/status").then(s => setStravaStatus(s)).catch(() => setStravaStatus({ connected: false }));
+      }, []);
+
+      const connectStrava = () => {
+        const auth = getAuth();
+        const url = BACKEND_URL + "/api/strava/connect";
+        // Pass JWT as query param since this is a browser redirect
+        const params = new URLSearchParams({ token: auth?.token || "" });
+        window.location.href = url + "?" + params;
+      };
+
+      const disconnectStrava = async () => {
+        setStravaLoading(true);
+        await apiCall("/api/strava/disconnect", "DELETE");
+        setStravaStatus({ connected: false });
+        setStravaLoading(false);
+      };
 
       const calculate = async () => {
         const w = parseFloat(pForm.weight);
@@ -2159,6 +2180,26 @@
             <div style={{ display: "flex", gap: 8 }}>
               <Btn onClick={save} disabled={!MACROS.some(m => parseFloat(form[m]) > 0)} style={{ flex: 1 }}>Speichern</Btn>
               <Btn onClick={onClose} variant="ghost">Abbrechen</Btn>
+            </div>
+
+            <div style={{ marginTop: 28, paddingTop: 20, borderTop: `1px solid ${C.border}` }}>
+              <div style={{ fontFamily: "Syne", fontSize: 10, color: C.muted, textTransform: "uppercase", letterSpacing: 1, marginBottom: 10 }}>Integrationen</div>
+              <div style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 10, padding: "12px 14px", display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10 }}>
+                <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                  <svg width="22" height="22" viewBox="0 0 24 24" fill="#fc4c02"><path d="M15.387 17.944l-2.089-4.116h-3.065L15.387 24l5.15-10.172h-3.066m-7.008-5.599l2.836 5.599h4.172L10.463 0l-7 13.828h4.169"/></svg>
+                  <div>
+                    <div style={{ fontFamily: "Syne", fontSize: 13, fontWeight: 700, color: C.text }}>Strava</div>
+                    <div style={{ fontFamily: "Inter", fontSize: 11, color: C.muted }}>
+                      {stravaStatus === null ? "Lädt…" : stravaStatus.connected ? `Verbunden als ${stravaStatus.athleteName}` : "Aktivitäts-kcal automatisch übernehmen"}
+                    </div>
+                  </div>
+                </div>
+                {stravaStatus === null ? null : stravaStatus.connected ? (
+                  <Btn small variant="ghost" onClick={disconnectStrava} disabled={stravaLoading}>{stravaLoading ? "…" : "Trennen"}</Btn>
+                ) : (
+                  <Btn small onClick={connectStrava}>Verbinden →</Btn>
+                )}
+              </div>
             </div>
 
             <div style={{ marginTop: 28, paddingTop: 20, borderTop: `1px solid ${C.border}` }}>
@@ -2577,6 +2618,13 @@
       const [recipes, setRecipes] = useState([]);
       const [archive, setArchive] = useState([]);
       const [settings, setSettings] = useState(false);
+      const [stravaToast, setStravaToast] = useState(() => {
+        const p = new URLSearchParams(window.location.search);
+        if (p.get("strava") === "connected") { window.history.replaceState({}, "", window.location.pathname); return "connected"; }
+        if (p.get("strava") === "error")     { window.history.replaceState({}, "", window.location.pathname); return "error"; }
+        return null;
+      });
+      useEffect(() => { if (stravaToast) { setTimeout(() => setStravaToast(null), 4000); } }, [stravaToast]);
       const [onboarding, setOnboarding] = useState(false);
       const [profile, setProfile] = useState(() => store.get("mk_profile") || null);
       const [voiceLang, setVoiceLang] = useState(() => store.get("mk_voicelang") || "de");
@@ -2827,6 +2875,11 @@
               </button>
             ))}
           </div>
+          {stravaToast && ReactDOM.createPortal(
+            <div style={{ position: "fixed", bottom: 90, left: "50%", transform: "translateX(-50%)", background: stravaToast === "connected" ? "#22c55e22" : "#f8717122", border: `1px solid ${stravaToast === "connected" ? "#22c55e66" : "#f8717166"}`, borderRadius: 10, padding: "10px 18px", fontFamily: "Syne", fontSize: 13, color: stravaToast === "connected" ? "#22c55e" : C.danger, zIndex: 300, whiteSpace: "nowrap" }}>
+              {stravaToast === "connected" ? "✓ Strava erfolgreich verbunden" : "Strava-Verbindung fehlgeschlagen"}
+            </div>, document.body
+          )}
           {settings && <SettingsModal targets={targets} profile={profile} voiceLang={voiceLang} onSave={(t, p, vl) => updateSettings(t, p, vl)} onClose={() => setSettings(false)} onDeleteAccount={handleDeleteAccount} />}
           {editingEntry && <EditEntryModal entry={editingEntry} onSave={editEntry} onClose={() => setEditingEntry(null)} />}
         </div>
