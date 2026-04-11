@@ -896,8 +896,18 @@
     }
 
     function TodayTab({ entries, targets, onDelete, onEdit, burnedKcal, onSaveBurned, todayWeight, onSaveWeight, stravaActivities, onDeleteStrava }) {
+      const [pendingDeleteId, setPendingDeleteId] = useState(null);
+      const undoTimerRef = React.useRef(null);
+      const visibleStrava = (stravaActivities || []).filter(a => a.strava_id !== pendingDeleteId);
+      const pendingActivity = pendingDeleteId ? (stravaActivities || []).find(a => a.strava_id === pendingDeleteId) : null;
+      const startDelete = (id) => {
+        if (undoTimerRef.current) clearTimeout(undoTimerRef.current);
+        setPendingDeleteId(id);
+        undoTimerRef.current = setTimeout(() => { onDeleteStrava && onDeleteStrava(id); setPendingDeleteId(null); }, 5000);
+      };
+      const undoDelete = () => { if (undoTimerRef.current) clearTimeout(undoTimerRef.current); setPendingDeleteId(null); };
       const totals = sumEntries(entries);
-      const stravaBurned = (stravaActivities || []).reduce((s, a) => s + (a.calories || 0), 0);
+      const stravaBurned = visibleStrava.reduce((s, a) => s + (a.calories || 0), 0);
       const burned = (burnedKcal || 0) + stravaBurned;
       const netKcal = totals.kcal - burned;
       const kcalRest = targets.kcal - netKcal;
@@ -967,11 +977,11 @@
               </Card>
             ))}
           </div>
-          {(stravaActivities || []).length > 0 && (
+          {visibleStrava.length > 0 && (
             <div>
               <SectionLabel>Strava-Aktivitäten</SectionLabel>
               <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
-                {(stravaActivities || []).map(a => {
+                {visibleStrava.map(a => {
                   const distKm = a.distance_m ? (a.distance_m / 1000).toFixed(1) : null;
                   const dur = a.duration_s ? `${Math.floor(a.duration_s / 60)} min` : null;
                   return (
@@ -987,12 +997,19 @@
                         <Mono size={15} color="#fc4c02" bold>{a.calories}</Mono>
                         <div style={{ fontFamily: "Inter", fontSize: 9, color: C.muted }}>kcal</div>
                       </div>
-                      <button onClick={() => onDeleteStrava && onDeleteStrava(a.strava_id)} style={{ background: "none", border: "none", color: "#f8717140", fontSize: 18, padding: 4, cursor: "pointer", flexShrink: 0 }}>✕</button>
+                      <button onClick={() => startDelete(a.strava_id)} style={{ background: "none", border: "none", color: "#f8717140", fontSize: 18, padding: 4, cursor: "pointer", flexShrink: 0 }}>✕</button>
                     </Card>
                   );
                 })}
               </div>
             </div>
+          )}
+          {pendingActivity && ReactDOM.createPortal(
+            <div style={{ position: "fixed", bottom: 90, left: "50%", transform: "translateX(-50%)", background: "#1a1a1a", border: "1px solid #333", borderRadius: 12, padding: "10px 16px", display: "flex", alignItems: "center", gap: 12, zIndex: 300, whiteSpace: "nowrap", boxShadow: "0 4px 20px #0008" }}>
+              <span style={{ fontFamily: "Syne", fontSize: 13, color: C.muted }}>„{pendingActivity.name || pendingActivity.type || "Aktivität"}" gelöscht</span>
+              <button onClick={undoDelete} style={{ background: "#fc4c02", border: "none", borderRadius: 8, padding: "5px 12px", color: "#fff", fontFamily: "Syne", fontSize: 12, fontWeight: 700, cursor: "pointer" }}>Rückgängig</button>
+            </div>,
+            document.body
           )}
           <div>
             <SectionLabel>Einträge heute ({entries.length})</SectionLabel>
@@ -1589,6 +1606,19 @@
       const toggleStat = (id) => setActiveStats(prev => { const n = new Set(prev); n.has(id) ? n.delete(id) : n.add(id); return n; });
 
       const [stravaActivities, setStravaActivities] = useState({}); // date → activities[]
+      const [stravaPending, setStravaPending] = useState(null); // { id, activity, date }
+      const stravaUndoRef = React.useRef(null);
+      const startStravaDelete = (id, activity, date) => {
+        if (stravaUndoRef.current) clearTimeout(stravaUndoRef.current);
+        setStravaActivities(p => ({ ...p, [date]: (p[date] || []).filter(a => a.strava_id !== id) }));
+        setStravaPending({ id, activity, date });
+        stravaUndoRef.current = setTimeout(() => { onDeleteStrava && onDeleteStrava(id); setStravaPending(null); }, 5000);
+      };
+      const undoStravaDelete = () => {
+        if (stravaUndoRef.current) clearTimeout(stravaUndoRef.current);
+        if (stravaPending) setStravaActivities(p => ({ ...p, [stravaPending.date]: [...(p[stravaPending.date] || []), stravaPending.activity] }));
+        setStravaPending(null);
+      };
 
       // ── Add-entry form state ───────────────────────────────────────────────────
       const [addText, setAddText] = useState("");
@@ -1927,7 +1957,7 @@
                                 <Mono size={15} color="#fc4c02" bold>{a.calories}</Mono>
                                 <div style={{ fontFamily: "Inter", fontSize: 9, color: C.muted }}>kcal</div>
                               </div>
-                              <button onClick={() => { if (onDeleteStrava) { onDeleteStrava(a.strava_id); setStravaActivities(p => { const n = {...p}; n[selectedDay.date] = (n[selectedDay.date]||[]).filter(x => x.strava_id !== a.strava_id); return n; }); } }} style={{ background: "none", border: "none", color: "#f8717140", fontSize: 18, padding: 4, cursor: "pointer", flexShrink: 0 }}>✕</button>
+                              <button onClick={() => startStravaDelete(a.strava_id, a, selectedDay.date)} style={{ background: "none", border: "none", color: "#f8717140", fontSize: 18, padding: 4, cursor: "pointer", flexShrink: 0 }}>✕</button>
                             </Card>
                           );
                         })}
@@ -2092,6 +2122,7 @@
       const singleActive = activeSeries.length === 1 ? activeSeries[0] : null;
 
       return (
+        <>
         <div style={{ padding: 16, display: "flex", flexDirection: "column", gap: 10 }}>
           {/* Period selector */}
           <div style={{ display: "flex", background: C.bg, borderRadius: 10, padding: 3, gap: 2, border: `1px solid ${C.border}` }}>
@@ -2197,6 +2228,14 @@
               })
           }
         </div>
+        {stravaPending && ReactDOM.createPortal(
+          <div style={{ position: "fixed", bottom: 90, left: "50%", transform: "translateX(-50%)", background: "#1a1a1a", border: "1px solid #333", borderRadius: 12, padding: "10px 16px", display: "flex", alignItems: "center", gap: 12, zIndex: 300, whiteSpace: "nowrap", boxShadow: "0 4px 20px #0008" }}>
+            <span style={{ fontFamily: "Syne", fontSize: 13, color: C.muted }}>„{stravaPending.activity.name || stravaPending.activity.type || "Aktivität"}" gelöscht</span>
+            <button onClick={undoStravaDelete} style={{ background: "#fc4c02", border: "none", borderRadius: 8, padding: "5px 12px", color: "#fff", fontFamily: "Syne", fontSize: 12, fontWeight: 700, cursor: "pointer" }}>Rückgängig</button>
+          </div>,
+          document.body
+        )}
+        </>
       );
     }
 
