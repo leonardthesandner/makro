@@ -611,7 +611,7 @@
               <span style={{ fontFamily: "Syne", fontSize: 10, color: C.muted, textTransform: "uppercase", letterSpacing: 1 }}>Mealprep:</span>
               {recipes.map(r => (
                 <button key={r.id} onClick={() => {
-                  const w = parseFloat(r.total_weight) || 100;
+                  const w = parseFloat(r.portion_g) || parseFloat(r.total_weight) || 100;
                   const k100 = parseFloat(r.kcal_100) || 0;
                   const p100 = parseFloat(r.protein_100) || 0;
                   const c100 = parseFloat(r.carbs_100) || 0;
@@ -1027,6 +1027,7 @@
       const [items, setItems] = useState([]);
       const [mealName, setMealName] = useState("");
       const [cookedWeight, setCookedWeight] = useState("");
+      const [portionWeight, setPortionWeight] = useState("");
       const [err, setErr] = useState(null);
       const [mpListening, setMpListening] = useState(false);
       const [mpTranscribing, setMpTranscribing] = useState(false);
@@ -1081,13 +1082,14 @@
         const r = { id: Date.now(), name: mealName.trim(), total_weight: tw, kcal_total: Math.round(totals.kcal), protein_total: Math.round(totals.protein * 10) / 10, carbs_total: Math.round(totals.carbs * 10) / 10, fat_total: Math.round(totals.fat * 10) / 10, ingredients: ingredientText, items };
         r.kcal_100 = r.kcal_total / tw * 100; r.protein_100 = r.protein_total / tw * 100;
         r.carbs_100 = r.carbs_total / tw * 100; r.fat_100 = r.fat_total / tw * 100;
+        if (portionWeight) r.portion_g = parseFloat(portionWeight);
         onAdd(r);
-        setStep(STEP.idle); setIngredientText(""); setItems([]); setMealName(""); setCookedWeight("");
+        setStep(STEP.idle); setIngredientText(""); setItems([]); setMealName(""); setCookedWeight(""); setPortionWeight("");
       };
 
       const startEditRecipe = (r) => {
         const storedItems = r.items ? (typeof r.items === "string" ? JSON.parse(r.items) : r.items) : [];
-        setEditingRecipe({ recipe: r, items: storedItems, name: r.name, cookedWeight: String(parseFloat(r.total_weight)) });
+        setEditingRecipe({ recipe: r, items: storedItems, name: r.name, cookedWeight: String(parseFloat(r.total_weight)), portionWeight: r.portion_g ? String(parseFloat(r.portion_g)) : "" });
         setStep(STEP.editing);
         setSubTab("aktiv");
       };
@@ -1097,14 +1099,14 @@
         setEditSaving(true);
         const tw = parseFloat(editingRecipe.cookedWeight);
         const t = editingRecipe.items.reduce((a, it) => ({ kcal: a.kcal + (it.kcal||0), protein: a.protein + (it.protein||0), carbs: a.carbs + (it.carbs||0), fat: a.fat + (it.fat||0) }), { kcal:0, protein:0, carbs:0, fat:0 });
-        const data = { name: editingRecipe.name.trim(), total_weight: tw, kcal_total: Math.round(t.kcal), protein_total: Math.round(t.protein*10)/10, carbs_total: Math.round(t.carbs*10)/10, fat_total: Math.round(t.fat*10)/10, ingredients: editingRecipe.recipe.ingredients, items: editingRecipe.items };
+        const data = { name: editingRecipe.name.trim(), total_weight: tw, kcal_total: Math.round(t.kcal), protein_total: Math.round(t.protein*10)/10, carbs_total: Math.round(t.carbs*10)/10, fat_total: Math.round(t.fat*10)/10, ingredients: editingRecipe.recipe.ingredients, items: editingRecipe.items, portion_g: editingRecipe.portionWeight ? parseFloat(editingRecipe.portionWeight) : null };
         await onEdit(editingRecipe.recipe.id, data);
         setEditSaving(false);
         setEditingRecipe(null);
         setStep(STEP.idle);
       };
 
-      const cancel = () => { setStep(STEP.idle); setIngredientText(""); setItems([]); setErr(null); setMealName(""); };
+      const cancel = () => { setStep(STEP.idle); setIngredientText(""); setItems([]); setErr(null); setMealName(""); setPortionWeight(""); };
 
       const recookFromArchive = (archived) => {
         setSubTab("aktiv");
@@ -1266,6 +1268,10 @@
                       <div style={{ fontFamily: "Syne", fontSize: 10, color: C.muted, marginBottom: 4 }}>Fertig gekochtes Gesamtgewicht (g) — bitte abwiegen!</div>
                       <input type="text" inputMode="decimal" placeholder="z.B. 1400" value={cookedWeight} onChange={e => setCookedWeight(e.target.value)} style={inputStyle} />
                     </div>
+                    <div>
+                      <div style={{ fontFamily: "Syne", fontSize: 10, color: C.muted, marginBottom: 4 }}>Portionsgröße (g) — optional</div>
+                      <input type="text" inputMode="decimal" placeholder="z.B. 350" value={portionWeight} onChange={e => setPortionWeight(e.target.value)} style={inputStyle} />
+                    </div>
                   </div>
                 </Card>
                 {cookedWeight && mealName && (
@@ -1331,6 +1337,10 @@
                       <div style={{ fontFamily:"Syne", fontSize:10, color:C.muted, marginBottom:4 }}>Fertig gekochtes Gewicht (g)</div>
                       <input type="text" inputMode="decimal" value={editingRecipe.cookedWeight} onChange={e => setEditingRecipe(p => ({ ...p, cookedWeight: e.target.value }))} style={inputStyle} />
                     </div>
+                    <div>
+                      <div style={{ fontFamily:"Syne", fontSize:10, color:C.muted, marginBottom:4 }}>Portionsgröße (g) — optional</div>
+                      <input type="text" inputMode="decimal" placeholder="z.B. 350" value={editingRecipe.portionWeight || ""} onChange={e => setEditingRecipe(p => ({ ...p, portionWeight: e.target.value }))} style={inputStyle} />
+                    </div>
                   </div>
                 </Card>
                 <div style={{ display:"flex", gap:8 }}>
@@ -1347,7 +1357,9 @@
                     <button onClick={() => startEditRecipe(r)} style={{ background: "none", border: "none", padding: 0, color: C.text, fontFamily: "Syne", fontSize: 15, fontWeight: 700, cursor: "pointer", textAlign: "left", textDecoration: "underline", textDecorationColor: C.border }}>
                       {r.name}
                     </button>
-                    <div style={{ fontFamily: "Syne", fontSize: 10, color: C.muted, marginTop: 2 }}>Gesamtgewicht: {r.total_weight}g</div>
+                    <div style={{ fontFamily: "Syne", fontSize: 10, color: C.muted, marginTop: 2 }}>
+                      Gesamtgewicht: {r.total_weight}g{r.portion_g ? ` · Portion: ${r.portion_g}g` : ""}
+                    </div>
                   </div>
                   <button onClick={() => onDelete(r.id)} style={{ background: "none", border: "none", color: "#f8717140", fontSize: 16, padding: 4 }}>✕</button>
                 </div>
@@ -1884,7 +1896,7 @@
                           <span style={{ fontFamily: "Syne", fontSize: 10, color: C.muted, textTransform: "uppercase", letterSpacing: 1 }}>Mealprep:</span>
                           {recipes.map(r => (
                             <button key={r.id} onClick={() => {
-                              const w = parseFloat(r.total_weight)||100;
+                              const w = parseFloat(r.portion_g) || parseFloat(r.total_weight) || 100;
                               const k100=parseFloat(r.kcal_100)||0, p100=parseFloat(r.protein_100)||0, c100=parseFloat(r.carbs_100)||0, f100=parseFloat(r.fat_100)||0;
                               const si = r.items ? (typeof r.items==="string" ? JSON.parse(r.items) : r.items) : [];
                               const ni = { name_de: r.name, weight_g: w, kcal: parseFloat(r.kcal_total)||Math.round(k100*w/100), protein: parseFloat(r.protein_total)||Math.round(p100*w/100*10)/10, carbs: parseFloat(r.carbs_total)||Math.round(c100*w/100*10)/10, fat: parseFloat(r.fat_total)||Math.round(f100*w/100*10)/10, kcal_100: k100, protein_100: p100, carbs_100: c100, fat_100: f100, source: "recipe", recipeItems: si, recipeTotalWeight: w };
