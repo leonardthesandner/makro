@@ -2114,17 +2114,15 @@
               </div>
               {activeSeries.length > 0 ? (<>
                 <MultiLineChart series={activeSeries} n={chartBuckets.length} H={84} />
-                <div style={{ display: "flex", marginTop: 6 }}>
-                  {chartBuckets.map((b, i) => (
-                    <div key={b.key} style={{ flex: 1, textAlign: "center" }}>
-                      <div style={{ fontFamily: "Inter", fontSize: 9, color: C.muted }}>{bucketLabel(b, true)}</div>
-                      {singleActive && singleActive.data[i] != null && (
-                        <div style={{ fontFamily: "Inter", fontSize: 9, color: singleActive.color, marginTop: 2 }}>
-                          {Number(singleActive.data[i]).toFixed(singleActive.dec)}
-                        </div>
-                      )}
-                    </div>
-                  ))}
+                <div style={{ position: "relative", height: 16, marginTop: 4 }}>
+                  {chartBuckets.map((b, i) => {
+                    const pct = chartBuckets.length > 1 ? i / (chartBuckets.length - 1) * 100 : 50;
+                    return (
+                      <div key={b.key} style={{ position: "absolute", left: `${pct}%`, transform: "translateX(-50%)", textAlign: "center", whiteSpace: "nowrap" }}>
+                        <span style={{ fontFamily: "Inter", fontSize: 9, color: C.muted }}>{bucketLabel(b, true)}</span>
+                      </div>
+                    );
+                  })}
                 </div>
                 <div style={{ marginTop: 12, paddingTop: 10, borderTop: `1px solid ${C.border}`, display: "flex", flexDirection: "column", gap: 5 }}>
                   {activeSeries.map(s => {
