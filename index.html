@@ -885,7 +885,7 @@
       );
     }
 
-    function TodayTab({ entries, targets, onDelete, onEdit, burnedKcal, onSaveBurned }) {
+    function TodayTab({ entries, targets, onDelete, onEdit, burnedKcal, onSaveBurned, todayWeight, onSaveWeight }) {
       const totals = sumEntries(entries);
       const burned = burnedKcal || 0;
       const netKcal = totals.kcal - burned;
@@ -894,15 +894,45 @@
       const [burnedInput, setBurnedInput] = useState(burned > 0 ? String(burned) : "");
       const [burnedSaving, setBurnedSaving] = useState(false);
       const [burnedSaved, setBurnedSaved] = useState(false);
+      const [weightInput, setWeightInput] = useState(todayWeight > 0 ? String(todayWeight) : "");
+      const [weightSaving, setWeightSaving] = useState(false);
+      const [weightSaved, setWeightSaved] = useState(false);
       const saveBurned = async () => {
         const v = parseFloat(burnedInput) || 0;
         setBurnedSaving(true);
         try { await onSaveBurned(v); setBurnedSaved(true); setTimeout(() => setBurnedSaved(false), 2000); } catch {}
         setBurnedSaving(false);
       };
+      const saveWeight = async () => {
+        const v = parseFloat(weightInput);
+        if (!v) return;
+        setWeightSaving(true);
+        try { await onSaveWeight(v); setWeightSaved(true); setTimeout(() => setWeightSaved(false), 2000); } catch {}
+        setWeightSaving(false);
+      };
       const inputStyle = { background: "#111", border: `1px solid ${C.border}`, borderRadius: 6, padding: "8px 10px", color: C.text, fontFamily: "Inter", fontSize: 15, outline: "none", width: 90 };
       return (
         <div style={{ padding: 16, display: "flex", flexDirection: "column", gap: 14 }}>
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
+            <Card style={{ padding: "12px 14px" }}>
+              <div style={{ fontFamily: "Syne", fontSize: 10, color: C.muted, textTransform: "uppercase", letterSpacing: 1, marginBottom: 10 }}>Körpergewicht</div>
+              <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
+                <input type="text" inputMode="decimal" value={weightInput} onChange={e => { setWeightInput(e.target.value); setWeightSaved(false); }} placeholder="– –" style={inputStyle} />
+                <span style={{ fontFamily: "Syne", fontSize: 13, color: C.muted }}>kg</span>
+                <Btn small onClick={saveWeight} disabled={!weightInput || weightSaving}>{weightSaving ? "…" : "Speichern"}</Btn>
+                {weightSaved && <Mono size={11} color={C.carbs}>✓</Mono>}
+              </div>
+            </Card>
+            <Card style={{ padding: "12px 14px" }}>
+              <div style={{ fontFamily: "Syne", fontSize: 10, color: C.muted, textTransform: "uppercase", letterSpacing: 1, marginBottom: 10 }}>Aktiv verbrannt</div>
+              <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
+                <input type="text" inputMode="decimal" value={burnedInput} onChange={e => { setBurnedInput(e.target.value); setBurnedSaved(false); }} placeholder="0" style={inputStyle} />
+                <span style={{ fontFamily: "Syne", fontSize: 13, color: C.muted }}>kcal</span>
+                <Btn small onClick={saveBurned} disabled={burnedSaving}>{burnedSaving ? "…" : "Speichern"}</Btn>
+                {burnedSaved && <Mono size={11} color={C.carbs}>✓</Mono>}
+              </div>
+            </Card>
+          </div>
           <Card style={{ padding: 16 }}>
             <SectionLabel>Tagesfortschritt</SectionLabel>
             {MACROS.map(m => <MacroBar key={m} label={LABELS[m]} current={m === "kcal" ? netKcal : totals[m]} target={targets[m]} color={MC[m]} unit={UNITS[m]} />)}
@@ -916,15 +946,6 @@
                 <Mono size={11} color={C.text} bold>{Math.round(netKcal)}</Mono>
               </div>
             )}
-          </Card>
-          <Card style={{ padding: "12px 14px" }}>
-            <div style={{ fontFamily: "Syne", fontSize: 10, color: C.muted, textTransform: "uppercase", letterSpacing: 1, marginBottom: 10 }}>Aktiv verbrannte kcal</div>
-            <div style={{ display: "flex", gap: 10, alignItems: "center" }}>
-              <input type="text" inputMode="decimal" value={burnedInput} onChange={e => { setBurnedInput(e.target.value); setBurnedSaved(false); }} placeholder="0" min="0" max="5000" style={inputStyle} />
-              <span style={{ fontFamily: "Syne", fontSize: 13, color: C.muted }}>kcal</span>
-              <Btn small onClick={saveBurned} disabled={burnedSaving}>{burnedSaving ? "…" : "Speichern"}</Btn>
-              {burnedSaved && <Mono size={11} color={C.carbs}>✓</Mono>}
-            </div>
           </Card>
           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
             {MACROS.map(m => (
@@ -2663,6 +2684,7 @@
       const [editingEntry, setEditingEntry] = useState(null);
       const [userFoods, setUserFoods] = useState([]);
       const [burnedToday, setBurnedToday] = useState(0);
+      const [todayWeight, setTodayWeight] = useState(0);
 
       // Load all data on auth
       useEffect(() => {
@@ -2673,9 +2695,12 @@
           .then(r => setEntries(r))
           .catch(() => {});
 
-        // Load today's burned kcal
+        // Load today's burned kcal + weight
         loadBodyWeightRange(todayStr(), todayStr())
-          .then(r => { if (r[0]?.burned_kcal) setBurnedToday(parseFloat(r[0].burned_kcal) || 0); })
+          .then(r => {
+            if (r[0]?.burned_kcal) setBurnedToday(parseFloat(r[0].burned_kcal) || 0);
+            if (r[0]?.weight_kg)   setTodayWeight(parseFloat(r[0].weight_kg) || 0);
+          })
           .catch(() => {});
 
         // Load recipes
@@ -2881,7 +2906,7 @@
             {tab !== "input" && (
               <div key={"in-" + tab} style={{ position: "absolute", inset: 0, overflowY: "auto", WebkitOverflowScrolling: "touch", zIndex: 1 }}
                 className={outTab ? `slide-from-${slideDir}` : ""}>
-                {tab === "today"     && <TodayTab entries={entries} targets={targets} onDelete={deleteEntry} onEdit={e => setEditingEntry(e)} burnedKcal={burnedToday} onSaveBurned={async (v) => { await saveBodyWeightAPI(todayStr(), null, v); setBurnedToday(v); }} />}
+                {tab === "today"     && <TodayTab entries={entries} targets={targets} onDelete={deleteEntry} onEdit={e => setEditingEntry(e)} burnedKcal={burnedToday} onSaveBurned={async (v) => { await saveBodyWeightAPI(todayStr(), null, v); setBurnedToday(v); }} todayWeight={todayWeight} onSaveWeight={async (v) => { await saveBodyWeightAPI(todayStr(), v, null); setTodayWeight(v); }} />}
                 {tab === "mealprep"  && <MealprepTab recipes={recipes} onAdd={addRecipe} onEdit={editRecipe} onDelete={removeRecipe} onArchive={archiveRecipe} archive={archive} voiceLang={voiceLang} userFoods={userFoods} />}
                 {tab === "history"   && <HistoryTab targets={targets} loadRange={loadDiaryRange} loadDay={loadDiaryEntries} onDelete={deleteEntry} updateEntry={updateDiaryEntry} loadBodyWeights={loadBodyWeightRange} saveBodyWeight={saveBodyWeightAPI} onAdd={addEntryForDate} recipes={recipes} userFoods={userFoods} voiceLang={voiceLang} loadActivities={loadStravaActivities} />}
                 {tab === "userfoods" && <UserFoodsTab userFoods={userFoods} onAdd={addUserFood} onUpdate={updateUserFood} onDelete={deleteUserFood} />}
@@ -2892,7 +2917,7 @@
               <div key={"out-" + outTab} style={{ position: "absolute", inset: 0, overflowY: "auto", WebkitOverflowScrolling: "touch", zIndex: 1 }}
                 className={`slide-to-${slideDir === "right" ? "left" : "right"}`}
                 onAnimationEnd={onAnimEnd}>
-                {outTab === "today"     && <TodayTab entries={entries} targets={targets} onDelete={deleteEntry} onEdit={e => setEditingEntry(e)} burnedKcal={burnedToday} onSaveBurned={async (v) => { await saveBodyWeightAPI(todayStr(), null, v); setBurnedToday(v); }} />}
+                {outTab === "today"     && <TodayTab entries={entries} targets={targets} onDelete={deleteEntry} onEdit={e => setEditingEntry(e)} burnedKcal={burnedToday} onSaveBurned={async (v) => { await saveBodyWeightAPI(todayStr(), null, v); setBurnedToday(v); }} todayWeight={todayWeight} onSaveWeight={async (v) => { await saveBodyWeightAPI(todayStr(), v, null); setTodayWeight(v); }} />}
                 {outTab === "mealprep"  && <MealprepTab recipes={recipes} onAdd={addRecipe} onEdit={editRecipe} onDelete={removeRecipe} onArchive={archiveRecipe} archive={archive} voiceLang={voiceLang} userFoods={userFoods} />}
                 {outTab === "history"   && <HistoryTab targets={targets} loadRange={loadDiaryRange} loadDay={loadDiaryEntries} onDelete={deleteEntry} updateEntry={updateDiaryEntry} loadBodyWeights={loadBodyWeightRange} saveBodyWeight={saveBodyWeightAPI} onAdd={addEntryForDate} recipes={recipes} userFoods={userFoods} voiceLang={voiceLang} loadActivities={loadStravaActivities} />}
                 {outTab === "userfoods" && <UserFoodsTab userFoods={userFoods} onAdd={addUserFood} onUpdate={updateUserFood} onDelete={deleteUserFood} />}
