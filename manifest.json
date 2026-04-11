@@ -1,13 +1,16 @@
 {
   "name": "makro.",
   "short_name": "makro.",
-  "description": "Mahlzeiten tracken mit KI",
+  "description": "Mahlzeiten tracken mit KI — Kalorien, Protein, Kohlenhydrate und Fett einfach erfassen",
   "start_url": "/makro/",
   "scope": "/makro/",
   "display": "standalone",
   "background_color": "#0c0c0c",
   "theme_color": "#0c0c0c",
   "orientation": "portrait",
+  "lang": "de",
+  "dir": "ltr",
+  "categories": ["health", "fitness", "food"],
   "icons": [
     {
       "src": "icons/makro-icon-192.png",
@@ -20,10 +23,38 @@
       "type": "image/png"
     },
     {
+      "src": "icons/makro-icon-1024.png",
+      "sizes": "1024x1024",
+      "type": "image/png"
+    },
+    {
       "src": "icons/makro-icon-maskable-512.png",
       "sizes": "512x512",
       "type": "image/png",
       "purpose": "maskable"
+    }
+  ],
+  "screenshots": [
+    {
+      "src": "screenshots/screen1.png",
+      "sizes": "1170x2532",
+      "type": "image/png",
+      "form_factor": "narrow",
+      "label": "Mahlzeit eingeben"
+    },
+    {
+      "src": "screenshots/screen2.png",
+      "sizes": "1170x2532",
+      "type": "image/png",
+      "form_factor": "narrow",
+      "label": "Tagesübersicht"
+    },
+    {
+      "src": "screenshots/screen3.png",
+      "sizes": "1170x2532",
+      "type": "image/png",
+      "form_factor": "narrow",
+      "label": "Verlauf"
     }
   ]
 }
