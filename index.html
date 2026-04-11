@@ -379,6 +379,7 @@
             }
             return item;
           });
+          navigator.vibrate?.([40, 60, 40]);
           setItems(enriched);
           if (!text.trim()) setText("Foto-Analyse");
         } catch (e) { setErr("Bildanalyse fehlgeschlagen: " + e.message); setImagePreview(null); }
@@ -461,6 +462,7 @@
         try {
           const data = await lookupBarcode(barcode);
           if (data.found) {
+            navigator.vibrate?.([40, 60, 40]);
             setScannedProduct(data);
             setBarcodeWeight(data.serving_g ? String(data.serving_g) : "100");
           } else {
