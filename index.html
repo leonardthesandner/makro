@@ -616,12 +616,13 @@
                   const p100 = parseFloat(r.protein_100) || 0;
                   const c100 = parseFloat(r.carbs_100) || 0;
                   const f100 = parseFloat(r.fat_100) || 0;
-                  const kcal    = parseFloat(r.kcal_total)    || Math.round(k100 * w / 100);
-                  const protein = parseFloat(r.protein_total) || Math.round(p100 * w / 100 * 10) / 10;
-                  const carbs   = parseFloat(r.carbs_total)   || Math.round(c100 * w / 100 * 10) / 10;
-                  const fat     = parseFloat(r.fat_total)     || Math.round(f100 * w / 100 * 10) / 10;
+                  const kcal    = Math.round(k100 * w / 100);
+                  const protein = Math.round(p100 * w / 100 * 10) / 10;
+                  const carbs   = Math.round(c100 * w / 100 * 10) / 10;
+                  const fat     = Math.round(f100 * w / 100 * 10) / 10;
+                  const totalW  = parseFloat(r.total_weight) || w;
                   const recipeItemsStored = r.items ? (typeof r.items === "string" ? JSON.parse(r.items) : r.items) : [];
-                  const newItem = { name_de: r.name, weight_g: w, kcal, protein, carbs, fat, kcal_100: k100, protein_100: p100, carbs_100: c100, fat_100: f100, source: "recipe", recipeItems: recipeItemsStored, recipeTotalWeight: w };
+                  const newItem = { name_de: r.name, weight_g: w, kcal, protein, carbs, fat, kcal_100: k100, protein_100: p100, carbs_100: c100, fat_100: f100, source: "recipe", recipeItems: recipeItemsStored, recipeTotalWeight: totalW };
                   setText(p => p.trim() ? p.trim() + "\n" + r.name : r.name);
                   setItems(p => [...p, newItem]);
                 }}
@@ -1960,7 +1961,7 @@
                               const w = parseFloat(r.portion_g) || parseFloat(r.total_weight) || 100;
                               const k100=parseFloat(r.kcal_100)||0, p100=parseFloat(r.protein_100)||0, c100=parseFloat(r.carbs_100)||0, f100=parseFloat(r.fat_100)||0;
                               const si = r.items ? (typeof r.items==="string" ? JSON.parse(r.items) : r.items) : [];
-                              const ni = { name_de: r.name, weight_g: w, kcal: parseFloat(r.kcal_total)||Math.round(k100*w/100), protein: parseFloat(r.protein_total)||Math.round(p100*w/100*10)/10, carbs: parseFloat(r.carbs_total)||Math.round(c100*w/100*10)/10, fat: parseFloat(r.fat_total)||Math.round(f100*w/100*10)/10, kcal_100: k100, protein_100: p100, carbs_100: c100, fat_100: f100, source: "recipe", recipeItems: si, recipeTotalWeight: w };
+                              const ni = { name_de: r.name, weight_g: w, kcal: Math.round(k100*w/100), protein: Math.round(p100*w/100*10)/10, carbs: Math.round(c100*w/100*10)/10, fat: Math.round(f100*w/100*10)/10, kcal_100: k100, protein_100: p100, carbs_100: c100, fat_100: f100, source: "recipe", recipeItems: si, recipeTotalWeight: parseFloat(r.total_weight)||w };
                               setAddText(p => p.trim() ? p.trim() + "\n" + r.name : r.name);
                               setAddItems(p => [...p, ni]);
                             }} style={{ fontFamily: "Syne", fontSize: 11, fontWeight: 600, padding: "4px 10px", borderRadius: 20, background: C.soft, border: `1px solid ${C.border}`, color: C.text, cursor: "pointer" }}>{r.name}</button>
