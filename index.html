@@ -38,6 +38,8 @@
     ::-webkit-scrollbar-thumb { background: #2a2a2a; border-radius: 2px; }
     @keyframes fadeUp { from { opacity:0; transform:translateY(10px); } to { opacity:1; transform:translateY(0); } }
     @keyframes pulse { 0%,100% { opacity:1; } 50% { opacity:0.3; } }
+    @keyframes fastingPulse { 0% { transform:scale(1); opacity:0.7; } 100% { transform:scale(2.6); opacity:0; } }
+    .fasting-pulse { animation: fastingPulse 2s ease-out infinite; transform-box: fill-box; transform-origin: center; }
     @keyframes slideFromRight { from { transform:translateX(100%); } to { transform:translateX(0); } }
     @keyframes slideFromLeft  { from { transform:translateX(-100%); } to { transform:translateX(0); } }
     @keyframes slideToLeft    { from { transform:translateX(0); } to { transform:translateX(-100%); } }
@@ -354,13 +356,15 @@
     function FastingStatus({ fastingFrom, fastingTo }) {
       const [now, setNow] = React.useState(new Date());
       React.useEffect(() => {
-        const t = setInterval(() => setNow(new Date()), 30000);
+        const t = setInterval(() => setNow(new Date()), 1000);
         return () => clearInterval(t);
       }, []);
 
       const parseT = s => { const [h, m] = (s || "12:00").split(":").map(Number); return h * 60 + m; };
       const fromMin = parseT(fastingFrom);
       const toMin   = parseT(fastingTo);
+      // include seconds for smooth movement: total seconds in 24h = 86400
+      const nowSec  = now.getHours() * 3600 + now.getMinutes() * 60 + now.getSeconds();
       const nowMin  = now.getHours() * 60 + now.getMinutes();
 
       const inWindow = (t, a, b) => a < b ? t >= a && t < b : t >= a || t < b;
@@ -372,39 +376,51 @@
       const rm = remaining % 60;
       const remStr = rh > 0 ? `${rh}h ${rm}min` : `${rm}min`;
 
-      // SVG 24h ring
+      // SVG 24h ring — seconds-accurate position
       const cx = 52, cy = 52, R = 38, size = 104;
-      const minToRad  = m => ((m / 1440) * 2 * Math.PI) - Math.PI / 2;
-      const pt        = (m, r) => [cx + r * Math.cos(minToRad(m)), cy + r * Math.sin(minToRad(m))];
+      const secToRad  = s => ((s / 86400) * 2 * Math.PI) - Math.PI / 2;
+      const minToRad  = m => ((m / 1440)  * 2 * Math.PI) - Math.PI / 2;
+      const ptSec     = (s, r) => [cx + r * Math.cos(secToRad(s)), cy + r * Math.sin(secToRad(s))];
+      const ptMin     = (m, r) => [cx + r * Math.cos(minToRad(m)), cy + r * Math.sin(minToRad(m))];
 
       const arcD = (a, b, r) => {
         const span   = (b - a + 1440) % 1440;
         if (span === 0) return "";
-        const [x1, y1] = pt(a, r);
-        const [x2, y2] = pt(b, r);
+        const [x1, y1] = ptMin(a, r);
+        const [x2, y2] = ptMin(b, r);
         const large    = span > 720 ? 1 : 0;
         return `M ${x1.toFixed(2)} ${y1.toFixed(2)} A ${r} ${r} 0 ${large} 1 ${x2.toFixed(2)} ${y2.toFixed(2)}`;
       };
 
-      const [dx, dy] = pt(nowMin, R);
+      // dot uses seconds for smooth movement
+      const [dx, dy] = ptSec(nowSec, R);
+      // arc endpoint caps (exact, no linecap extension)
+      const [fx, fy] = ptMin(fromMin, R);
+      const [tx, ty] = ptMin(toMin,   R);
+
       const eatSpan  = (toMin - fromMin + 1440) % 1440;
       const fastSpan = 1440 - eatSpan;
       const eatH     = Math.round(eatSpan / 60);
       const fastH    = Math.round(fastSpan / 60);
-
-      const nowStr = `${String(now.getHours()).padStart(2,"0")}:${String(now.getMinutes()).padStart(2,"0")}`;
+      const nowStr   = `${String(now.getHours()).padStart(2,"0")}:${String(now.getMinutes()).padStart(2,"0")}`;
 
       return (
         <div style={{ background: C.card, border: `1px solid ${isEating ? C.accent + "55" : C.border}`, borderRadius: 16, padding: "14px 16px", display: "flex", alignItems: "center", gap: 16 }}>
-          <svg width={size} height={size} style={{ flexShrink: 0 }}>
-            {/* Fasting ring (full background) */}
-            <circle cx={cx} cy={cy} r={R} fill="none" stroke={C.soft} strokeWidth={7} />
-            {/* Eating window arc */}
-            <path d={arcD(fromMin, toMin, R)} fill="none" stroke={C.accent} strokeWidth={7} strokeLinecap="round" />
-            {/* Now dot */}
-            <circle cx={dx} cy={dy} r={5} fill={isEating ? C.accent : C.muted} />
-            {/* Inner pulse ring when eating */}
-            {isEating && <circle cx={dx} cy={dy} r={9} fill="none" stroke={C.accent} strokeWidth={1.5} opacity={0.35} />}
+          <svg width={size} height={size} style={{ flexShrink: 0, overflow: "visible" }}>
+            {/* Background ring */}
+            <circle cx={cx} cy={cy} r={R} fill="none" stroke={C.soft} strokeWidth={6} />
+            {/* Eating window arc — butt cap so endpoints are mathematically exact */}
+            <path d={arcD(fromMin, toMin, R)} fill="none" stroke={C.accent} strokeWidth={6} strokeLinecap="butt" opacity="0.35" />
+            {/* Bright arc: progress from fromMin to nowMin (when eating) or full eating arc */}
+            {isEating && <path d={arcD(fromMin, nowMin + nowSec / 60 % 1 > 0 ? nowMin : nowMin, R)} fill="none" stroke={C.accent} strokeWidth={6} strokeLinecap="butt" />}
+            {/* Rounded endpoint dots at eating window start/end */}
+            <circle cx={fx} cy={fy} r={3.5} fill={C.accent} opacity="0.5" />
+            <circle cx={tx} cy={ty} r={3.5} fill={C.accent} opacity="0.5" />
+            {/* Pulse rings around now-dot */}
+            {isEating && <circle cx={dx} cy={dy} r={7} fill="none" stroke={C.accent} strokeWidth={1.5} className="fasting-pulse" />}
+            {isEating && <circle cx={dx} cy={dy} r={7} fill="none" stroke={C.accent} strokeWidth={1.5} className="fasting-pulse" style={{ animationDelay: "1s" }} />}
+            {/* Now dot — on top of everything */}
+            <circle cx={dx} cy={dy} r={5.5} fill={isEating ? C.accent : C.muted} stroke={C.card} strokeWidth={2} />
             {/* Center time */}
             <text x={cx} y={cy - 5} textAnchor="middle" fill={C.text} fontFamily="Syne" fontSize={12} fontWeight="800">{nowStr}</text>
             <text x={cx} y={cy + 9} textAnchor="middle" fill={C.muted} fontFamily="Inter" fontSize={8}>Uhr</text>
