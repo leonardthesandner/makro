@@ -803,7 +803,7 @@
                       )}
                     </div>
                     <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
-                      <span style={{ fontFamily: "Inter", fontSize: 10, padding: "2px 7px", borderRadius: 4, background: item.found ? "#34d39918" : "#f8717118", color: item.found ? C.carbs : C.danger }}>{item.source === "recipe" ? "rezept" : item.source === "personal" ? "eigen" : item.source === "cache" || item.source === "off" ? "db" : item.found ? "ki" : "?"}</span>
+                      <span style={{ fontFamily: "Inter", fontSize: 10, padding: "2px 7px", borderRadius: 4, background: item.found ? "#34d39918" : "#f8717118", color: item.found ? C.carbs : C.danger }}>{item.source === "recipe" ? "rezept" : item.source === "personal" ? "eigen" : item.source === "barcode" ? "scan" : item.source === "cache" || item.source === "off" ? "db" : item.found ? "ki" : "?"}</span>
                       <button onClick={() => setItems(p => p.filter((_, idx) => idx !== i))} style={{ background: "none", border: "none", color: "#f8717150", fontSize: 16, padding: "2px 4px" }}>✕</button>
                     </div>
                   </div>
