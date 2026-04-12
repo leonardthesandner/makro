@@ -13,6 +13,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Syne:wght@400;600;700;800&display=swap" rel="stylesheet" />
+  <script src="https://accounts.google.com/gsi/client" async defer></script>
   <script>
     // iOS PWA standalone: inputs sometimes don't focus on tap — force focus on touchend
     if (window.navigator.standalone) {
@@ -2550,8 +2551,36 @@
       const [resetDone, setResetDone] = useState(false);
 
       const inputStyle = { background: C.input, border: `1px solid ${C.border}`, borderRadius: 8, padding: "12px 14px", color: C.text, fontFamily: "Syne", fontSize: 15, outline: "none", width: "100%" };
+      const googleBtnRef = React.useRef(null);
 
       const goLogin = () => { setMode("login"); setErr(null); setNewPassword(""); setNewPassword2(""); };
+
+      const handleGoogleCredential = async (response) => {
+        setLoading(true); setErr(null);
+        try {
+          const data = await authApiCall("/api/auth/google", "POST", { credential: response.credential });
+          saveAuth(data); onAuth(data);
+        } catch (e) { setErr(e.message || "Google-Anmeldung fehlgeschlagen"); }
+        setLoading(false);
+      };
+
+      useEffect(() => {
+        const init = () => {
+          if (!window.google?.accounts?.id) return;
+          window.google.accounts.id.initialize({
+            client_id: "GOOGLE_CLIENT_ID_PLACEHOLDER",
+            callback: handleGoogleCredential,
+          });
+          if (googleBtnRef.current) {
+            window.google.accounts.id.renderButton(googleBtnRef.current, {
+              theme: "outline", size: "large", width: 340, text: "continue_with", shape: "rectangular",
+            });
+          }
+        };
+        // SDK may load after component mounts
+        if (window.google?.accounts?.id) { init(); }
+        else { const t = setInterval(() => { if (window.google?.accounts?.id) { init(); clearInterval(t); } }, 200); return () => clearInterval(t); }
+      }, [mode]);
 
       const submit = async () => {
         if (!email.trim() || !password) return;
@@ -2681,6 +2710,14 @@
           {mode === "login" ? "Willkommen zurück" : "Konto erstellen"}
         </div>
         <div style={{ width: "100%", display: "flex", flexDirection: "column", gap: 12 }}>
+          {/* Google Button */}
+          <div ref={googleBtnRef} style={{ width: "100%", minHeight: 44 }} />
+          {/* Divider */}
+          <div style={{ display: "flex", alignItems: "center", gap: 10, margin: "4px 0" }}>
+            <div style={{ flex: 1, height: 1, background: C.border }} />
+            <span style={{ fontFamily: "Syne", fontSize: 11, color: C.muted }}>oder mit E-Mail</span>
+            <div style={{ flex: 1, height: 1, background: C.border }} />
+          </div>
           <input type="email" placeholder="E-Mail-Adresse" value={email} onChange={e => setEmail(e.target.value)} onKeyDown={e => e.key === "Enter" && submit()} style={inputStyle} />
           <input type="password" placeholder="Passwort" value={password} onChange={e => setPassword(e.target.value)} onKeyDown={e => e.key === "Enter" && submit()} style={inputStyle} />
           {err && <div style={{ background: "#f8717112", border: `1px solid #f8717128`, borderRadius: 8, padding: "10px 14px", color: C.danger, fontFamily: "Syne", fontSize: 13 }}>{err}</div>}
