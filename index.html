@@ -575,7 +575,13 @@
               </div>
             )}
             {transcribing && <div style={{ padding: "2px 16px 6px", fontFamily: "Syne", fontSize: 13, color: C.muted, fontStyle: "italic" }} className="pulsing">Whisper erkennt Sprache…</div>}
-            <div style={{ textAlign: "right", padding: "0 16px 10px", fontFamily: "Inter", fontSize: 10, color: text.length >= 180 ? (text.length >= 200 ? C.danger : C.accent) : C.muted }}>{text.length}/200</div>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "0 16px 10px" }}>
+              {text.length > 0
+                ? <button onClick={() => setText("")} style={{ background: "none", border: "none", padding: 0, fontFamily: "Syne", fontSize: 11, color: C.muted, cursor: "pointer", opacity: 0.6 }}>✕ clear</button>
+                : <span />
+              }
+              <span style={{ fontFamily: "Inter", fontSize: 10, color: text.length >= 180 ? (text.length >= 200 ? C.danger : C.accent) : C.muted }}>{text.length}/200</span>
+            </div>
             <div style={{ padding: "8px 12px 12px", display: "flex", justifyContent: "space-between", alignItems: "center", borderTop: `1px solid ${C.border}`, gap: 8 }}>
               <div style={{ display: "flex", gap: 8, flexShrink: 0 }}>
                 <button onClick={toggleVoice} disabled={transcribing} style={{ background: listening ? "#f8717122" : transcribing ? "#f59e0b22" : "transparent", border: `1px solid ${listening ? C.danger : transcribing ? C.accent : C.border}`, borderRadius: 8, padding: "8px 12px", color: listening ? C.danger : transcribing ? C.accent : C.muted, display: "flex", alignItems: "center", gap: 6 }}>
