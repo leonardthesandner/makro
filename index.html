@@ -2250,17 +2250,47 @@
       { k: "fr", l: "Français" }, { k: "ar", l: "العربية" },
     ];
 
-    function calcMacroTargets(gender, age, weight, height, goal) {
-      const bmr = gender === "m"
-        ? 10 * weight + 6.25 * height - 5 * age + 5
-        : 10 * weight + 6.25 * height - 5 * age - 161;
-      let tdee = bmr * 1.55;
-      if (goal === "abnehmen") tdee -= 400;
-      else if (goal === "aufbauen") tdee += 200;
+    const ACTIVITY_OPTS = [
+      { k: "sedentary",   l: "Kaum Bewegung",     sub: "Bürojob, kein Sport",          mult: 1.2   },
+      { k: "light",       l: "Leicht aktiv",       sub: "1–3× Sport pro Woche",         mult: 1.375 },
+      { k: "moderate",    l: "Mäßig aktiv",        sub: "3–5× Sport pro Woche",         mult: 1.55  },
+      { k: "active",      l: "Sehr aktiv",         sub: "6–7× Sport pro Woche",         mult: 1.725 },
+      { k: "very_active", l: "Extrem aktiv",       sub: "Körperl. Arbeit + tägl. Sport",mult: 1.9   },
+    ];
+
+    function calcMacroTargets(gender, age, weight, height, goal, bodyFat, activity) {
+      const actMult = (ACTIVITY_OPTS.find(a => a.k === activity) || ACTIVITY_OPTS[2]).mult;
+
+      let bmr;
+      let lbm = null;
+
+      const bf = parseFloat(bodyFat);
+      if (bf > 3 && bf < 65) {
+        // Katch-McArdle — more accurate when body fat % is known
+        lbm = weight * (1 - bf / 100);
+        bmr = 370 + 21.6 * lbm;
+      } else {
+        // Mifflin-St Jeor fallback
+        bmr = 10 * weight + 6.25 * height - 5 * age + (gender === "m" ? 5 : -161);
+      }
+
+      let tdee = bmr * actMult;
+      if (goal === "abnehmen") tdee -= 500;       // ~0,5 kg/Woche Defizit
+      else if (goal === "aufbauen") tdee += 300;   // moderater Überschuss
+
       const kcal = Math.round(tdee / 50) * 50;
-      const protein = Math.round(weight * 2);
-      const fat = Math.round(kcal * 0.28 / 9);
-      const carbs = Math.round((kcal - protein * 4 - fat * 9) / 4);
+
+      // Protein: 2,0–2,2 g je kg Magermasse (oder Körpergewicht falls kein KFA)
+      const base = lbm || weight;
+      const proteinFactor = goal === "aufbauen" ? 2.2 : goal === "abnehmen" ? 2.1 : 2.0;
+      const protein = Math.round(base * proteinFactor);
+
+      // Fett: 25 % der Kalorien, mind. 0,8 g/kg
+      const fat = Math.max(Math.round(kcal * 0.25 / 9), Math.round(weight * 0.8));
+
+      // Kohlenhydrate: restliche Kalorien
+      const carbs = Math.max(0, Math.round((kcal - protein * 4 - fat * 9) / 4));
+
       return { kcal, protein, carbs, fat };
     }
 
@@ -2293,10 +2323,11 @@
         carbs: String(targets.carbs), fat: String(targets.fat),
       }));
       const [pForm, setPForm] = useState({
-        weight: String(profile?.weight || ""),
-        goal: profile?.goal || "halten",
+        weight:   String(profile?.weight   || ""),
+        bodyFat:  String(profile?.bodyFat  || ""),
+        activity: profile?.activity || "moderate",
+        goal:     profile?.goal    || "halten",
       });
-      const [calculating, setCalculating] = useState(false);
       const [calcErr, setCalcErr] = useState(null);
       const [vlForm, setVlForm] = useState(voiceLang || "de");
       const [stravaStatus, setStravaStatus] = useState(null); // null=loading, {connected,athleteName}
@@ -2321,28 +2352,32 @@
         setStravaLoading(false);
       };
 
-      const calculate = async () => {
+      const calculate = () => {
         const w = parseFloat(pForm.weight);
-        if (!w || w <= 0) return;
-        setCalculating(true); setCalcErr(null);
-        try {
-          const result = await apiCall("/api/calculate-macros", "POST", {
-            weight: w, goal: pForm.goal,
-            ...(profile?.gender ? { gender: profile.gender } : {}),
-            ...(profile?.age    ? { age: profile.age }       : {}),
-            ...(profile?.height ? { height: profile.height } : {}),
-          });
-          setForm({ kcal: String(result.kcal), protein: String(result.protein), carbs: String(result.carbs), fat: String(result.fat) });
-        } catch (e) {
-          setCalcErr("Berechnung fehlgeschlagen: " + e.message);
-        }
-        setCalculating(false);
+        if (!w || w <= 0) { setCalcErr("Bitte gib dein Gewicht ein."); return; }
+        setCalcErr(null);
+        const result = calcMacroTargets(
+          profile?.gender || "m",
+          parseFloat(profile?.age)    || 25,
+          w,
+          parseFloat(profile?.height) || 175,
+          pForm.goal,
+          pForm.bodyFat,
+          pForm.activity
+        );
+        setForm({ kcal: String(result.kcal), protein: String(result.protein), carbs: String(result.carbs), fat: String(result.fat) });
       };
 
       const save = () => {
         const parsed = {};
         MACROS.forEach(m => parsed[m] = parseFloat(form[m]) || 0);
-        const newProfile = { ...(profile || {}), weight: parseFloat(pForm.weight) || profile?.weight, goal: pForm.goal };
+        const newProfile = {
+          ...(profile || {}),
+          weight:   parseFloat(pForm.weight)  || profile?.weight,
+          bodyFat:  parseFloat(pForm.bodyFat) || undefined,
+          activity: pForm.activity,
+          goal:     pForm.goal,
+        };
         onSave(parsed, newProfile, vlForm);
         onClose();
       };
@@ -2366,6 +2401,22 @@
                 <Mono size={11} color={C.muted} style={{ width: 32 }}>kg</Mono>
               </div>
               <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                <span style={{ fontFamily: "Syne", fontSize: 13, color: C.text, width: 115, flexShrink: 0 }}>Körperfett</span>
+                <input type="text" inputMode="decimal" value={pForm.bodyFat} onChange={e => setPForm(p => ({ ...p, bodyFat: e.target.value }))} placeholder="Optional" style={inputStyle} />
+                <Mono size={11} color={C.muted} style={{ width: 32 }}>%</Mono>
+              </div>
+              <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+                <span style={{ fontFamily: "Syne", fontSize: 13, color: C.text }}>Aktivitätslevel</span>
+                <div style={{ display: "flex", flexDirection: "column", gap: 5 }}>
+                  {ACTIVITY_OPTS.map(({ k, l, sub }) => (
+                    <button key={k} onClick={() => setPForm(p => ({ ...p, activity: k }))} style={{ background: pForm.activity === k ? C.accent + "22" : C.input, border: `1px solid ${pForm.activity === k ? C.accent : C.border}`, borderRadius: 7, padding: "8px 10px", color: pForm.activity === k ? C.accent : C.muted, fontFamily: "Syne", fontSize: 12, fontWeight: pForm.activity === k ? 700 : 400, cursor: "pointer", textAlign: "left", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                      <span>{l}</span>
+                      <span style={{ fontFamily: "Inter", fontSize: 10, color: pForm.activity === k ? C.accent : C.muted, opacity: 0.7 }}>{sub}</span>
+                    </button>
+                  ))}
+                </div>
+              </div>
+              <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
                 <span style={{ fontFamily: "Syne", fontSize: 13, color: C.text, width: 115, flexShrink: 0 }}>Ziel</span>
                 <div style={{ display: "flex", gap: 6, flex: 1 }}>
                   {goalOpts.map(({ k, l }) => (
@@ -2373,8 +2424,8 @@
                   ))}
                 </div>
               </div>
-              <button onClick={calculate} disabled={calculating || !parseFloat(pForm.weight)} style={{ background: calculating ? C.soft : C.accent, border: "none", borderRadius: 8, padding: "10px 16px", color: calculating ? C.muted : "#000", fontFamily: "Syne", fontSize: 13, fontWeight: 700, cursor: calculating || !parseFloat(pForm.weight) ? "default" : "pointer", width: "100%" }}>
-                {calculating ? "KI berechnet…" : "Makros von KI berechnen lassen →"}
+              <button onClick={calculate} disabled={!parseFloat(pForm.weight)} style={{ background: !parseFloat(pForm.weight) ? C.soft : C.accent, border: "none", borderRadius: 8, padding: "10px 16px", color: !parseFloat(pForm.weight) ? C.muted : "#000", fontFamily: "Syne", fontSize: 13, fontWeight: 700, cursor: !parseFloat(pForm.weight) ? "default" : "pointer", width: "100%" }}>
+                Makros berechnen →
               </button>
               {calcErr && <div style={{ fontFamily: "Syne", fontSize: 11, color: C.danger }}>{calcErr}</div>}
             </div>
@@ -2451,15 +2502,16 @@
       const [age, setAge] = useState("");
       const [weight, setWeight] = useState("");
       const [height, setHeight] = useState("");
+      const [bodyFat, setBodyFat] = useState("");
+      const [activity, setActivity] = useState("moderate");
       const [targets, setTargets] = useState(null);
-
       const [selectedGoal, setSelectedGoal] = useState(null);
 
       const selectGoal = (goal) => {
-        const t = calcMacroTargets(gender, parseFloat(age), parseFloat(weight), parseFloat(height), goal);
+        const t = calcMacroTargets(gender, parseFloat(age), parseFloat(weight), parseFloat(height), goal, bodyFat, activity);
         setSelectedGoal(goal);
         setTargets(t);
-        setStep(4);
+        setStep(5);
       };
 
       const bodyValid = parseFloat(age) > 0 && parseFloat(weight) > 0 && parseFloat(height) > 0;
@@ -2479,9 +2531,10 @@
         </div>
       );
 
+      // Step 1 — Gender
       if (step === 1) return wrap(<>
         <div style={{ fontFamily: "Syne", fontSize: 22, fontWeight: 700, color: C.text, marginTop: 28, marginBottom: 8 }}>Willkommen!</div>
-        <div style={{ fontFamily: "Syne", fontSize: 14, color: C.muted, marginBottom: 36, lineHeight: 1.7 }}>Ich berechne deine optimalen Tagesziele. Dauert nur 10 Sekunden.</div>
+        <div style={{ fontFamily: "Syne", fontSize: 14, color: C.muted, marginBottom: 36, lineHeight: 1.7 }}>Ich berechne deine optimalen Tagesziele. Dauert nur eine Minute.</div>
         <div style={{ fontFamily: "Syne", fontSize: 12, color: C.muted, textTransform: "uppercase", letterSpacing: 1, marginBottom: 12 }}>Ich bin …</div>
         <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
           {bigBtn(() => { setGender("m"); setStep(2); }, "Mann")}
@@ -2489,13 +2542,14 @@
         </div>
       </>);
 
+      // Step 2 — Body stats
       if (step === 2) return wrap(<>
         <div style={{ fontFamily: "Syne", fontSize: 22, fontWeight: 700, color: C.text, marginTop: 28, marginBottom: 28 }}>Deine Angaben</div>
         <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
           {[
-            { label: "Alter", unit: "Jahre", val: age, set: setAge },
-            { label: "Gewicht", unit: "kg", val: weight, set: setWeight },
-            { label: "Größe", unit: "cm", val: height, set: setHeight },
+            { label: "Alter",   unit: "Jahre",   val: age,    set: setAge    },
+            { label: "Gewicht", unit: "kg",       val: weight, set: setWeight },
+            { label: "Größe",   unit: "cm",       val: height, set: setHeight },
           ].map(({ label, unit, val, set }) => (
             <div key={label}>
               <div style={{ fontFamily: "Syne", fontSize: 11, color: C.muted, textTransform: "uppercase", letterSpacing: 1, marginBottom: 6 }}>{label}</div>
@@ -2505,18 +2559,44 @@
               </div>
             </div>
           ))}
+          <div>
+            <div style={{ fontFamily: "Syne", fontSize: 11, color: C.muted, textTransform: "uppercase", letterSpacing: 1, marginBottom: 6 }}>Körperfettanteil <span style={{ textTransform: "none", fontWeight: 400 }}>(optional)</span></div>
+            <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+              <input type="text" inputMode="decimal" value={bodyFat} onChange={e => setBodyFat(e.target.value)} placeholder="z.B. 20" style={inStyle} />
+              <span style={{ fontFamily: "Syne", fontSize: 13, color: C.muted, width: 38 }}>%</span>
+            </div>
+            <div style={{ fontFamily: "Inter", fontSize: 11, color: C.muted, marginTop: 5, lineHeight: 1.5 }}>
+              Mit KFA nutze ich die genauere Katch-McArdle-Formel für dein BMR.
+            </div>
+          </div>
           <button onClick={() => setStep(3)} disabled={!bodyValid} style={{ background: bodyValid ? C.accent : C.soft, border: "none", borderRadius: 12, padding: "16px 20px", color: bodyValid ? "#000" : C.muted, fontFamily: "Syne", fontSize: 15, fontWeight: 700, cursor: bodyValid ? "pointer" : "default", marginTop: 8 }}>Weiter →</button>
         </div>
       </>);
 
+      // Step 3 — Activity level
       if (step === 3) return wrap(<>
+        <div style={{ fontFamily: "Syne", fontSize: 22, fontWeight: 700, color: C.text, marginTop: 28, marginBottom: 8 }}>Aktivitätslevel</div>
+        <div style={{ fontFamily: "Syne", fontSize: 14, color: C.muted, marginBottom: 24, lineHeight: 1.6 }}>Wie aktiv bist du im Alltag?</div>
+        <div style={{ display: "flex", flexDirection: "column", gap: 8, marginBottom: 20 }}>
+          {ACTIVITY_OPTS.map(({ k, l, sub }) => (
+            <button key={k} onClick={() => setActivity(k)} style={{ background: activity === k ? C.accent + "22" : C.card, border: `2px solid ${activity === k ? C.accent : C.border}`, borderRadius: 12, padding: "14px 16px", color: activity === k ? C.accent : C.text, fontFamily: "Syne", fontSize: 14, fontWeight: activity === k ? 700 : 500, cursor: "pointer", textAlign: "left" }}>
+              <div>{l}</div>
+              <div style={{ fontFamily: "Inter", fontSize: 11, color: activity === k ? C.accent : C.muted, marginTop: 3, opacity: 0.85 }}>{sub}</div>
+            </button>
+          ))}
+        </div>
+        <button onClick={() => setStep(4)} style={{ background: C.accent, border: "none", borderRadius: 12, padding: "16px 20px", color: "#000", fontFamily: "Syne", fontSize: 15, fontWeight: 700, cursor: "pointer", width: "100%" }}>Weiter →</button>
+      </>);
+
+      // Step 4 — Goal
+      if (step === 4) return wrap(<>
         <div style={{ fontFamily: "Syne", fontSize: 22, fontWeight: 700, color: C.text, marginTop: 28, marginBottom: 8 }}>Dein Ziel</div>
         <div style={{ fontFamily: "Syne", fontSize: 14, color: C.muted, marginBottom: 28 }}>Was möchtest du erreichen?</div>
         <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
           {[
-            { key: "abnehmen",  label: "Abnehmen",          sub: "−400 kcal Defizit" },
-            { key: "halten",    label: "Gewicht halten",     sub: "ausgeglichene Ernährung" },
-            { key: "aufbauen",  label: "Muskeln aufbauen",   sub: "+200 kcal Überschuss" },
+            { key: "abnehmen",  label: "Abnehmen",          sub: "−500 kcal Defizit · ~0,5 kg/Woche" },
+            { key: "halten",    label: "Gewicht halten",     sub: "ausgeglichene Ernährung"            },
+            { key: "aufbauen",  label: "Muskeln aufbauen",   sub: "+300 kcal Überschuss"               },
           ].map(({ key, label, sub }) => (
             <button key={key} onClick={() => selectGoal(key)} style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 12, padding: "16px 20px", color: C.text, fontFamily: "Syne", fontSize: 15, fontWeight: 600, cursor: "pointer", textAlign: "left", width: "100%" }}>
               <div>{label}</div>
@@ -2526,6 +2606,7 @@
         </div>
       </>);
 
+      // Step 5 — Results
       return wrap(<>
         <div style={{ fontFamily: "Syne", fontSize: 22, fontWeight: 700, color: C.text, marginTop: 28, marginBottom: 8 }}>Deine Tagesziele</div>
         <div style={{ fontFamily: "Syne", fontSize: 13, color: C.muted, marginBottom: 24, lineHeight: 1.6 }}>Berechnet für dein Profil — du kannst sie jederzeit in den Einstellungen anpassen.</div>
@@ -2537,7 +2618,7 @@
             </div>
           ))}
         </div>
-        <button onClick={() => onComplete(targets, { gender, age: parseFloat(age), weight: parseFloat(weight), height: parseFloat(height), goal: selectedGoal })} style={{ background: C.accent, border: "none", borderRadius: 12, padding: "16px 20px", color: "#000", fontFamily: "Syne", fontSize: 15, fontWeight: 700, cursor: "pointer", width: "100%" }}>Übernehmen →</button>
+        <button onClick={() => onComplete(targets, { gender, age: parseFloat(age), weight: parseFloat(weight), height: parseFloat(height), bodyFat: parseFloat(bodyFat) || undefined, activity, goal: selectedGoal })} style={{ background: C.accent, border: "none", borderRadius: 12, padding: "16px 20px", color: "#000", fontFamily: "Syne", fontSize: 15, fontWeight: 700, cursor: "pointer", width: "100%" }}>Übernehmen →</button>
       </>);
     }
 
