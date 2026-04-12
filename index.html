@@ -625,10 +625,21 @@
         if (!scannedProduct) return;
         const w = parseFloat(barcodeWeight);
         if (!w || w <= 0) return;
-        const line = `${w}g ${scannedProduct.name_de}`;
-        setText(prev => prev.trim() ? prev.trim() + "\n" + line : line);
+        const f = w / 100;
+        const item = {
+          name_de:  scannedProduct.name_de || scannedProduct.name,
+          name:     scannedProduct.name_de || scannedProduct.name,
+          weight_g: w,
+          kcal:     Math.round((scannedProduct.kcal_100 || 0) * f),
+          protein:  Math.round((scannedProduct.protein_100 || 0) * f * 10) / 10,
+          carbs:    Math.round((scannedProduct.carbs_100 || 0) * f * 10) / 10,
+          fat:      Math.round((scannedProduct.fat_100 || 0) * f * 10) / 10,
+          source:   "barcode",
+        };
+        setItems(prev => [...prev, item]);
         setScannedProduct(null);
         setBarcodeWeight("100");
+        navigator.vibrate?.([30]);
       };
 
       const analyze = async () => {
