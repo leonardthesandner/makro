@@ -414,8 +414,6 @@
 
       const nowRad   = secToRad(nowSec);
       const [dx, dy] = [cx + R * Math.cos(nowRad), cy + R * Math.sin(nowRad)];
-      const [fx, fy] = pt(minToRad(fromMin), R);
-      const [tx, ty] = pt(minToRad(toMin),   R);
 
       const eatSpan = (toMin - fromMin + 1440) % 1440;
       const eatH    = Math.round(eatSpan / 60);
@@ -441,12 +439,9 @@
               return <text key={label} x={lx.toFixed(1)} y={(ly + 3).toFixed(1)} textAnchor="middle" fill={C.muted} fontFamily="Inter" fontSize={8} fontWeight="600">{label}</text>;
             })}
             {/* Essensfenster-Arc (gedimmt) */}
-            <path d={arcD(fromMin, toMin, R)} fill="none" stroke={C.accent} strokeWidth={6} strokeLinecap="butt" opacity="0.25" />
+            <path d={arcD(fromMin, toMin, R)} fill="none" stroke={C.accent} strokeWidth={6} strokeLinecap="round" opacity="0.25" />
             {/* Fortschritts-Arc (hell, wenn Essenszeit) */}
-            {isEating && <path d={progressD()} fill="none" stroke={C.accent} strokeWidth={6} strokeLinecap="butt" />}
-            {/* Endpunkt-Dots des Fensters */}
-            <circle cx={fx} cy={fy} r={3.5} fill={C.accent} opacity="0.55" />
-            <circle cx={tx} cy={ty} r={3.5} fill={C.accent} opacity="0.55" />
+            {isEating && <path d={progressD()} fill="none" stroke={C.accent} strokeWidth={6} strokeLinecap="round" />}
             {/* Pulsringe */}
             {isEating && <circle cx={dx} cy={dy} r={7} fill="none" stroke={C.accent} strokeWidth={1.5} className="fasting-pulse" />}
             {isEating && <circle cx={dx} cy={dy} r={7} fill="none" stroke={C.accent} strokeWidth={1.5} className="fasting-pulse" style={{ animationDelay: "1s" }} />}
