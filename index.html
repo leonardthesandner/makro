@@ -2346,11 +2346,13 @@
         carbs: String(targets.carbs), fat: String(targets.fat),
       }));
       const [pForm, setPForm] = useState({
-        weight:   String(profile?.weight   || ""),
-        bodyFat:  String(profile?.bodyFat  || ""),
-        activity: profile?.activity || "moderate",
-        diet:     profile?.diet    || "standard",
-        goal:     profile?.goal    || "halten",
+        weight:      String(profile?.weight   || ""),
+        bodyFat:     String(profile?.bodyFat  || ""),
+        activity:    profile?.activity    || "moderate",
+        diet:        profile?.diet        || "standard",
+        fastingFrom: profile?.fastingFrom || "12:00",
+        fastingTo:   profile?.fastingTo   || "20:00",
+        goal:        profile?.goal        || "halten",
       });
       const [calcErr, setCalcErr] = useState(null);
       const [vlForm, setVlForm] = useState(voiceLang || "de");
@@ -2398,11 +2400,13 @@
         MACROS.forEach(m => parsed[m] = parseFloat(form[m]) || 0);
         const newProfile = {
           ...(profile || {}),
-          weight:   parseFloat(pForm.weight)  || profile?.weight,
-          bodyFat:  parseFloat(pForm.bodyFat) || undefined,
-          activity: pForm.activity,
-          diet:     pForm.diet,
-          goal:     pForm.goal,
+          weight:      parseFloat(pForm.weight)  || profile?.weight,
+          bodyFat:     parseFloat(pForm.bodyFat) || undefined,
+          activity:    pForm.activity,
+          diet:        pForm.diet,
+          fastingFrom: pForm.diet === "intervallfasten" ? pForm.fastingFrom : undefined,
+          fastingTo:   pForm.diet === "intervallfasten" ? pForm.fastingTo   : undefined,
+          goal:        pForm.goal,
         };
         onSave(parsed, newProfile, vlForm);
         onClose();
@@ -2453,6 +2457,14 @@
                     </button>
                   ))}
                 </div>
+                {pForm.diet === "intervallfasten" && (
+                  <div style={{ background: C.soft, border: `1px solid ${C.accent}40`, borderRadius: 8, padding: "12px", marginTop: 4, display: "flex", alignItems: "center", gap: 8 }}>
+                    <span style={{ fontFamily: "Syne", fontSize: 11, color: C.accent, flexShrink: 0 }}>Essensfenster</span>
+                    <input type="time" value={pForm.fastingFrom} onChange={e => setPForm(p => ({ ...p, fastingFrom: e.target.value }))} style={{ background: C.input, border: `1px solid ${C.border}`, borderRadius: 6, padding: "6px 8px", color: C.text, fontFamily: "Inter", fontSize: 14, outline: "none", flex: 1 }} />
+                    <span style={{ fontFamily: "Syne", fontSize: 12, color: C.muted }}>–</span>
+                    <input type="time" value={pForm.fastingTo} onChange={e => setPForm(p => ({ ...p, fastingTo: e.target.value }))} style={{ background: C.input, border: `1px solid ${C.border}`, borderRadius: 6, padding: "6px 8px", color: C.text, fontFamily: "Inter", fontSize: 14, outline: "none", flex: 1 }} />
+                  </div>
+                )}
               </div>
               <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
                 <span style={{ fontFamily: "Syne", fontSize: 13, color: C.text, width: 115, flexShrink: 0 }}>Ziel</span>
@@ -2543,6 +2555,8 @@
       const [bodyFat, setBodyFat] = useState("");
       const [activity, setActivity] = useState("moderate");
       const [diet, setDiet] = useState("standard");
+      const [fastingFrom, setFastingFrom] = useState("12:00");
+      const [fastingTo, setFastingTo] = useState("20:00");
       const [targets, setTargets] = useState(null);
       const [selectedGoal, setSelectedGoal] = useState(null);
 
@@ -2645,6 +2659,22 @@
             </button>
           ))}
         </div>
+        {diet === "intervallfasten" && (
+          <div style={{ background: C.card, border: `1px solid ${C.accent}40`, borderRadius: 12, padding: "14px 16px", marginBottom: 12 }}>
+            <div style={{ fontFamily: "Syne", fontSize: 11, color: C.accent, textTransform: "uppercase", letterSpacing: 1, marginBottom: 12 }}>Essensfenster</div>
+            <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+              <div style={{ flex: 1, display: "flex", flexDirection: "column", gap: 4 }}>
+                <span style={{ fontFamily: "Syne", fontSize: 11, color: C.muted }}>Von</span>
+                <input type="time" value={fastingFrom} onChange={e => setFastingFrom(e.target.value)} style={{ background: C.input, border: `1px solid ${C.border}`, borderRadius: 8, padding: "10px 12px", color: C.text, fontFamily: "Inter", fontSize: 16, outline: "none", width: "100%" }} />
+              </div>
+              <div style={{ fontFamily: "Syne", fontSize: 18, color: C.muted, marginTop: 18 }}>→</div>
+              <div style={{ flex: 1, display: "flex", flexDirection: "column", gap: 4 }}>
+                <span style={{ fontFamily: "Syne", fontSize: 11, color: C.muted }}>Bis</span>
+                <input type="time" value={fastingTo} onChange={e => setFastingTo(e.target.value)} style={{ background: C.input, border: `1px solid ${C.border}`, borderRadius: 8, padding: "10px 12px", color: C.text, fontFamily: "Inter", fontSize: 16, outline: "none", width: "100%" }} />
+              </div>
+            </div>
+          </div>
+        )}
         <button onClick={() => setStep(5)} style={{ background: C.accent, border: "none", borderRadius: 12, padding: "16px 20px", color: "#000", fontFamily: "Syne", fontSize: 15, fontWeight: 700, cursor: "pointer", width: "100%" }}>Weiter →</button>
       </>);
 
@@ -2685,7 +2715,7 @@
             </div>
           ))}
         </div>
-        <button onClick={() => onComplete(targets, { gender, age: parseFloat(age), weight: parseFloat(weight), height: parseFloat(height), bodyFat: parseFloat(bodyFat) || undefined, activity, diet, goal: selectedGoal })} style={{ background: C.accent, border: "none", borderRadius: 12, padding: "16px 20px", color: "#000", fontFamily: "Syne", fontSize: 15, fontWeight: 700, cursor: "pointer", width: "100%" }}>Übernehmen →</button>
+        <button onClick={() => onComplete(targets, { gender, age: parseFloat(age), weight: parseFloat(weight), height: parseFloat(height), bodyFat: parseFloat(bodyFat) || undefined, activity, diet, fastingFrom: diet === "intervallfasten" ? fastingFrom : undefined, fastingTo: diet === "intervallfasten" ? fastingTo : undefined, goal: selectedGoal })} style={{ background: C.accent, border: "none", borderRadius: 12, padding: "16px 20px", color: "#000", fontFamily: "Syne", fontSize: 15, fontWeight: 700, cursor: "pointer", width: "100%" }}>Übernehmen →</button>
       </>);
     }
 
