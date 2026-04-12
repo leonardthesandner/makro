@@ -351,7 +351,88 @@
       );
     }
 
-    function InputTab({ recipes, onSave, voiceLang, userFoods }) {
+    function FastingStatus({ fastingFrom, fastingTo }) {
+      const [now, setNow] = React.useState(new Date());
+      React.useEffect(() => {
+        const t = setInterval(() => setNow(new Date()), 30000);
+        return () => clearInterval(t);
+      }, []);
+
+      const parseT = s => { const [h, m] = (s || "12:00").split(":").map(Number); return h * 60 + m; };
+      const fromMin = parseT(fastingFrom);
+      const toMin   = parseT(fastingTo);
+      const nowMin  = now.getHours() * 60 + now.getMinutes();
+
+      const inWindow = (t, a, b) => a < b ? t >= a && t < b : t >= a || t < b;
+      const until    = (target, cur) => { const d = (target - cur + 1440) % 1440; return d === 0 ? 1440 : d; };
+
+      const isEating  = inWindow(nowMin, fromMin, toMin);
+      const remaining = isEating ? until(toMin, nowMin) : until(fromMin, nowMin);
+      const rh = Math.floor(remaining / 60);
+      const rm = remaining % 60;
+      const remStr = rh > 0 ? `${rh}h ${rm}min` : `${rm}min`;
+
+      // SVG 24h ring
+      const cx = 52, cy = 52, R = 38, size = 104;
+      const minToRad  = m => ((m / 1440) * 2 * Math.PI) - Math.PI / 2;
+      const pt        = (m, r) => [cx + r * Math.cos(minToRad(m)), cy + r * Math.sin(minToRad(m))];
+
+      const arcD = (a, b, r) => {
+        const span   = (b - a + 1440) % 1440;
+        if (span === 0) return "";
+        const [x1, y1] = pt(a, r);
+        const [x2, y2] = pt(b, r);
+        const large    = span > 720 ? 1 : 0;
+        return `M ${x1.toFixed(2)} ${y1.toFixed(2)} A ${r} ${r} 0 ${large} 1 ${x2.toFixed(2)} ${y2.toFixed(2)}`;
+      };
+
+      const [dx, dy] = pt(nowMin, R);
+      const eatSpan  = (toMin - fromMin + 1440) % 1440;
+      const fastSpan = 1440 - eatSpan;
+      const eatH     = Math.round(eatSpan / 60);
+      const fastH    = Math.round(fastSpan / 60);
+
+      const nowStr = `${String(now.getHours()).padStart(2,"0")}:${String(now.getMinutes()).padStart(2,"0")}`;
+
+      return (
+        <div style={{ background: C.card, border: `1px solid ${isEating ? C.accent + "55" : C.border}`, borderRadius: 16, padding: "14px 16px", display: "flex", alignItems: "center", gap: 16 }}>
+          <svg width={size} height={size} style={{ flexShrink: 0 }}>
+            {/* Fasting ring (full background) */}
+            <circle cx={cx} cy={cy} r={R} fill="none" stroke={C.soft} strokeWidth={7} />
+            {/* Eating window arc */}
+            <path d={arcD(fromMin, toMin, R)} fill="none" stroke={C.accent} strokeWidth={7} strokeLinecap="round" />
+            {/* Now dot */}
+            <circle cx={dx} cy={dy} r={5} fill={isEating ? C.accent : C.muted} />
+            {/* Inner pulse ring when eating */}
+            {isEating && <circle cx={dx} cy={dy} r={9} fill="none" stroke={C.accent} strokeWidth={1.5} opacity={0.35} />}
+            {/* Center time */}
+            <text x={cx} y={cy - 5} textAnchor="middle" fill={C.text} fontFamily="Syne" fontSize={12} fontWeight="800">{nowStr}</text>
+            <text x={cx} y={cy + 9} textAnchor="middle" fill={C.muted} fontFamily="Inter" fontSize={8}>Uhr</text>
+          </svg>
+
+          <div style={{ flex: 1, minWidth: 0 }}>
+            <div style={{ fontFamily: "Syne", fontSize: 15, fontWeight: 800, color: isEating ? C.accent : C.text }}>
+              {isEating ? "🍽 Essen erlaubt" : "💧 Fasten läuft"}
+            </div>
+            <div style={{ fontFamily: "Inter", fontSize: 12, color: C.muted, marginTop: 4 }}>
+              Noch <span style={{ color: C.text, fontWeight: 600 }}>{remStr}</span>
+              {" "}{isEating ? "bis Fastenstart" : "bis Essensbeginn"}
+            </div>
+            <div style={{ display: "flex", gap: 8, marginTop: 10 }}>
+              <div style={{ background: C.accent + "20", borderRadius: 20, padding: "3px 10px", display: "flex", alignItems: "center", gap: 5 }}>
+                <div style={{ width: 6, height: 6, borderRadius: "50%", background: C.accent }} />
+                <span style={{ fontFamily: "Syne", fontSize: 10, color: C.accent, fontWeight: 700 }}>{fastingFrom}–{fastingTo} · {eatH}h essen</span>
+              </div>
+            </div>
+            <div style={{ fontFamily: "Inter", fontSize: 10, color: C.muted, marginTop: 4, opacity: 0.6 }}>
+              {fastH}h fasten · {eatH}h essen
+            </div>
+          </div>
+        </div>
+      );
+    }
+
+    function InputTab({ recipes, onSave, voiceLang, userFoods, profile }) {
       const [text, setText] = useState("");
       const [loading, setLoading] = useState(false);
       const [items, setItems] = useState([]);
@@ -555,6 +636,9 @@
 
       const mainContent = (
         <div style={{ padding: 16, display: "flex", flexDirection: "column", gap: 14 }}>
+          {profile?.diet === "intervallfasten" && (
+            <FastingStatus fastingFrom={profile.fastingFrom || "12:00"} fastingTo={profile.fastingTo || "20:00"} />
+          )}
           <Card>
             <textarea
               ref={textareaRef}
@@ -3303,7 +3387,7 @@
             <div style={tab === "input" || outTab === "input" ? { position: "absolute", inset: 0, overflowY: "auto", WebkitOverflowScrolling: "touch", zIndex: 1 } : { display: "none" }}
               className={tab === "input" && outTab ? `slide-from-${slideDir}` : outTab === "input" ? `slide-to-${slideDir === "right" ? "left" : "right"}` : ""}
               onAnimationEnd={outTab === "input" ? onAnimEnd : undefined}>
-              <InputTab recipes={recipes} onSave={addEntry} voiceLang={voiceLang} userFoods={userFoods} />
+              <InputTab recipes={recipes} onSave={addEntry} voiceLang={voiceLang} userFoods={userFoods} profile={profile} />
             </div>
             {/* Incoming non-input tab */}
             {tab !== "input" && (
