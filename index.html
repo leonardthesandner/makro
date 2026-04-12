@@ -2250,6 +2250,13 @@
       { k: "fr", l: "Français" }, { k: "ar", l: "العربية" },
     ];
 
+    const DIET_OPTS = [
+      { k: "standard",       l: "Keine Präferenz",   icon: "🥗", sub: "Ausgewogene Ernährung",         note: null },
+      { k: "intervallfasten",l: "Intervallfasten",   icon: "⏱️", sub: "16 Std. fasten · 8 Std. essen", note: "Höheres Protein für längere Sättigung, mehr gesundes Fett" },
+      { k: "lowcarb",        l: "Low Carb",          icon: "🥩", sub: "< 100 g Kohlenhydrate täglich",  note: "Wenig KH, viel Protein & Fett als Energiequelle" },
+      { k: "mediterran",     l: "Mediterran",        icon: "🫒", sub: "Olivenöl, Fisch, Gemüse",        note: "Moderate KH aus Vollkorn & Hülsenfrüchten, hochwertiges Fett" },
+    ];
+
     const ACTIVITY_OPTS = [
       { k: "sedentary",   l: "Kaum Bewegung",     sub: "Bürojob, kein Sport",          mult: 1.2   },
       { k: "light",       l: "Leicht aktiv",       sub: "1–3× Sport pro Woche",         mult: 1.375 },
@@ -2258,7 +2265,7 @@
       { k: "very_active", l: "Extrem aktiv",       sub: "Körperl. Arbeit + tägl. Sport",mult: 1.9   },
     ];
 
-    function calcMacroTargets(gender, age, weight, height, goal, bodyFat, activity) {
+    function calcMacroTargets(gender, age, weight, height, goal, bodyFat, activity, diet) {
       const actMult = (ACTIVITY_OPTS.find(a => a.k === activity) || ACTIVITY_OPTS[2]).mult;
 
       let bmr;
@@ -2275,21 +2282,37 @@
       }
 
       let tdee = bmr * actMult;
-      if (goal === "abnehmen") tdee -= 500;       // ~0,5 kg/Woche Defizit
-      else if (goal === "aufbauen") tdee += 300;   // moderater Überschuss
+      if (goal === "abnehmen") tdee -= 500;
+      else if (goal === "aufbauen") tdee += 300;
 
       const kcal = Math.round(tdee / 50) * 50;
-
-      // Protein: 2,0–2,2 g je kg Magermasse (oder Körpergewicht falls kein KFA)
       const base = lbm || weight;
-      const proteinFactor = goal === "aufbauen" ? 2.2 : goal === "abnehmen" ? 2.1 : 2.0;
-      const protein = Math.round(base * proteinFactor);
 
-      // Fett: 25 % der Kalorien, mind. 0,8 g/kg
-      const fat = Math.max(Math.round(kcal * 0.25 / 9), Math.round(weight * 0.8));
+      let protein, fat, carbs;
 
-      // Kohlenhydrate: restliche Kalorien
-      const carbs = Math.max(0, Math.round((kcal - protein * 4 - fat * 9) / 4));
+      if (diet === "intervallfasten") {
+        // Höheres Protein (Sättigung im Essfenster), mehr Fett
+        protein = Math.round(base * (goal === "aufbauen" ? 2.3 : 2.2));
+        fat     = Math.round(kcal * 0.32 / 9);
+        carbs   = Math.max(0, Math.round((kcal - protein * 4 - fat * 9) / 4));
+      } else if (diet === "lowcarb") {
+        // Protein hoch, KH max 100 g oder 20 % der kcal
+        protein = Math.round(base * (goal === "aufbauen" ? 2.4 : 2.2));
+        carbs   = Math.min(100, Math.round(kcal * 0.20 / 4));
+        fat     = Math.max(Math.round(weight * 1.0), Math.round((kcal - protein * 4 - carbs * 4) / 9));
+        // Kcal aus Fett können leicht über Ziel liegen — akzeptabel bei Low Carb
+      } else if (diet === "mediterran") {
+        // Mäßiges Protein, viel gesundes Fett, komplexe KH
+        protein = Math.round(base * (goal === "aufbauen" ? 1.9 : 1.7));
+        fat     = Math.round(kcal * 0.35 / 9);
+        carbs   = Math.max(0, Math.round((kcal - protein * 4 - fat * 9) / 4));
+      } else {
+        // Standard — ausgewogen
+        const proteinFactor = goal === "aufbauen" ? 2.2 : goal === "abnehmen" ? 2.1 : 2.0;
+        protein = Math.round(base * proteinFactor);
+        fat     = Math.max(Math.round(kcal * 0.25 / 9), Math.round(weight * 0.8));
+        carbs   = Math.max(0, Math.round((kcal - protein * 4 - fat * 9) / 4));
+      }
 
       return { kcal, protein, carbs, fat };
     }
@@ -2326,6 +2349,7 @@
         weight:   String(profile?.weight   || ""),
         bodyFat:  String(profile?.bodyFat  || ""),
         activity: profile?.activity || "moderate",
+        diet:     profile?.diet    || "standard",
         goal:     profile?.goal    || "halten",
       });
       const [calcErr, setCalcErr] = useState(null);
@@ -2363,7 +2387,8 @@
           parseFloat(profile?.height) || 175,
           pForm.goal,
           pForm.bodyFat,
-          pForm.activity
+          pForm.activity,
+          pForm.diet
         );
         setForm({ kcal: String(result.kcal), protein: String(result.protein), carbs: String(result.carbs), fat: String(result.fat) });
       };
@@ -2376,6 +2401,7 @@
           weight:   parseFloat(pForm.weight)  || profile?.weight,
           bodyFat:  parseFloat(pForm.bodyFat) || undefined,
           activity: pForm.activity,
+          diet:     pForm.diet,
           goal:     pForm.goal,
         };
         onSave(parsed, newProfile, vlForm);
@@ -2412,6 +2438,18 @@
                     <button key={k} onClick={() => setPForm(p => ({ ...p, activity: k }))} style={{ background: pForm.activity === k ? C.accent + "22" : C.input, border: `1px solid ${pForm.activity === k ? C.accent : C.border}`, borderRadius: 7, padding: "8px 10px", color: pForm.activity === k ? C.accent : C.muted, fontFamily: "Syne", fontSize: 12, fontWeight: pForm.activity === k ? 700 : 400, cursor: "pointer", textAlign: "left", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
                       <span>{l}</span>
                       <span style={{ fontFamily: "Inter", fontSize: 10, color: pForm.activity === k ? C.accent : C.muted, opacity: 0.7 }}>{sub}</span>
+                    </button>
+                  ))}
+                </div>
+              </div>
+              <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+                <span style={{ fontFamily: "Syne", fontSize: 13, color: C.text }}>Ernährungsstil</span>
+                <div style={{ display: "flex", flexDirection: "column", gap: 5 }}>
+                  {DIET_OPTS.map(({ k, l, icon, sub }) => (
+                    <button key={k} onClick={() => setPForm(p => ({ ...p, diet: k }))} style={{ background: pForm.diet === k ? C.accent + "22" : C.input, border: `1px solid ${pForm.diet === k ? C.accent : C.border}`, borderRadius: 7, padding: "8px 10px", color: pForm.diet === k ? C.accent : C.muted, fontFamily: "Syne", fontSize: 12, fontWeight: pForm.diet === k ? 700 : 400, cursor: "pointer", textAlign: "left", display: "flex", alignItems: "center", gap: 8 }}>
+                      <span style={{ fontSize: 16 }}>{icon}</span>
+                      <span style={{ flex: 1 }}>{l}</span>
+                      <span style={{ fontFamily: "Inter", fontSize: 10, color: pForm.diet === k ? C.accent : C.muted, opacity: 0.7 }}>{sub}</span>
                     </button>
                   ))}
                 </div>
@@ -2504,14 +2542,15 @@
       const [height, setHeight] = useState("");
       const [bodyFat, setBodyFat] = useState("");
       const [activity, setActivity] = useState("moderate");
+      const [diet, setDiet] = useState("standard");
       const [targets, setTargets] = useState(null);
       const [selectedGoal, setSelectedGoal] = useState(null);
 
       const selectGoal = (goal) => {
-        const t = calcMacroTargets(gender, parseFloat(age), parseFloat(weight), parseFloat(height), goal, bodyFat, activity);
+        const t = calcMacroTargets(gender, parseFloat(age), parseFloat(weight), parseFloat(height), goal, bodyFat, activity, diet);
         setSelectedGoal(goal);
         setTargets(t);
-        setStep(5);
+        setStep(6);
       };
 
       const bodyValid = parseFloat(age) > 0 && parseFloat(weight) > 0 && parseFloat(height) > 0;
@@ -2588,8 +2627,29 @@
         <button onClick={() => setStep(4)} style={{ background: C.accent, border: "none", borderRadius: 12, padding: "16px 20px", color: "#000", fontFamily: "Syne", fontSize: 15, fontWeight: 700, cursor: "pointer", width: "100%" }}>Weiter →</button>
       </>);
 
-      // Step 4 — Goal
+      // Step 4 — Diet
       if (step === 4) return wrap(<>
+        <div style={{ fontFamily: "Syne", fontSize: 22, fontWeight: 700, color: C.text, marginTop: 28, marginBottom: 8 }}>Ernährungsstil</div>
+        <div style={{ fontFamily: "Syne", fontSize: 14, color: C.muted, marginBottom: 24, lineHeight: 1.6 }}>Folgst du einer bestimmten Ernährungsweise?</div>
+        <div style={{ display: "flex", flexDirection: "column", gap: 8, marginBottom: 20 }}>
+          {DIET_OPTS.map(({ k, l, icon, sub, note }) => (
+            <button key={k} onClick={() => setDiet(k)} style={{ background: diet === k ? C.accent + "22" : C.card, border: `2px solid ${diet === k ? C.accent : C.border}`, borderRadius: 12, padding: "14px 16px", color: diet === k ? C.accent : C.text, fontFamily: "Syne", fontSize: 14, fontWeight: diet === k ? 700 : 500, cursor: "pointer", textAlign: "left" }}>
+              <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                <span style={{ fontSize: 20 }}>{icon}</span>
+                <div>
+                  <div>{l}</div>
+                  <div style={{ fontFamily: "Inter", fontSize: 11, color: diet === k ? C.accent : C.muted, marginTop: 2, opacity: 0.85 }}>{sub}</div>
+                </div>
+              </div>
+              {note && diet === k && <div style={{ fontFamily: "Inter", fontSize: 10, color: C.accent, marginTop: 8, opacity: 0.75, lineHeight: 1.5 }}>{note}</div>}
+            </button>
+          ))}
+        </div>
+        <button onClick={() => setStep(5)} style={{ background: C.accent, border: "none", borderRadius: 12, padding: "16px 20px", color: "#000", fontFamily: "Syne", fontSize: 15, fontWeight: 700, cursor: "pointer", width: "100%" }}>Weiter →</button>
+      </>);
+
+      // Step 5 — Goal
+      if (step === 5) return wrap(<>
         <div style={{ fontFamily: "Syne", fontSize: 22, fontWeight: 700, color: C.text, marginTop: 28, marginBottom: 8 }}>Dein Ziel</div>
         <div style={{ fontFamily: "Syne", fontSize: 14, color: C.muted, marginBottom: 28 }}>Was möchtest du erreichen?</div>
         <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
@@ -2606,10 +2666,17 @@
         </div>
       </>);
 
-      // Step 5 — Results
+      // Step 6 — Results
+      const dietLabel = DIET_OPTS.find(d => d.k === diet);
       return wrap(<>
-        <div style={{ fontFamily: "Syne", fontSize: 22, fontWeight: 700, color: C.text, marginTop: 28, marginBottom: 8 }}>Deine Tagesziele</div>
-        <div style={{ fontFamily: "Syne", fontSize: 13, color: C.muted, marginBottom: 24, lineHeight: 1.6 }}>Berechnet für dein Profil — du kannst sie jederzeit in den Einstellungen anpassen.</div>
+        <div style={{ fontFamily: "Syne", fontSize: 22, fontWeight: 700, color: C.text, marginTop: 28, marginBottom: 4 }}>Deine Tagesziele</div>
+        {dietLabel && dietLabel.k !== "standard" && (
+          <div style={{ display: "inline-flex", alignItems: "center", gap: 6, background: C.accent + "20", borderRadius: 20, padding: "4px 12px", marginBottom: 16 }}>
+            <span style={{ fontSize: 14 }}>{dietLabel.icon}</span>
+            <span style={{ fontFamily: "Syne", fontSize: 11, color: C.accent, fontWeight: 700 }}>{dietLabel.l}</span>
+          </div>
+        )}
+        <div style={{ fontFamily: "Syne", fontSize: 13, color: C.muted, marginBottom: 20, lineHeight: 1.6 }}>Berechnet für dein Profil — du kannst sie jederzeit in den Einstellungen anpassen.</div>
         <div style={{ display: "flex", flexDirection: "column", gap: 10, marginBottom: 28 }}>
           {MACROS.map(m => (
             <div key={m} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", background: C.card, borderRadius: 10, padding: "14px 16px" }}>
@@ -2618,7 +2685,7 @@
             </div>
           ))}
         </div>
-        <button onClick={() => onComplete(targets, { gender, age: parseFloat(age), weight: parseFloat(weight), height: parseFloat(height), bodyFat: parseFloat(bodyFat) || undefined, activity, goal: selectedGoal })} style={{ background: C.accent, border: "none", borderRadius: 12, padding: "16px 20px", color: "#000", fontFamily: "Syne", fontSize: 15, fontWeight: 700, cursor: "pointer", width: "100%" }}>Übernehmen →</button>
+        <button onClick={() => onComplete(targets, { gender, age: parseFloat(age), weight: parseFloat(weight), height: parseFloat(height), bodyFat: parseFloat(bodyFat) || undefined, activity, diet, goal: selectedGoal })} style={{ background: C.accent, border: "none", borderRadius: 12, padding: "16px 20px", color: "#000", fontFamily: "Syne", fontSize: 15, fontWeight: 700, cursor: "pointer", width: "100%" }}>Übernehmen →</button>
       </>);
     }
 
