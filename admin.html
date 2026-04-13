@@ -11,77 +11,88 @@
     .login { display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100vh; gap: 16px; }
     .login h1 { font-family: "Syne", sans-serif; font-size: 28px; color: #fff; }
     .login h1 span { color: #f97316; }
-    input[type=password] { background: #161616; border: 1px solid #333; border-radius: 10px; padding: 12px 16px; color: #fff; font-size: 15px; width: 280px; outline: none; }
-    input[type=password]:focus { border-color: #f97316; }
+    input[type=password], input[type=text], input[type=number] {
+      background: #161616; border: 1px solid #333; border-radius: 10px;
+      padding: 10px 14px; color: #fff; font-size: 14px; outline: none;
+    }
+    input[type=password] { width: 280px; }
+    input[type=text], input[type=number] { width: 70px; border-radius: 6px; padding: 4px 8px; font-size: 12px; border-color: #f9731440; }
+    input:focus { border-color: #f97316; }
     .btn { background: #f97316; border: none; border-radius: 10px; padding: 12px 28px; color: #fff; font-family: "Syne", sans-serif; font-size: 14px; font-weight: 700; cursor: pointer; }
     .btn:hover { background: #ea6c0a; }
-    .btn-sm { background: #1e1e1e; border: 1px solid #333; border-radius: 7px; padding: 4px 10px; color: #aaa; font-size: 12px; cursor: pointer; }
-    .btn-danger { background: #f8717120; border: 1px solid #f8717140; color: #f87171; }
-    .btn-danger:hover { background: #f8717140; }
-    .app { display: none; padding: 24px; max-width: 1200px; margin: 0 auto; }
-    header { display: flex; align-items: center; gap: 16px; margin-bottom: 32px; padding-bottom: 16px; border-bottom: 1px solid #1e1e1e; }
+    .btn-sm { background: #1e1e1e; border: 1px solid #2a2a2a; border-radius: 6px; padding: 4px 9px; color: #aaa; font-size: 11px; cursor: pointer; white-space: nowrap; }
+    .btn-sm:hover { border-color: #444; color: #fff; }
+    .btn-danger  { background: #f8717115; border-color: #f8717135; color: #f87171; }
+    .btn-danger:hover  { background: #f8717130; }
+    .btn-ok      { background: #22c55e15; border-color: #22c55e35; color: #22c55e; }
+    .btn-ok:hover      { background: #22c55e30; }
+    .btn-ai      { background: #a78bfa15; border-color: #a78bfa35; color: #a78bfa; }
+    .btn-ai:hover      { background: #a78bfa30; }
+    .btn-edit    { background: #f9731615; border-color: #f9731635; color: #f97316; }
+    .btn-edit:hover    { background: #f9731630; }
+    .app { display: none; padding: 24px; max-width: 1300px; margin: 0 auto; }
+    header { display: flex; align-items: center; gap: 16px; margin-bottom: 28px; padding-bottom: 16px; border-bottom: 1px solid #1e1e1e; }
     header h1 { font-family: "Syne", sans-serif; font-size: 22px; color: #fff; }
     header h1 span { color: #f97316; }
-    .stats { display: flex; gap: 12px; flex-wrap: wrap; margin-bottom: 32px; }
-    .stat { background: #161616; border: 1px solid #222; border-radius: 12px; padding: 16px 20px; min-width: 140px; }
-    .stat-val { font-family: "Syne", sans-serif; font-size: 24px; font-weight: 800; color: #fff; }
-    .stat-label { font-size: 11px; color: #666; margin-top: 3px; text-transform: uppercase; letter-spacing: 0.8px; }
-    .tabs { display: flex; gap: 4px; margin-bottom: 24px; background: #111; border-radius: 10px; padding: 4px; width: fit-content; }
-    .tab { padding: 8px 18px; border-radius: 8px; cursor: pointer; font-size: 13px; color: #666; font-family: "Syne", sans-serif; font-weight: 700; }
+    .stats { display: flex; gap: 12px; flex-wrap: wrap; margin-bottom: 28px; }
+    .stat { background: #161616; border: 1px solid #222; border-radius: 12px; padding: 14px 20px; min-width: 130px; }
+    .stat-val { font-family: "Syne", sans-serif; font-size: 22px; font-weight: 800; color: #fff; }
+    .stat-label { font-size: 11px; color: #555; margin-top: 2px; text-transform: uppercase; letter-spacing: 0.8px; }
+    .tabs { display: flex; gap: 4px; margin-bottom: 20px; background: #111; border-radius: 10px; padding: 4px; width: fit-content; }
+    .tab { padding: 8px 16px; border-radius: 7px; cursor: pointer; font-size: 13px; color: #555; font-family: "Syne", sans-serif; font-weight: 700; }
     .tab.active { background: #1e1e1e; color: #f97316; }
     .section { display: none; }
     .section.active { display: block; }
-    .count-badge { display: inline-block; background: #f9731620; color: #f97316; border-radius: 20px; padding: 2px 9px; font-size: 11px; font-weight: 600; margin-left: 6px; }
+    .count-badge { display: inline-block; background: #f9731620; color: #f97316; border-radius: 20px; padding: 2px 8px; font-size: 11px; font-weight: 600; margin-left: 5px; }
     .count-badge.ok { background: #22c55e20; color: #22c55e; }
     table { width: 100%; border-collapse: collapse; }
-    th { text-align: left; padding: 10px 12px; font-size: 11px; color: #555; text-transform: uppercase; letter-spacing: 0.8px; border-bottom: 1px solid #1e1e1e; }
-    td { padding: 10px 12px; border-bottom: 1px solid #161616; vertical-align: middle; }
-    tr:hover td { background: #111; }
-    .name { color: #fff; font-weight: 500; max-width: 200px; }
-    .sim { font-family: "Syne", sans-serif; font-weight: 700; }
+    th { text-align: left; padding: 9px 10px; font-size: 10px; color: #444; text-transform: uppercase; letter-spacing: 0.8px; border-bottom: 1px solid #1a1a1a; }
+    td { padding: 9px 10px; border-bottom: 1px solid #141414; vertical-align: middle; }
+    tr:hover td { background: #0f0f0f; }
+    .name { color: #fff; font-weight: 500; max-width: 180px; font-size: 13px; }
+    .mono { font-family: monospace; font-size: 12px; }
+    .barcode { font-family: monospace; font-size: 11px; color: #555; }
+    .barcode.has { color: #60a5fa; }
+    .sim { font-family: "Syne", sans-serif; font-weight: 700; font-size: 13px; }
     .sim.high { color: #f87171; }
-    .sim.mid { color: #fbbf24; }
-    .mono { font-family: monospace; font-size: 13px; }
-    .diff-pct { font-weight: 600; }
-    .diff-pct.bad { color: #f87171; }
+    .sim.mid  { color: #fbbf24; }
+    .diff-pct { font-weight: 600; font-size: 12px; }
+    .diff-pct.bad  { color: #f87171; }
     .diff-pct.warn { color: #fbbf24; }
-    .problem-badge { background: #f8717118; color: #f87171; border-radius: 5px; padding: 2px 8px; font-size: 11px; font-weight: 600; }
-    .empty { text-align: center; padding: 60px; color: #444; }
-    .empty .icon { font-size: 40px; margin-bottom: 12px; }
-    .loading { text-align: center; padding: 60px; color: #555; }
-    .refresh-btn { margin-left: auto; }
-    .edit-inline { display: flex; gap: 6px; align-items: center; }
-    .edit-inline input { background: #1e1e1e; border: 1px solid #333; border-radius: 6px; padding: 4px 8px; color: #fff; font-size: 12px; width: 70px; }
-    .edit-input { background: #1e1e1e; border: 1px solid #f9731640; border-radius: 6px; padding: 4px 8px; color: #fff; font-size: 12px; outline: none; }
-    .edit-input:focus { border-color: #f97316; }
+    .problem-badge { background: #f8717118; color: #f87171; border-radius: 5px; padding: 2px 7px; font-size: 11px; font-weight: 600; }
+    .ai-ok    { color: #22c55e; font-size: 12px; }
+    .ai-bad   { color: #f87171; font-size: 12px; }
+    .ai-pending { color: #555; font-size: 11px; font-style: italic; }
+    .empty { text-align: center; padding: 60px; color: #333; }
+    .empty .icon { font-size: 36px; margin-bottom: 10px; }
+    .loading { text-align: center; padding: 60px; color: #444; }
+    .actions { display: flex; flex-direction: column; gap: 4px; }
+    .toolbar { display: flex; gap: 8px; align-items: center; margin-bottom: 14px; }
+    .ai-all-btn { margin-left: auto; }
   </style>
 </head>
 <body>
 
-<!-- Login -->
 <div class="login" id="loginScreen">
   <h1>makro<span>.</span> Admin</h1>
-  <input type="password" id="keyInput" placeholder="Admin-Key eingeben" onkeydown="if(event.key==='Enter') doLogin()" />
+  <input type="password" id="keyInput" placeholder="Admin-Key" onkeydown="if(event.key==='Enter') doLogin()" />
   <button class="btn" onclick="doLogin()">Einloggen</button>
-  <div id="loginError" style="color:#f87171;font-size:13px;display:none;">Falscher Key</div>
+  <div id="loginError" style="color:#f87171;font-size:13px;display:none">Falscher Key</div>
 </div>
 
-<!-- App -->
 <div class="app" id="app">
   <header>
     <h1>makro<span>.</span> Admin</h1>
-    <button class="btn refresh-btn" onclick="loadAll()">↻ Neu laden</button>
+    <button class="btn" style="padding:9px 18px;font-size:13px" onclick="loadAll()">↻ Neu laden</button>
   </header>
 
-  <!-- Stats -->
-  <div class="stats" id="statsRow">
+  <div class="stats">
     <div class="stat"><div class="stat-val" id="s-foods">—</div><div class="stat-label">Lebensmittel</div></div>
     <div class="stat"><div class="stat-val" id="s-users">—</div><div class="stat-label">Nutzer</div></div>
-    <div class="stat"><div class="stat-val" id="s-diary">—</div><div class="stat-label">Tagebuch-Einträge</div></div>
+    <div class="stat"><div class="stat-val" id="s-diary">—</div><div class="stat-label">Tagebuch</div></div>
     <div class="stat"><div class="stat-val" id="s-searches">—</div><div class="stat-label">Suchanfragen</div></div>
   </div>
 
-  <!-- Tabs -->
   <div class="tabs">
     <div class="tab active" onclick="switchTab('duplicates')">Duplikate <span class="count-badge" id="cnt-dup">…</span></div>
     <div class="tab" onclick="switchTab('macros')">Makro-Fehler <span class="count-badge" id="cnt-mac">…</span></div>
@@ -90,68 +101,67 @@
 
   <!-- Duplikate -->
   <div class="section active" id="sec-duplicates">
+    <div class="toolbar">
+      <span style="font-size:12px;color:#555">Paare mit &gt;80% Namensähnlichkeit</span>
+      <button class="btn-sm btn-ai ai-all-btn" onclick="aiCheckAll('duplicates')">🤖 Alle KI-prüfen</button>
+    </div>
     <div class="loading" id="dup-loading">Lädt…</div>
     <table id="dup-table" style="display:none">
       <thead><tr>
-        <th>Ähnlichkeit</th>
-        <th>Eintrag A</th>
-        <th>Kcal / P / K / F (A)</th>
-        <th>Eintrag B</th>
-        <th>Kcal / P / K / F (B)</th>
-        <th>Aktion</th>
+        <th>Ähnl.</th><th>Eintrag A</th><th>Barcode A</th><th>Makros A (kcal/P/K/F)</th>
+        <th>Eintrag B</th><th>Barcode B</th><th>Makros B (kcal/P/K/F)</th>
+        <th>KI</th><th>Aktionen</th>
       </tr></thead>
       <tbody id="dup-body"></tbody>
     </table>
-    <div class="empty" id="dup-empty" style="display:none"><div class="icon">✓</div>Keine Duplikate gefunden</div>
+    <div class="empty" id="dup-empty" style="display:none"><div class="icon">✓</div>Keine Duplikate</div>
   </div>
 
   <!-- Makro-Fehler -->
   <div class="section" id="sec-macros">
+    <div class="toolbar">
+      <span style="font-size:12px;color:#555">Abweichung &gt;15% von Protein×4 + Carbs×4 + Fett×9</span>
+      <button class="btn-sm btn-ai ai-all-btn" onclick="aiCheckAll('macros')">🤖 Alle KI-prüfen</button>
+    </div>
     <div class="loading" id="mac-loading">Lädt…</div>
     <table id="mac-table" style="display:none">
       <thead><tr>
-        <th>Name</th>
-        <th>Kcal (eingetragen)</th>
-        <th>Kcal (berechnet)</th>
-        <th>Abweichung</th>
-        <th>P / K / F</th>
-        <th>Aktion</th>
+        <th>Name</th><th>Barcode</th><th>Eingetragen</th><th>Berechnet</th><th>Abw.</th>
+        <th>P / K / F</th><th>KI</th><th>Aktionen</th>
       </tr></thead>
       <tbody id="mac-body"></tbody>
     </table>
-    <div class="empty" id="mac-empty" style="display:none"><div class="icon">✓</div>Keine Makro-Fehler gefunden</div>
+    <div class="empty" id="mac-empty" style="display:none"><div class="icon">✓</div>Keine Makro-Fehler</div>
   </div>
 
   <!-- Verdächtig -->
   <div class="section" id="sec-suspicious">
+    <div class="toolbar">
+      <span style="font-size:12px;color:#555">Fehlende, negative oder unrealistische Werte</span>
+      <button class="btn-sm btn-ai ai-all-btn" onclick="aiCheckAll('suspicious')">🤖 Alle KI-prüfen</button>
+    </div>
     <div class="loading" id="sus-loading">Lädt…</div>
     <table id="sus-table" style="display:none">
       <thead><tr>
-        <th>Name</th>
-        <th>Kcal / P / K / F</th>
-        <th>Problem</th>
-        <th>Aktion</th>
+        <th>Name</th><th>Barcode</th><th>Kcal / P / K / F</th><th>Problem</th><th>KI</th><th>Aktionen</th>
       </tr></thead>
       <tbody id="sus-body"></tbody>
     </table>
-    <div class="empty" id="sus-empty" style="display:none"><div class="icon">✓</div>Keine verdächtigen Einträge gefunden</div>
+    <div class="empty" id="sus-empty" style="display:none"><div class="icon">✓</div>Keine verdächtigen Einträge</div>
   </div>
 </div>
 
 <script>
   const API = "https://api.makro-tracking.com";
   let ADMIN_KEY = "";
+  let currentData = { duplicates: [], macros: [], suspicious: [] };
 
   function doLogin() {
     const key = document.getElementById("keyInput").value.trim();
     if (!key) return;
     ADMIN_KEY = key;
-    // Test mit stats-Endpunkt
     fetch(`${API}/api/admin/stats`, { headers: { "x-admin-key": key } })
-      .then(r => {
-        if (r.status === 401) { document.getElementById("loginError").style.display = "block"; return null; }
-        return r.json();
-      })
+      .then(r => { if (r.status === 401) { document.getElementById("loginError").style.display = "block"; return null; } return r.json(); })
       .then(data => {
         if (!data) return;
         document.getElementById("loginScreen").style.display = "none";
@@ -169,148 +179,94 @@
   }
 
   function renderStats(d) {
-    document.getElementById("s-foods").textContent   = d.foods?.toLocaleString("de") ?? "—";
-    document.getElementById("s-users").textContent   = d.users?.toLocaleString("de") ?? "—";
-    document.getElementById("s-diary").textContent   = d.diary?.toLocaleString("de") ?? "—";
+    document.getElementById("s-foods").textContent    = d.foods?.toLocaleString("de") ?? "—";
+    document.getElementById("s-users").textContent    = d.users?.toLocaleString("de") ?? "—";
+    document.getElementById("s-diary").textContent    = d.diary?.toLocaleString("de") ?? "—";
     document.getElementById("s-searches").textContent = d.searches?.toLocaleString("de") ?? "—";
   }
 
   function loadChecks() {
+    ["dup","mac","sus"].forEach(p => {
+      document.getElementById(p+"-loading").style.display = "block";
+      const t = document.getElementById(p+"-table");
+      if (t) t.style.display = "none";
+    });
     fetch(`${API}/api/admin/db-check`, { headers: { "x-admin-key": ADMIN_KEY } })
       .then(r => r.json())
       .then(data => {
-        renderDuplicates(data.duplicates || []);
-        renderMacros(data.macroErrors || []);
-        renderSuspicious(data.suspicious || []);
-      })
-      .catch(err => console.error(err));
+        currentData = { duplicates: data.duplicates||[], macros: data.macroErrors||[], suspicious: data.suspicious||[] };
+        renderDuplicates(currentData.duplicates);
+        renderMacros(currentData.macros);
+        renderSuspicious(currentData.suspicious);
+      }).catch(err => console.error(err));
   }
 
   function switchTab(name) {
-    document.querySelectorAll(".tab").forEach((t, i) => {
-      const names = ["duplicates", "macros", "suspicious"];
-      t.classList.toggle("active", names[i] === name);
-    });
+    document.querySelectorAll(".tab").forEach((t, i) => t.classList.toggle("active", ["duplicates","macros","suspicious"][i] === name));
     document.querySelectorAll(".section").forEach(s => s.classList.remove("active"));
     document.getElementById("sec-" + name).classList.add("active");
   }
 
-  function macroStr(row, suffix) {
-    const k = suffix ? `kcal_${suffix}` : "kcal_100";
-    const p = suffix ? `protein_${suffix}` : "protein_100";
-    const c = suffix ? `carbs_${suffix}` : "carbs_100";
-    const f = suffix ? `fat_${suffix}` : "fat_100";
-    return `${fmt(row[k])} / ${fmt(row[p])} / ${fmt(row[c])} / ${fmt(row[f])}`;
-  }
   function fmt(v) { return v != null ? parseFloat(v).toFixed(1) : "—"; }
+  function esc(s) { return String(s ?? "").replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;"); }
 
-  function deleteFood(id, rowEl) {
-    if (!confirm("Eintrag löschen?")) return;
-    fetch(`${API}/api/admin/food/${id}`, { method: "DELETE", headers: { "x-admin-key": ADMIN_KEY } })
-      .then(r => r.json()).then(() => rowEl.remove()).catch(alert);
+  function barcodeCell(bc) {
+    if (!bc) return `<td><span class="barcode">null</span></td>`;
+    return `<td><span class="barcode has">${esc(bc)}</span></td>`;
   }
 
-  function editFood(id) {
-    const row = document.getElementById("food-" + id);
-    const kcal    = row.querySelector(".val-kcal").textContent.trim();
-    const protein = row.querySelector(".val-protein").textContent.trim();
-    const carbs   = row.querySelector(".val-carbs").textContent.trim();
-    const fat     = row.querySelector(".val-fat").textContent.trim();
-    const macroCell = row.querySelector(".macro-cell");
-    macroCell.innerHTML = `
-      <div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center">
-        <label style="font-size:11px;color:#666">Kcal</label>
-        <input class="edit-input" id="e-kcal-${id}" value="${kcal}" style="width:60px" />
-        <label style="font-size:11px;color:#666">P</label>
-        <input class="edit-input" id="e-prot-${id}" value="${protein}" style="width:50px" />
-        <label style="font-size:11px;color:#666">K</label>
-        <input class="edit-input" id="e-carb-${id}" value="${carbs}" style="width:50px" />
-        <label style="font-size:11px;color:#666">F</label>
-        <input class="edit-input" id="e-fat-${id}" value="${fat}" style="width:50px" />
-        <button class="btn-sm" onclick="saveFood(${id})" style="background:#f9731620;color:#f97316;border-color:#f9731640">✓ Speichern</button>
-        <button class="btn-sm" onclick="loadChecks()">✕</button>
-      </div>`;
+  function macroCell(r) {
+    return `<td class="mono" id="macro-cell-${r.id}">
+      <span class="val-kcal">${fmt(r.kcal_100)}</span> /
+      <span class="val-protein">${fmt(r.protein_100)}</span> /
+      <span class="val-carbs">${fmt(r.carbs_100)}</span> /
+      <span class="val-fat">${fmt(r.fat_100)}</span>
+    </td>`;
   }
 
-  function editFoodDup(id, side, rowId) {
-    // Für Duplikate-Tab: öffnet ein Popup-Dialog
-    const kcal    = prompt("Kcal/100g:");    if (kcal    === null) return;
-    const protein = prompt("Protein/100g:"); if (protein === null) return;
-    const carbs   = prompt("Carbs/100g:");   if (carbs   === null) return;
-    const fat     = prompt("Fat/100g:");     if (fat     === null) return;
-    fetch(`${API}/api/admin/food/${id}`, {
-      method: "PATCH",
-      headers: { "x-admin-key": ADMIN_KEY, "Content-Type": "application/json" },
-      body: JSON.stringify({ kcal_100: +kcal, protein_100: +protein, carbs_100: +carbs, fat_100: +fat }),
-    }).then(() => loadChecks()).catch(alert);
+  function aiCell(id) {
+    return `<td id="ai-${id}"><span class="ai-pending">—</span></td>`;
   }
 
-  function saveFood(id) {
-    const body = {
-      kcal_100:    parseFloat(document.getElementById("e-kcal-" + id).value) || null,
-      protein_100: parseFloat(document.getElementById("e-prot-" + id).value) || null,
-      carbs_100:   parseFloat(document.getElementById("e-carb-" + id).value) || null,
-      fat_100:     parseFloat(document.getElementById("e-fat-"  + id).value) || null,
-    };
-    fetch(`${API}/api/admin/food/${id}`, {
-      method: "PATCH",
-      headers: { "x-admin-key": ADMIN_KEY, "Content-Type": "application/json" },
-      body: JSON.stringify(body),
-    }).then(r => r.json()).then(() => loadChecks()).catch(alert);
+  function actionBtns(id) {
+    return `<td><div class="actions">
+      <button class="btn-sm btn-edit" onclick="editFood(${id})">✎ Edit</button>
+      <button class="btn-sm btn-ai"   onclick="aiCheckOne(${id})">🤖 KI</button>
+      <button class="btn-sm btn-ok"   onclick="verifyFood(${id})">✓ OK</button>
+      <button class="btn-sm btn-danger" onclick="deleteFood(${id})">✕ Löschen</button>
+    </div></td>`;
   }
+
+  // ─── Render ────────────────────────────────────────────────────────────────
 
   function renderDuplicates(rows) {
     document.getElementById("dup-loading").style.display = "none";
     const badge = document.getElementById("cnt-dup");
     badge.textContent = rows.length;
     badge.className = "count-badge" + (rows.length === 0 ? " ok" : "");
-    if (rows.length === 0) { document.getElementById("dup-empty").style.display = "block"; return; }
+    if (!rows.length) { document.getElementById("dup-empty").style.display = "block"; return; }
     document.getElementById("dup-table").style.display = "table";
     const tbody = document.getElementById("dup-body");
     tbody.innerHTML = rows.map(r => {
       const sim = parseFloat(r.similarity);
-      const simClass = sim >= 0.95 ? "high" : "mid";
-      return `<tr id="dup-${r.id_a}-${r.id_b}">
-        <td><span class="sim ${simClass} mono">${(sim * 100).toFixed(0)}%</span></td>
-        <td class="name">${esc(r.name_a)}<br><small style="color:#555">ID ${r.id_a}</small></td>
-        <td class="mono" style="font-size:12px">
-          <span class="val-kcal">${fmt(r.kcal_a)}</span> /
-          <span class="val-protein">${fmt(r.protein_a)}</span> /
-          <span class="val-carbs">${fmt(r.carbs_a)}</span> /
-          <span class="val-fat">${fmt(r.fat_a)}</span>
-        </td>
-        <td class="name">${esc(r.name_b)}<br><small style="color:#555">ID ${r.id_b}</small></td>
-        <td class="mono" style="font-size:12px">
-          <span class="val-kcal">${fmt(r.kcal_b)}</span> /
-          <span class="val-protein">${fmt(r.protein_b)}</span> /
-          <span class="val-carbs">${fmt(r.carbs_b)}</span> /
-          <span class="val-fat">${fmt(r.fat_b)}</span>
-        </td>
-        <td style="white-space:nowrap">
-          <button class="btn-sm" onclick="editFoodDup(${r.id_a}, 'a', 'dup-${r.id_a}-${r.id_b}')">✎ A</button>
-          <button class="btn-sm" onclick="editFoodDup(${r.id_b}, 'b', 'dup-${r.id_a}-${r.id_b}')">✎ B</button><br>
-          <button class="btn-sm btn-danger" style="margin-top:4px" onclick="deleteFood(${r.id_a}, document.getElementById('dup-${r.id_a}-${r.id_b}'))">✕ A</button>
-          <button class="btn-sm btn-danger" onclick="deleteFood(${r.id_b}, document.getElementById('dup-${r.id_a}-${r.id_b}'))">✕ B</button>
-        </td>
+      const sc = sim >= 0.95 ? "high" : "mid";
+      return `<tr id="dup-row-${r.id_a}-${r.id_b}">
+        <td><span class="sim ${sc}">${(sim*100).toFixed(0)}%</span></td>
+        <td class="name" id="food-name-${r.id_a}">${esc(r.name_a)}<br><small style="color:#444">ID ${r.id_a}</small></td>
+        ${barcodeCell(r.barcode_a)}
+        ${macroCell({id: r.id_a+"_a", kcal_100:r.kcal_a, protein_100:r.protein_a, carbs_100:r.carbs_a, fat_100:r.fat_a})}
+        <td class="name" id="food-name-${r.id_b}">${esc(r.name_b)}<br><small style="color:#444">ID ${r.id_b}</small></td>
+        ${barcodeCell(r.barcode_b)}
+        ${macroCell({id: r.id_b+"_b", kcal_100:r.kcal_b, protein_100:r.protein_b, carbs_100:r.carbs_b, fat_100:r.fat_b})}
+        <td id="ai-dup-${r.id_a}-${r.id_b}"><span class="ai-pending">—</span></td>
+        <td><div class="actions">
+          <button class="btn-sm btn-ai" onclick="aiCheckDup(${r.id_a},${r.id_b},'${r.name_a}','${r.name_b}',${r.kcal_a},${r.protein_a},${r.carbs_a},${r.fat_a},${r.kcal_b},${r.protein_b},${r.carbs_b},${r.fat_b})">🤖 KI</button>
+          <button class="btn-sm btn-ok" onclick="verifyFood(${r.id_a}); verifyFood(${r.id_b})">✓ Beide OK</button>
+          <button class="btn-sm btn-danger" onclick="deleteFood(${r.id_a}, 'dup-row-${r.id_a}-${r.id_b}')">✕ A</button>
+          <button class="btn-sm btn-danger" onclick="deleteFood(${r.id_b}, 'dup-row-${r.id_a}-${r.id_b}')">✕ B</button>
+        </div></td>
       </tr>`;
     }).join("");
-  }
-
-  function macroDataCells(r) {
-    return `<td class="macro-cell" id="macro-cell-${r.id}">
-      <span class="val-kcal mono" style="font-size:12px">${fmt(r.kcal_100)}</span> /
-      <span class="val-protein mono" style="font-size:12px">${fmt(r.protein_100)}</span> /
-      <span class="val-carbs mono" style="font-size:12px">${fmt(r.carbs_100)}</span> /
-      <span class="val-fat mono" style="font-size:12px">${fmt(r.fat_100)}</span>
-      <span style="color:#555;font-size:11px"> kcal/P/K/F</span>
-    </td>`;
-  }
-
-  function actionBtns(id, rowIdStr) {
-    return `<td style="white-space:nowrap">
-      <button class="btn-sm" onclick="editFood(${id})" style="margin-bottom:4px">✎ Bearbeiten</button><br>
-      <button class="btn-sm btn-danger" onclick="deleteFood(${id}, document.getElementById('${rowIdStr}'))">✕ Löschen</button>
-    </td>`;
   }
 
   function renderMacros(rows) {
@@ -318,19 +274,20 @@
     const badge = document.getElementById("cnt-mac");
     badge.textContent = rows.length;
     badge.className = "count-badge" + (rows.length === 0 ? " ok" : "");
-    if (rows.length === 0) { document.getElementById("mac-empty").style.display = "block"; return; }
+    if (!rows.length) { document.getElementById("mac-empty").style.display = "block"; return; }
     document.getElementById("mac-table").style.display = "table";
-    const tbody = document.getElementById("mac-body");
-    tbody.innerHTML = rows.map(r => {
+    document.getElementById("mac-body").innerHTML = rows.map(r => {
       const pct = parseFloat(r.diff_pct);
       const cls = pct > 30 ? "bad" : "warn";
-      return `<tr id="food-${r.id}">
-        <td class="name">${esc(r.name)}<br><small style="color:#555">ID ${r.id}</small></td>
-        <td class="mono">${fmt(r.kcal_100)} kcal</td>
-        <td class="mono">${fmt(r.kcal_calc)} kcal</td>
-        <td><span class="diff-pct ${cls}">+${fmt(r.diff_pct)}%</span><br><small style="color:#555">${fmt(r.diff)} kcal</small></td>
-        ${macroDataCells(r)}
-        ${actionBtns(r.id, "food-" + r.id)}
+      return `<tr id="row-${r.id}">
+        <td class="name">${esc(r.name)}<br><small style="color:#444">ID ${r.id}</small></td>
+        ${barcodeCell(r.barcode)}
+        <td class="mono">${fmt(r.kcal_100)}</td>
+        <td class="mono">${fmt(r.kcal_calc)}</td>
+        <td><span class="diff-pct ${cls}">${fmt(r.diff_pct)}%</span><br><small style="color:#444">${fmt(r.diff)} kcal</small></td>
+        ${macroCell(r)}
+        ${aiCell(r.id)}
+        ${actionBtns(r.id)}
       </tr>`;
     }).join("");
   }
@@ -340,19 +297,140 @@
     const badge = document.getElementById("cnt-sus");
     badge.textContent = rows.length;
     badge.className = "count-badge" + (rows.length === 0 ? " ok" : "");
-    if (rows.length === 0) { document.getElementById("sus-empty").style.display = "block"; return; }
+    if (!rows.length) { document.getElementById("sus-empty").style.display = "block"; return; }
     document.getElementById("sus-table").style.display = "table";
-    const tbody = document.getElementById("sus-body");
-    tbody.innerHTML = rows.map(r => `<tr id="food-${r.id}">
-      <td class="name">${esc(r.name)}<br><small style="color:#555">ID ${r.id}</small></td>
-      ${macroDataCells(r)}
+    document.getElementById("sus-body").innerHTML = rows.map(r => `<tr id="row-${r.id}">
+      <td class="name">${esc(r.name)}<br><small style="color:#444">ID ${r.id}</small></td>
+      ${barcodeCell(r.barcode)}
+      ${macroCell(r)}
       <td><span class="problem-badge">${esc(r.problem)}</span></td>
-      ${actionBtns(r.id, "food-" + r.id)}
+      ${aiCell(r.id)}
+      ${actionBtns(r.id)}
     </tr>`).join("");
   }
 
-  function esc(s) {
-    return String(s ?? "").replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;");
+  // ─── Aktionen ──────────────────────────────────────────────────────────────
+
+  function deleteFood(id, rowId) {
+    rowId = rowId || "row-" + id;
+    if (!confirm("Eintrag löschen?")) return;
+    fetch(`${API}/api/admin/food/${id}`, { method: "DELETE", headers: { "x-admin-key": ADMIN_KEY } })
+      .then(() => { document.getElementById(rowId)?.remove(); });
+  }
+
+  function verifyFood(id, rowId) {
+    rowId = rowId || "row-" + id;
+    fetch(`${API}/api/admin/food/${id}/verify`, { method: "POST", headers: { "x-admin-key": ADMIN_KEY } })
+      .then(() => { document.getElementById(rowId)?.remove(); });
+  }
+
+  function editFood(id) {
+    const cell = document.getElementById("macro-cell-" + id);
+    if (!cell) return;
+    const kcal    = cell.querySelector(".val-kcal")?.textContent.trim() || "";
+    const protein = cell.querySelector(".val-protein")?.textContent.trim() || "";
+    const carbs   = cell.querySelector(".val-carbs")?.textContent.trim() || "";
+    const fat     = cell.querySelector(".val-fat")?.textContent.trim() || "";
+    cell.innerHTML = `
+      <div style="display:flex;gap:5px;flex-wrap:wrap;align-items:center">
+        <label style="font-size:10px;color:#555">kcal</label><input type="number" id="e-k-${id}" value="${kcal}" />
+        <label style="font-size:10px;color:#555">P</label><input type="number" id="e-p-${id}" value="${protein}" />
+        <label style="font-size:10px;color:#555">K</label><input type="number" id="e-c-${id}" value="${carbs}" />
+        <label style="font-size:10px;color:#555">F</label><input type="number" id="e-f-${id}" value="${fat}" />
+        <button class="btn-sm btn-edit" onclick="saveFood(${id})">✓</button>
+        <button class="btn-sm" onclick="loadChecks()">✕</button>
+      </div>`;
+  }
+
+  function saveFood(id) {
+    const body = {
+      kcal_100:    parseFloat(document.getElementById("e-k-"+id)?.value) || null,
+      protein_100: parseFloat(document.getElementById("e-p-"+id)?.value) || null,
+      carbs_100:   parseFloat(document.getElementById("e-c-"+id)?.value) || null,
+      fat_100:     parseFloat(document.getElementById("e-f-"+id)?.value) || null,
+    };
+    fetch(`${API}/api/admin/food/${id}`, {
+      method: "PATCH",
+      headers: { "x-admin-key": ADMIN_KEY, "Content-Type": "application/json" },
+      body: JSON.stringify(body),
+    }).then(() => loadChecks()).catch(alert);
+  }
+
+  // ─── KI-Analyse ────────────────────────────────────────────────────────────
+
+  function aiCheckOne(id) {
+    const tab = currentActiveTab();
+    const items = currentData[tab].filter(r => r.id === id || r.id === Number(id));
+    if (!items.length) return;
+    runAiCheck(items, [id]);
+  }
+
+  function aiCheckDup(id_a, id_b, name_a, name_b, kcal_a, prot_a, carb_a, fat_a, kcal_b, prot_b, carb_b, fat_b) {
+    const items = [
+      { id: id_a, name: name_a, kcal_100: kcal_a, protein_100: prot_a, carbs_100: carb_a, fat_100: fat_a },
+      { id: id_b, name: name_b, kcal_100: kcal_b, protein_100: prot_b, carbs_100: carb_b, fat_100: fat_b },
+    ];
+    const cellId = "ai-dup-" + id_a + "-" + id_b;
+    document.getElementById(cellId).innerHTML = `<span class="ai-pending">Lädt…</span>`;
+    fetch(`${API}/api/admin/ai-check`, {
+      method: "POST",
+      headers: { "x-admin-key": ADMIN_KEY, "Content-Type": "application/json" },
+      body: JSON.stringify({ items }),
+    }).then(r => r.json()).then(data => {
+      const res = data.results || [];
+      const html = res.map(r =>
+        `<span class="${r.ok ? "ai-ok" : "ai-bad"}">${r.ok ? "✓" : "✗"} ID${r.id}: ${esc(r.reason)}</span>`
+      ).join("<br>");
+      document.getElementById(cellId).innerHTML = html || "—";
+    }).catch(() => { document.getElementById(cellId).innerHTML = `<span class="ai-bad">Fehler</span>`; });
+  }
+
+  function aiCheckAll(tab) {
+    let items = [];
+    if (tab === "duplicates") {
+      currentData.duplicates.forEach(r => {
+        items.push({ id: r.id_a, name: r.name_a, kcal_100: r.kcal_a, protein_100: r.protein_a, carbs_100: r.carbs_a, fat_100: r.fat_a });
+        items.push({ id: r.id_b, name: r.name_b, kcal_100: r.kcal_b, protein_100: r.protein_b, carbs_100: r.carbs_b, fat_100: r.fat_b });
+      });
+    } else if (tab === "macros") {
+      items = currentData.macros;
+    } else {
+      items = currentData.suspicious;
+    }
+    if (!items.length) return;
+    // Batches von 10
+    const batches = [];
+    for (let i = 0; i < items.length; i += 10) batches.push(items.slice(i, i + 10));
+    batches.forEach(batch => runAiCheck(batch, batch.map(x => x.id)));
+  }
+
+  function runAiCheck(items, ids) {
+    ids.forEach(id => {
+      const cell = document.getElementById("ai-" + id);
+      if (cell) cell.innerHTML = `<span class="ai-pending">Lädt…</span>`;
+    });
+    fetch(`${API}/api/admin/ai-check`, {
+      method: "POST",
+      headers: { "x-admin-key": ADMIN_KEY, "Content-Type": "application/json" },
+      body: JSON.stringify({ items }),
+    }).then(r => r.json()).then(data => {
+      (data.results || []).forEach(r => {
+        const cell = document.getElementById("ai-" + r.id);
+        if (cell) cell.innerHTML = `<span class="${r.ok ? "ai-ok" : "ai-bad"}" title="${esc(r.reason)}">${r.ok ? "✓ OK" : "✗ " + esc(r.reason)}</span>`;
+      });
+    }).catch(err => {
+      ids.forEach(id => {
+        const cell = document.getElementById("ai-" + id);
+        if (cell) cell.innerHTML = `<span class="ai-bad">Fehler</span>`;
+      });
+    });
+  }
+
+  function currentActiveTab() {
+    const tabs = ["duplicates", "macros", "suspicious"];
+    const active = document.querySelector(".tab.active");
+    const idx = [...document.querySelectorAll(".tab")].indexOf(active);
+    return tabs[idx] || "macros";
   }
 </script>
 </body>
