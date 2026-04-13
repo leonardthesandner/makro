@@ -85,6 +85,11 @@
     .user-table { width: 100%; }
     .user-table td { padding: 6px 0; font-size: 12px; border-bottom: 1px solid #161616; }
     .user-table td:last-child { text-align: right; color: #f97316; font-family: monospace; }
+    .status-badge { display: inline-block; border-radius: 6px; padding: 2px 9px; font-size: 11px; font-weight: 700; }
+    .status-pro    { background: #f9731618; color: #f97316; border: 1px solid #f9731630; }
+    .status-trial  { background: #60a5fa18; color: #60a5fa; border: 1px solid #60a5fa30; }
+    .status-free   { background: #55555518; color: #777;    border: 1px solid #33333330; }
+    .user-actions  { display: flex; gap: 4px; flex-wrap: wrap; }
   </style>
 </head>
 <body>
@@ -111,6 +116,7 @@
 
   <div class="tabs">
     <div class="tab active" onclick="switchTab('dashboard')">Dashboard</div>
+    <div class="tab" onclick="switchTab('users')">Nutzer <span class="count-badge" id="cnt-users">…</span></div>
     <div class="tab" onclick="switchTab('duplicates')">Duplikate <span class="count-badge" id="cnt-dup">…</span></div>
     <div class="tab" onclick="switchTab('macros')">Makro-Fehler <span class="count-badge" id="cnt-mac">…</span></div>
     <div class="tab" onclick="switchTab('suspicious')">Verdächtig <span class="count-badge" id="cnt-sus">…</span></div>
@@ -151,6 +157,23 @@
         </div>
       </div>
     </div>
+  </div>
+
+  <!-- Nutzer -->
+  <div class="section" id="sec-users">
+    <div class="toolbar">
+      <span style="font-size:12px;color:#555">Alle registrierten Nutzer</span>
+      <button class="btn-sm ai-all-btn" onclick="loadUsers()">↻ Neu laden</button>
+    </div>
+    <div class="loading" id="users-loading">Lädt…</div>
+    <table id="users-table" style="display:none">
+      <thead><tr>
+        <th>E-Mail</th><th>Login</th><th>Registriert</th><th>Zuletzt aktiv</th>
+        <th>Einträge</th><th>Status</th><th>Aktionen</th>
+      </tr></thead>
+      <tbody id="users-body"></tbody>
+    </table>
+    <div class="empty" id="users-empty" style="display:none"><div class="icon">👤</div>Keine Nutzer gefunden</div>
   </div>
 
   <!-- Duplikate -->
@@ -256,10 +279,83 @@
       }).catch(err => console.error(err));
   }
 
+  const TAB_NAMES = ["dashboard","users","duplicates","macros","suspicious"];
   function switchTab(name) {
-    document.querySelectorAll(".tab").forEach((t, i) => t.classList.toggle("active", ["dashboard","duplicates","macros","suspicious"][i] === name));
+    document.querySelectorAll(".tab").forEach((t, i) => t.classList.toggle("active", TAB_NAMES[i] === name));
     document.querySelectorAll(".section").forEach(s => s.classList.remove("active"));
     document.getElementById("sec-" + name).classList.add("active");
+    if (name === "users") loadUsers();
+  }
+
+  // ─── Nutzer ────────────────────────────────────────────────────────────────
+  function loadUsers() {
+    document.getElementById("users-loading").style.display = "block";
+    document.getElementById("users-table").style.display  = "none";
+    document.getElementById("users-empty").style.display  = "none";
+    fetch(`${API}/api/admin/users`, { headers: { "x-admin-key": ADMIN_KEY } })
+      .then(r => r.json()).then(renderUsers).catch(err => {
+        document.getElementById("users-loading").innerHTML = `<span style="color:#f87171">Fehler: ${err.message}</span>`;
+      });
+  }
+
+  function renderUsers(rows) {
+    document.getElementById("users-loading").style.display = "none";
+    document.getElementById("cnt-users").textContent = rows.length;
+    document.getElementById("cnt-users").className = "count-badge ok";
+    if (!rows.length) { document.getElementById("users-empty").style.display = "block"; return; }
+    document.getElementById("users-table").style.display = "table";
+
+    document.getElementById("users-body").innerHTML = rows.map(u => {
+      const now = Date.now();
+      const trialMs = u.trial_start ? now - new Date(u.trial_start).getTime() : Infinity;
+      const isTrial = !u.is_pro && trialMs < 3 * 86400000;
+      const daysLeft = u.trial_start ? Math.max(0, 3 - Math.floor(trialMs / 86400000)) : 0;
+      const statusHtml = u.is_pro
+        ? `<span class="status-badge status-pro">PRO</span>`
+        : isTrial
+          ? `<span class="status-badge status-trial">TRIAL · ${daysLeft}T</span>`
+          : `<span class="status-badge status-free">FREE</span>`;
+      const loginType = u.is_google
+        ? `<span style="color:#60a5fa;font-size:11px">Google</span>`
+        : `<span style="color:#555;font-size:11px">E-Mail</span>`;
+      const regDate  = new Date(u.created_at).toLocaleDateString("de-DE");
+      const lastDate = u.last_active ? new Date(u.last_active).toLocaleDateString("de-DE") : "—";
+
+      return `<tr id="user-row-${u.id}">
+        <td style="color:#fff;font-size:12px">${esc(u.email)}</td>
+        <td>${loginType}</td>
+        <td class="mono">${regDate}</td>
+        <td class="mono">${lastDate}</td>
+        <td style="color:#f97316;font-family:monospace">${u.diary_count}</td>
+        <td id="user-status-${u.id}">${statusHtml}</td>
+        <td><div class="user-actions">
+          <button class="btn-sm btn-ok"    onclick="setUserSub('${esc(u.email)}', ${u.id}, 'pro')">✓ Pro</button>
+          <button class="btn-sm btn-edit"  onclick="setUserSub('${esc(u.email)}', ${u.id}, 'trial')">↺ Trial</button>
+          <button class="btn-sm btn-danger" onclick="setUserSub('${esc(u.email)}', ${u.id}, 'free')">✕ Free</button>
+        </div></td>
+      </tr>`;
+    }).join("");
+  }
+
+  function setUserSub(email, userId, mode) {
+    let body;
+    if (mode === "pro")   body = { email, is_pro: true,  trial_start: null };
+    if (mode === "trial") body = { email, is_pro: false, trial_start: new Date().toISOString() };
+    if (mode === "free")  body = { email, is_pro: false, trial_start: null };
+
+    fetch(`${API}/api/admin/user/subscription`, {
+      method: "PATCH",
+      headers: { "x-admin-key": ADMIN_KEY, "Content-Type": "application/json" },
+      body: JSON.stringify(body),
+    }).then(r => r.json()).then(data => {
+      if (data.ok) {
+        const cell = document.getElementById("user-status-" + userId);
+        if (!cell) return;
+        if (mode === "pro")    cell.innerHTML = `<span class="status-badge status-pro">PRO</span>`;
+        if (mode === "trial")  cell.innerHTML = `<span class="status-badge status-trial">TRIAL · 3T</span>`;
+        if (mode === "free")   cell.innerHTML = `<span class="status-badge status-free">FREE</span>`;
+      } else { alert(data.error || "Fehler"); }
+    }).catch(alert);
   }
 
   // ─── Dashboard ─────────────────────────────────────────────────────────────
