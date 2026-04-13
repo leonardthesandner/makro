@@ -630,14 +630,19 @@
         if (!w || w <= 0) return;
         const f = w / 100;
         const item = {
-          name_de:  scannedProduct.name_de || scannedProduct.name,
-          name:     scannedProduct.name_de || scannedProduct.name,
-          weight_g: w,
-          kcal:     Math.round((scannedProduct.kcal_100 || 0) * f),
-          protein:  Math.round((scannedProduct.protein_100 || 0) * f * 10) / 10,
-          carbs:    Math.round((scannedProduct.carbs_100 || 0) * f * 10) / 10,
-          fat:      Math.round((scannedProduct.fat_100 || 0) * f * 10) / 10,
-          source:   "barcode",
+          name_de:     scannedProduct.name_de || scannedProduct.name,
+          name:        scannedProduct.name_de || scannedProduct.name,
+          weight_g:    w,
+          kcal:        Math.round((scannedProduct.kcal_100 || 0) * f),
+          protein:     Math.round((scannedProduct.protein_100 || 0) * f * 10) / 10,
+          carbs:       Math.round((scannedProduct.carbs_100 || 0) * f * 10) / 10,
+          fat:         Math.round((scannedProduct.fat_100 || 0) * f * 10) / 10,
+          kcal_100:    scannedProduct.kcal_100 || 0,
+          protein_100: scannedProduct.protein_100 || 0,
+          carbs_100:   scannedProduct.carbs_100 || 0,
+          fat_100:     scannedProduct.fat_100 || 0,
+          barcode:     scannedProduct.barcode || null,
+          source:      "barcode",
         };
         setItems(prev => [...prev, item]);
         setScannedProduct(null);
