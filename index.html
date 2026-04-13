@@ -2675,7 +2675,8 @@
               <div style={{ fontFamily: "Syne", fontSize: 10, color: C.muted, textTransform: "uppercase", letterSpacing: 1, marginBottom: 10 }}>Account</div>
               {onDeleteAccount && <DeleteAccountButton onDelete={onDeleteAccount} />}
             </div>
-            <div style={{ marginTop: 20, textAlign: "center" }}>
+            <div style={{ marginTop: 20, textAlign: "center", display: "flex", flexDirection: "column", alignItems: "center", gap: 10 }}>
+              <a href="https://makro-tracking.com/datenschutz" target="_blank" rel="noopener noreferrer" style={{ fontFamily: "Inter", fontSize: 12, color: C.muted, textDecoration: "none", borderBottom: `1px solid ${C.border}`, paddingBottom: 1 }}>Datenschutzerklärung</a>
               <span style={{ fontFamily: "Inter", fontSize: 11, color: C.muted, letterSpacing: 0.5 }}>makro v{APP_VERSION}</span>
             </div>
           </div>
