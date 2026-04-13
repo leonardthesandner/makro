@@ -3271,16 +3271,31 @@
       );
     }
 
-    // ─── ProLock overlay for locked tabs ─────────────────────────────────────
-    function ProLock({ label, onUnlock }) {
+    // ─── BlurGate — geblurrter Inhalt mit Upgrade-Overlay ────────────────────
+    function BlurGate({ locked, feature, onUnlock, children }) {
+      if (!locked) return children;
       return (
-        <div style={{ flex: 1, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", padding: 40, gap: 16 }}>
-          <div style={{ fontSize: 40 }}>🔒</div>
-          <div style={{ fontFamily: "Syne", fontSize: 18, fontWeight: 700, color: C.text, textAlign: "center" }}>{label}</div>
-          <div style={{ fontFamily: "Inter", fontSize: 14, color: C.muted, textAlign: "center", lineHeight: 1.6 }}>Dieses Feature ist Teil von makro. Pro — 3 Tage kostenlos testen.</div>
-          <button onClick={onUnlock} style={{ marginTop: 8, background: "linear-gradient(90deg, #f97316, #dc2626)", border: "none", borderRadius: 12, padding: "13px 32px", fontFamily: "Syne", fontSize: 14, fontWeight: 700, color: "#fff", cursor: "pointer" }}>
-            Pro freischalten
-          </button>
+        <div style={{ position: "relative", height: "100%", overflow: "hidden" }}>
+          {/* Geblurrter Inhalt */}
+          <div style={{ filter: "blur(5px)", pointerEvents: "none", userSelect: "none", height: "100%", overflow: "hidden", opacity: 0.7 }}>
+            {children}
+          </div>
+          {/* Overlay */}
+          <div style={{ position: "absolute", inset: 0, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", background: "linear-gradient(to bottom, transparent 0%, rgba(12,12,12,0.7) 30%, rgba(12,12,12,0.92) 100%)", padding: 32, gap: 12 }}>
+            <div style={{ fontSize: 36, marginBottom: 4 }}>🔒</div>
+            <div style={{ fontFamily: "Syne", fontSize: 20, fontWeight: 800, color: "#fff", textAlign: "center", letterSpacing: -0.5 }}>
+              makro<span style={{ color: "#f97316" }}>.</span> Pro
+            </div>
+            <div style={{ fontFamily: "Inter", fontSize: 14, color: "#aaa", textAlign: "center", lineHeight: 1.6, maxWidth: 260 }}>
+              {feature} ist Teil von Pro — teste 3 Tage kostenlos.
+            </div>
+            <button onClick={onUnlock} style={{ marginTop: 10, background: "linear-gradient(90deg, #f97316, #dc2626)", border: "none", borderRadius: 14, padding: "14px 36px", fontFamily: "Syne", fontSize: 15, fontWeight: 700, color: "#fff", cursor: "pointer", letterSpacing: 0.2 }}>
+              Jetzt freischalten
+            </button>
+            <div onClick={onUnlock} style={{ fontFamily: "Inter", fontSize: 12, color: "#555", cursor: "pointer", marginTop: 2 }}>
+              3 Tage kostenlos · danach 2,49 €/Monat
+            </div>
+          </div>
         </div>
       );
     }
@@ -3514,7 +3529,6 @@
       const PRO_TABS = { history: "Verlauf", mealprep: "Rezepte", userfoods: "Eigene Lebensmittel" };
       const changeTab = (newId) => {
         if (newId === tab || outTab) return;
-        if (!sub.hasAccess && PRO_TABS[newId]) { openPaywall(PRO_TABS[newId]); return; }
         const dir = TAB_IDS.indexOf(newId) > TAB_IDS.indexOf(tab) ? "right" : "left";
         setSlideDir(dir);
         setOutTab(tab);
@@ -3578,9 +3592,9 @@
               <div key={"in-" + tab} style={{ position: "absolute", inset: 0, overflowY: "auto", WebkitOverflowScrolling: "touch", zIndex: 1 }}
                 className={outTab ? `slide-from-${slideDir}` : ""}>
                 {tab === "today"     && <TodayTab entries={entries} targets={targets} onDelete={deleteEntry} onEdit={e => setEditingEntry(e)} burnedKcal={burnedToday} onSaveBurned={async (v) => { await saveBodyWeightAPI(todayStr(), null, v); setBurnedToday(v); }} todayWeight={todayWeight} onSaveWeight={async (v) => { await saveBodyWeightAPI(todayStr(), v, null); setTodayWeight(v); }} stravaActivities={stravaToday} onDeleteStrava={async (id) => { await deleteStravaActivityAPI(id); setStravaToday(p => p.filter(a => a.strava_id !== id)); }} />}
-                {tab === "mealprep"  && <MealprepTab recipes={recipes} onAdd={addRecipe} onEdit={editRecipe} onDelete={removeRecipe} onArchive={archiveRecipe} archive={archive} voiceLang={voiceLang} userFoods={userFoods} />}
-                {tab === "history"   && <HistoryTab targets={targets} loadRange={loadDiaryRange} loadDay={loadDiaryEntries} onDelete={deleteEntry} updateEntry={updateDiaryEntry} loadBodyWeights={loadBodyWeightRange} saveBodyWeight={saveBodyWeightAPI} onAdd={addEntryForDate} recipes={recipes} userFoods={userFoods} voiceLang={voiceLang} loadActivities={loadStravaActivities} onDeleteStrava={async (id) => { await deleteStravaActivityAPI(id); }} />}
-                {tab === "userfoods" && <UserFoodsTab userFoods={userFoods} onAdd={addUserFood} onUpdate={updateUserFood} onDelete={deleteUserFood} />}
+                {tab === "mealprep"  && <BlurGate locked={!sub.hasAccess} feature="Rezepte" onUnlock={() => openPaywall("Rezepte")}><MealprepTab recipes={recipes} onAdd={addRecipe} onEdit={editRecipe} onDelete={removeRecipe} onArchive={archiveRecipe} archive={archive} voiceLang={voiceLang} userFoods={userFoods} /></BlurGate>}
+                {tab === "history"   && <BlurGate locked={!sub.hasAccess} feature="Verlauf" onUnlock={() => openPaywall("Verlauf")}><HistoryTab targets={targets} loadRange={loadDiaryRange} loadDay={loadDiaryEntries} onDelete={deleteEntry} updateEntry={updateDiaryEntry} loadBodyWeights={loadBodyWeightRange} saveBodyWeight={saveBodyWeightAPI} onAdd={addEntryForDate} recipes={recipes} userFoods={userFoods} voiceLang={voiceLang} loadActivities={loadStravaActivities} onDeleteStrava={async (id) => { await deleteStravaActivityAPI(id); }} /></BlurGate>}
+                {tab === "userfoods" && <BlurGate locked={!sub.hasAccess} feature="Eigene Lebensmittel" onUnlock={() => openPaywall("Eigene Lebensmittel")}><UserFoodsTab userFoods={userFoods} onAdd={addUserFood} onUpdate={updateUserFood} onDelete={deleteUserFood} /></BlurGate>}
               </div>
             )}
             {/* Outgoing non-input tab */}
@@ -3589,9 +3603,9 @@
                 className={`slide-to-${slideDir === "right" ? "left" : "right"}`}
                 onAnimationEnd={onAnimEnd}>
                 {outTab === "today"     && <TodayTab entries={entries} targets={targets} onDelete={deleteEntry} onEdit={e => setEditingEntry(e)} burnedKcal={burnedToday} onSaveBurned={async (v) => { await saveBodyWeightAPI(todayStr(), null, v); setBurnedToday(v); }} todayWeight={todayWeight} onSaveWeight={async (v) => { await saveBodyWeightAPI(todayStr(), v, null); setTodayWeight(v); }} stravaActivities={stravaToday} onDeleteStrava={async (id) => { await deleteStravaActivityAPI(id); setStravaToday(p => p.filter(a => a.strava_id !== id)); }} />}
-                {outTab === "mealprep"  && <MealprepTab recipes={recipes} onAdd={addRecipe} onEdit={editRecipe} onDelete={removeRecipe} onArchive={archiveRecipe} archive={archive} voiceLang={voiceLang} userFoods={userFoods} />}
-                {outTab === "history"   && <HistoryTab targets={targets} loadRange={loadDiaryRange} loadDay={loadDiaryEntries} onDelete={deleteEntry} updateEntry={updateDiaryEntry} loadBodyWeights={loadBodyWeightRange} saveBodyWeight={saveBodyWeightAPI} onAdd={addEntryForDate} recipes={recipes} userFoods={userFoods} voiceLang={voiceLang} loadActivities={loadStravaActivities} onDeleteStrava={async (id) => { await deleteStravaActivityAPI(id); }} />}
-                {outTab === "userfoods" && <UserFoodsTab userFoods={userFoods} onAdd={addUserFood} onUpdate={updateUserFood} onDelete={deleteUserFood} />}
+                {outTab === "mealprep"  && <BlurGate locked={!sub.hasAccess} feature="Rezepte" onUnlock={() => openPaywall("Rezepte")}><MealprepTab recipes={recipes} onAdd={addRecipe} onEdit={editRecipe} onDelete={removeRecipe} onArchive={archiveRecipe} archive={archive} voiceLang={voiceLang} userFoods={userFoods} /></BlurGate>}
+                {outTab === "history"   && <BlurGate locked={!sub.hasAccess} feature="Verlauf" onUnlock={() => openPaywall("Verlauf")}><HistoryTab targets={targets} loadRange={loadDiaryRange} loadDay={loadDiaryEntries} onDelete={deleteEntry} updateEntry={updateDiaryEntry} loadBodyWeights={loadBodyWeightRange} saveBodyWeight={saveBodyWeightAPI} onAdd={addEntryForDate} recipes={recipes} userFoods={userFoods} voiceLang={voiceLang} loadActivities={loadStravaActivities} onDeleteStrava={async (id) => { await deleteStravaActivityAPI(id); }} /></BlurGate>}
+                {outTab === "userfoods" && <BlurGate locked={!sub.hasAccess} feature="Eigene Lebensmittel" onUnlock={() => openPaywall("Eigene Lebensmittel")}><UserFoodsTab userFoods={userFoods} onAdd={addUserFood} onUpdate={updateUserFood} onDelete={deleteUserFood} /></BlurGate>}
               </div>
             )}
           </div>
