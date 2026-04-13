@@ -117,6 +117,7 @@
   <div class="tabs">
     <div class="tab active" onclick="switchTab('dashboard')">Dashboard</div>
     <div class="tab" onclick="switchTab('users')">Nutzer <span class="count-badge" id="cnt-users">…</span></div>
+    <div class="tab" onclick="switchTab('foods')">Lebensmittel <span class="count-badge ok" id="cnt-foods">…</span></div>
     <div class="tab" onclick="switchTab('duplicates')">Duplikate <span class="count-badge" id="cnt-dup">…</span></div>
     <div class="tab" onclick="switchTab('macros')">Makro-Fehler <span class="count-badge" id="cnt-mac">…</span></div>
     <div class="tab" onclick="switchTab('suspicious')">Verdächtig <span class="count-badge" id="cnt-sus">…</span></div>
@@ -174,6 +175,26 @@
       <tbody id="users-body"></tbody>
     </table>
     <div class="empty" id="users-empty" style="display:none"><div class="icon">👤</div>Keine Nutzer gefunden</div>
+  </div>
+
+  <!-- Lebensmittel -->
+  <div class="section" id="sec-foods">
+    <div class="toolbar" style="gap:10px;flex-wrap:wrap">
+      <input type="text" id="foods-search" placeholder="Suchen…" style="width:200px;border-radius:8px;padding:7px 12px;background:#161616;border:1px solid #333;color:#fff;font-size:13px;outline:none" oninput="foodsSearchDebounce()" />
+      <span style="font-size:12px;color:#555" id="foods-info">…</span>
+      <div style="display:flex;gap:6px;margin-left:auto;align-items:center">
+        <button class="btn-sm" onclick="foodsPage(-1)">← Zurück</button>
+        <span style="font-size:12px;color:#aaa" id="foods-page">S. 1</span>
+        <button class="btn-sm" onclick="foodsPage(1)">Weiter →</button>
+      </div>
+    </div>
+    <div class="loading" id="foods-loading">Lädt…</div>
+    <table id="foods-table" style="display:none">
+      <thead><tr>
+        <th>ID</th><th>Name</th><th>Barcode</th><th>Kcal</th><th>P</th><th>K</th><th>F</th><th>Quelle</th><th>✓</th><th>Aktionen</th>
+      </tr></thead>
+      <tbody id="foods-body"></tbody>
+    </table>
   </div>
 
   <!-- Duplikate -->
@@ -279,12 +300,82 @@
       }).catch(err => console.error(err));
   }
 
-  const TAB_NAMES = ["dashboard","users","duplicates","macros","suspicious"];
+  const TAB_NAMES = ["dashboard","users","foods","duplicates","macros","suspicious"];
   function switchTab(name) {
     document.querySelectorAll(".tab").forEach((t, i) => t.classList.toggle("active", TAB_NAMES[i] === name));
     document.querySelectorAll(".section").forEach(s => s.classList.remove("active"));
     document.getElementById("sec-" + name).classList.add("active");
     if (name === "users") loadUsers();
+    if (name === "foods") loadFoods();
+  }
+
+  // ─── Lebensmittel ──────────────────────────────────────────────────────────
+  let foodsCurrentPage = 1;
+  let foodsTotal = 0;
+  let foodsDebounceTimer = null;
+
+  function foodsSearchDebounce() {
+    clearTimeout(foodsDebounceTimer);
+    foodsDebounceTimer = setTimeout(() => { foodsCurrentPage = 1; loadFoods(); }, 350);
+  }
+
+  function foodsPage(dir) {
+    const maxPage = Math.ceil(foodsTotal / 50);
+    foodsCurrentPage = Math.max(1, Math.min(maxPage, foodsCurrentPage + dir));
+    loadFoods();
+  }
+
+  function loadFoods() {
+    const search = document.getElementById("foods-search")?.value.trim() || "";
+    document.getElementById("foods-loading").style.display = "block";
+    document.getElementById("foods-table").style.display  = "none";
+    const url = `${API}/api/admin/foods?page=${foodsCurrentPage}&limit=50${search ? "&search=" + encodeURIComponent(search) : ""}`;
+    fetch(url, { headers: { "x-admin-key": ADMIN_KEY } })
+      .then(r => r.json()).then(data => {
+        foodsTotal = data.total;
+        document.getElementById("cnt-foods").textContent = data.total.toLocaleString("de");
+        document.getElementById("foods-info").textContent = `${data.total.toLocaleString("de")} Einträge${search ? " gefunden" : " gesamt"}`;
+        document.getElementById("foods-page").textContent = `S. ${data.page} / ${Math.ceil(data.total / data.limit) || 1}`;
+        renderFoods(data.rows);
+      }).catch(err => {
+        document.getElementById("foods-loading").innerHTML = `<span style="color:#f87171">Fehler: ${err.message}</span>`;
+      });
+  }
+
+  function renderFoods(rows) {
+    document.getElementById("foods-loading").style.display = "none";
+    document.getElementById("foods-table").style.display = "table";
+    const srcColor = { usda: "#60a5fa", ai: "#a78bfa", "off": "#34d399", cache: "#fbbf24" };
+    document.getElementById("foods-body").innerHTML = rows.map(r => `
+      <tr id="row-${r.id}">
+        <td class="mono" style="color:#444">${r.id}</td>
+        <td class="name" id="food-name-${r.id}">${esc(r.name)}</td>
+        <td>${r.barcode ? `<span class="barcode has">${esc(r.barcode)}</span>` : `<span class="barcode">—</span>`}</td>
+        <td class="macro-cell" id="macro-cell-${r.id}">
+          <span class="val-kcal mono">${fmt(r.kcal_100)}</span>
+        </td>
+        <td class="mono" style="font-size:11px;color:#60a5fa">${fmt(r.protein_100)}</td>
+        <td class="mono" style="font-size:11px;color:#34d399">${fmt(r.carbs_100)}</td>
+        <td class="mono" style="font-size:11px;color:#f472b6">${fmt(r.fat_100)}</td>
+        <td><span style="font-size:11px;color:${srcColor[r.source] || "#666"}">${esc(r.source || "—")}</span></td>
+        <td>${r.is_verified ? `<span style="color:#22c55e;font-size:13px">✓</span>` : `<span style="color:#333;font-size:13px">—</span>`}</td>
+        <td><div class="actions">
+          <button class="btn-sm btn-edit"   onclick="editFood(${r.id})">✎</button>
+          <button class="btn-sm btn-ok"     onclick="verifyFoodInline(${r.id})">${r.is_verified ? "✓" : "OK"}</button>
+          <button class="btn-sm btn-danger" onclick="deleteFoodInline(${r.id})">✕</button>
+        </div></td>
+      </tr>`).join("");
+  }
+
+  function verifyFoodInline(id) {
+    fetch(`${API}/api/admin/food/${id}/verify`, { method: "POST", headers: { "x-admin-key": ADMIN_KEY } })
+      .then(() => loadFoods()).catch(alert);
+  }
+
+  function deleteFoodInline(id) {
+    if (!confirm("Eintrag löschen?")) return;
+    fetch(`${API}/api/admin/food/${id}`, { method: "DELETE", headers: { "x-admin-key": ADMIN_KEY } })
+      .then(() => loadFoods()).catch(alert);
   }
 
   // ─── Nutzer ────────────────────────────────────────────────────────────────
