@@ -52,6 +52,8 @@
     .refresh-btn { margin-left: auto; }
     .edit-inline { display: flex; gap: 6px; align-items: center; }
     .edit-inline input { background: #1e1e1e; border: 1px solid #333; border-radius: 6px; padding: 4px 8px; color: #fff; font-size: 12px; width: 70px; }
+    .edit-input { background: #1e1e1e; border: 1px solid #f9731640; border-radius: 6px; padding: 4px 8px; color: #fff; font-size: 12px; outline: none; }
+    .edit-input:focus { border-color: #f97316; }
   </style>
 </head>
 <body>
@@ -208,6 +210,55 @@
       .then(r => r.json()).then(() => rowEl.remove()).catch(alert);
   }
 
+  function editFood(id) {
+    const row = document.getElementById("food-" + id);
+    const kcal    = row.querySelector(".val-kcal").textContent.trim();
+    const protein = row.querySelector(".val-protein").textContent.trim();
+    const carbs   = row.querySelector(".val-carbs").textContent.trim();
+    const fat     = row.querySelector(".val-fat").textContent.trim();
+    const macroCell = row.querySelector(".macro-cell");
+    macroCell.innerHTML = `
+      <div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center">
+        <label style="font-size:11px;color:#666">Kcal</label>
+        <input class="edit-input" id="e-kcal-${id}" value="${kcal}" style="width:60px" />
+        <label style="font-size:11px;color:#666">P</label>
+        <input class="edit-input" id="e-prot-${id}" value="${protein}" style="width:50px" />
+        <label style="font-size:11px;color:#666">K</label>
+        <input class="edit-input" id="e-carb-${id}" value="${carbs}" style="width:50px" />
+        <label style="font-size:11px;color:#666">F</label>
+        <input class="edit-input" id="e-fat-${id}" value="${fat}" style="width:50px" />
+        <button class="btn-sm" onclick="saveFood(${id})" style="background:#f9731620;color:#f97316;border-color:#f9731640">✓ Speichern</button>
+        <button class="btn-sm" onclick="loadChecks()">✕</button>
+      </div>`;
+  }
+
+  function editFoodDup(id, side, rowId) {
+    // Für Duplikate-Tab: öffnet ein Popup-Dialog
+    const kcal    = prompt("Kcal/100g:");    if (kcal    === null) return;
+    const protein = prompt("Protein/100g:"); if (protein === null) return;
+    const carbs   = prompt("Carbs/100g:");   if (carbs   === null) return;
+    const fat     = prompt("Fat/100g:");     if (fat     === null) return;
+    fetch(`${API}/api/admin/food/${id}`, {
+      method: "PATCH",
+      headers: { "x-admin-key": ADMIN_KEY, "Content-Type": "application/json" },
+      body: JSON.stringify({ kcal_100: +kcal, protein_100: +protein, carbs_100: +carbs, fat_100: +fat }),
+    }).then(() => loadChecks()).catch(alert);
+  }
+
+  function saveFood(id) {
+    const body = {
+      kcal_100:    parseFloat(document.getElementById("e-kcal-" + id).value) || null,
+      protein_100: parseFloat(document.getElementById("e-prot-" + id).value) || null,
+      carbs_100:   parseFloat(document.getElementById("e-carb-" + id).value) || null,
+      fat_100:     parseFloat(document.getElementById("e-fat-"  + id).value) || null,
+    };
+    fetch(`${API}/api/admin/food/${id}`, {
+      method: "PATCH",
+      headers: { "x-admin-key": ADMIN_KEY, "Content-Type": "application/json" },
+      body: JSON.stringify(body),
+    }).then(r => r.json()).then(() => loadChecks()).catch(alert);
+  }
+
   function renderDuplicates(rows) {
     document.getElementById("dup-loading").style.display = "none";
     const badge = document.getElementById("cnt-dup");
@@ -222,15 +273,44 @@
       return `<tr id="dup-${r.id_a}-${r.id_b}">
         <td><span class="sim ${simClass} mono">${(sim * 100).toFixed(0)}%</span></td>
         <td class="name">${esc(r.name_a)}<br><small style="color:#555">ID ${r.id_a}</small></td>
-        <td class="mono" style="font-size:12px">${macroStr(r, "a")}</td>
+        <td class="mono" style="font-size:12px">
+          <span class="val-kcal">${fmt(r.kcal_a)}</span> /
+          <span class="val-protein">${fmt(r.protein_a)}</span> /
+          <span class="val-carbs">${fmt(r.carbs_a)}</span> /
+          <span class="val-fat">${fmt(r.fat_a)}</span>
+        </td>
         <td class="name">${esc(r.name_b)}<br><small style="color:#555">ID ${r.id_b}</small></td>
-        <td class="mono" style="font-size:12px">${macroStr(r, "b")}</td>
-        <td>
-          <button class="btn-sm btn-danger" onclick="deleteFood(${r.id_a}, document.getElementById('dup-${r.id_a}-${r.id_b}'))">A löschen</button>
-          <button class="btn-sm btn-danger" style="margin-top:4px" onclick="deleteFood(${r.id_b}, document.getElementById('dup-${r.id_a}-${r.id_b}'))">B löschen</button>
+        <td class="mono" style="font-size:12px">
+          <span class="val-kcal">${fmt(r.kcal_b)}</span> /
+          <span class="val-protein">${fmt(r.protein_b)}</span> /
+          <span class="val-carbs">${fmt(r.carbs_b)}</span> /
+          <span class="val-fat">${fmt(r.fat_b)}</span>
+        </td>
+        <td style="white-space:nowrap">
+          <button class="btn-sm" onclick="editFoodDup(${r.id_a}, 'a', 'dup-${r.id_a}-${r.id_b}')">✎ A</button>
+          <button class="btn-sm" onclick="editFoodDup(${r.id_b}, 'b', 'dup-${r.id_a}-${r.id_b}')">✎ B</button><br>
+          <button class="btn-sm btn-danger" style="margin-top:4px" onclick="deleteFood(${r.id_a}, document.getElementById('dup-${r.id_a}-${r.id_b}'))">✕ A</button>
+          <button class="btn-sm btn-danger" onclick="deleteFood(${r.id_b}, document.getElementById('dup-${r.id_a}-${r.id_b}'))">✕ B</button>
         </td>
       </tr>`;
     }).join("");
+  }
+
+  function macroDataCells(r) {
+    return `<td class="macro-cell" id="macro-cell-${r.id}">
+      <span class="val-kcal mono" style="font-size:12px">${fmt(r.kcal_100)}</span> /
+      <span class="val-protein mono" style="font-size:12px">${fmt(r.protein_100)}</span> /
+      <span class="val-carbs mono" style="font-size:12px">${fmt(r.carbs_100)}</span> /
+      <span class="val-fat mono" style="font-size:12px">${fmt(r.fat_100)}</span>
+      <span style="color:#555;font-size:11px"> kcal/P/K/F</span>
+    </td>`;
+  }
+
+  function actionBtns(id, rowIdStr) {
+    return `<td style="white-space:nowrap">
+      <button class="btn-sm" onclick="editFood(${id})" style="margin-bottom:4px">✎ Bearbeiten</button><br>
+      <button class="btn-sm btn-danger" onclick="deleteFood(${id}, document.getElementById('${rowIdStr}'))">✕ Löschen</button>
+    </td>`;
   }
 
   function renderMacros(rows) {
@@ -244,13 +324,13 @@
     tbody.innerHTML = rows.map(r => {
       const pct = parseFloat(r.diff_pct);
       const cls = pct > 30 ? "bad" : "warn";
-      return `<tr id="mac-${r.id}">
+      return `<tr id="food-${r.id}">
         <td class="name">${esc(r.name)}<br><small style="color:#555">ID ${r.id}</small></td>
         <td class="mono">${fmt(r.kcal_100)} kcal</td>
         <td class="mono">${fmt(r.kcal_calc)} kcal</td>
         <td><span class="diff-pct ${cls}">+${fmt(r.diff_pct)}%</span><br><small style="color:#555">${fmt(r.diff)} kcal</small></td>
-        <td class="mono" style="font-size:12px">${fmt(r.protein_100)}g / ${fmt(r.carbs_100)}g / ${fmt(r.fat_100)}g</td>
-        <td><button class="btn-sm btn-danger" onclick="deleteFood(${r.id}, document.getElementById('mac-${r.id}'))">Löschen</button></td>
+        ${macroDataCells(r)}
+        ${actionBtns(r.id, "food-" + r.id)}
       </tr>`;
     }).join("");
   }
@@ -263,11 +343,11 @@
     if (rows.length === 0) { document.getElementById("sus-empty").style.display = "block"; return; }
     document.getElementById("sus-table").style.display = "table";
     const tbody = document.getElementById("sus-body");
-    tbody.innerHTML = rows.map(r => `<tr id="sus-${r.id}">
+    tbody.innerHTML = rows.map(r => `<tr id="food-${r.id}">
       <td class="name">${esc(r.name)}<br><small style="color:#555">ID ${r.id}</small></td>
-      <td class="mono" style="font-size:12px">${fmt(r.kcal_100)} / ${fmt(r.protein_100)} / ${fmt(r.carbs_100)} / ${fmt(r.fat_100)}</td>
+      ${macroDataCells(r)}
       <td><span class="problem-badge">${esc(r.problem)}</span></td>
-      <td><button class="btn-sm btn-danger" onclick="deleteFood(${r.id}, document.getElementById('sus-${r.id}'))">Löschen</button></td>
+      ${actionBtns(r.id, "food-" + r.id)}
     </tr>`).join("");
   }
 
