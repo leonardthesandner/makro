@@ -1,0 +1,279 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>makro. Admin</title>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Syne:wght@700;800&display=swap" rel="stylesheet" />
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    body { background: #0c0c0c; color: #e0e0e0; font-family: "Inter", sans-serif; font-size: 14px; }
+    .login { display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100vh; gap: 16px; }
+    .login h1 { font-family: "Syne", sans-serif; font-size: 28px; color: #fff; }
+    .login h1 span { color: #f97316; }
+    input[type=password] { background: #161616; border: 1px solid #333; border-radius: 10px; padding: 12px 16px; color: #fff; font-size: 15px; width: 280px; outline: none; }
+    input[type=password]:focus { border-color: #f97316; }
+    .btn { background: #f97316; border: none; border-radius: 10px; padding: 12px 28px; color: #fff; font-family: "Syne", sans-serif; font-size: 14px; font-weight: 700; cursor: pointer; }
+    .btn:hover { background: #ea6c0a; }
+    .btn-sm { background: #1e1e1e; border: 1px solid #333; border-radius: 7px; padding: 4px 10px; color: #aaa; font-size: 12px; cursor: pointer; }
+    .btn-danger { background: #f8717120; border: 1px solid #f8717140; color: #f87171; }
+    .btn-danger:hover { background: #f8717140; }
+    .app { display: none; padding: 24px; max-width: 1200px; margin: 0 auto; }
+    header { display: flex; align-items: center; gap: 16px; margin-bottom: 32px; padding-bottom: 16px; border-bottom: 1px solid #1e1e1e; }
+    header h1 { font-family: "Syne", sans-serif; font-size: 22px; color: #fff; }
+    header h1 span { color: #f97316; }
+    .stats { display: flex; gap: 12px; flex-wrap: wrap; margin-bottom: 32px; }
+    .stat { background: #161616; border: 1px solid #222; border-radius: 12px; padding: 16px 20px; min-width: 140px; }
+    .stat-val { font-family: "Syne", sans-serif; font-size: 24px; font-weight: 800; color: #fff; }
+    .stat-label { font-size: 11px; color: #666; margin-top: 3px; text-transform: uppercase; letter-spacing: 0.8px; }
+    .tabs { display: flex; gap: 4px; margin-bottom: 24px; background: #111; border-radius: 10px; padding: 4px; width: fit-content; }
+    .tab { padding: 8px 18px; border-radius: 8px; cursor: pointer; font-size: 13px; color: #666; font-family: "Syne", sans-serif; font-weight: 700; }
+    .tab.active { background: #1e1e1e; color: #f97316; }
+    .section { display: none; }
+    .section.active { display: block; }
+    .count-badge { display: inline-block; background: #f9731620; color: #f97316; border-radius: 20px; padding: 2px 9px; font-size: 11px; font-weight: 600; margin-left: 6px; }
+    .count-badge.ok { background: #22c55e20; color: #22c55e; }
+    table { width: 100%; border-collapse: collapse; }
+    th { text-align: left; padding: 10px 12px; font-size: 11px; color: #555; text-transform: uppercase; letter-spacing: 0.8px; border-bottom: 1px solid #1e1e1e; }
+    td { padding: 10px 12px; border-bottom: 1px solid #161616; vertical-align: middle; }
+    tr:hover td { background: #111; }
+    .name { color: #fff; font-weight: 500; max-width: 200px; }
+    .sim { font-family: "Syne", sans-serif; font-weight: 700; }
+    .sim.high { color: #f87171; }
+    .sim.mid { color: #fbbf24; }
+    .mono { font-family: monospace; font-size: 13px; }
+    .diff-pct { font-weight: 600; }
+    .diff-pct.bad { color: #f87171; }
+    .diff-pct.warn { color: #fbbf24; }
+    .problem-badge { background: #f8717118; color: #f87171; border-radius: 5px; padding: 2px 8px; font-size: 11px; font-weight: 600; }
+    .empty { text-align: center; padding: 60px; color: #444; }
+    .empty .icon { font-size: 40px; margin-bottom: 12px; }
+    .loading { text-align: center; padding: 60px; color: #555; }
+    .refresh-btn { margin-left: auto; }
+    .edit-inline { display: flex; gap: 6px; align-items: center; }
+    .edit-inline input { background: #1e1e1e; border: 1px solid #333; border-radius: 6px; padding: 4px 8px; color: #fff; font-size: 12px; width: 70px; }
+  </style>
+</head>
+<body>
+
+<!-- Login -->
+<div class="login" id="loginScreen">
+  <h1>makro<span>.</span> Admin</h1>
+  <input type="password" id="keyInput" placeholder="Admin-Key eingeben" onkeydown="if(event.key==='Enter') doLogin()" />
+  <button class="btn" onclick="doLogin()">Einloggen</button>
+  <div id="loginError" style="color:#f87171;font-size:13px;display:none;">Falscher Key</div>
+</div>
+
+<!-- App -->
+<div class="app" id="app">
+  <header>
+    <h1>makro<span>.</span> Admin</h1>
+    <button class="btn refresh-btn" onclick="loadAll()">↻ Neu laden</button>
+  </header>
+
+  <!-- Stats -->
+  <div class="stats" id="statsRow">
+    <div class="stat"><div class="stat-val" id="s-foods">—</div><div class="stat-label">Lebensmittel</div></div>
+    <div class="stat"><div class="stat-val" id="s-users">—</div><div class="stat-label">Nutzer</div></div>
+    <div class="stat"><div class="stat-val" id="s-diary">—</div><div class="stat-label">Tagebuch-Einträge</div></div>
+    <div class="stat"><div class="stat-val" id="s-searches">—</div><div class="stat-label">Suchanfragen</div></div>
+  </div>
+
+  <!-- Tabs -->
+  <div class="tabs">
+    <div class="tab active" onclick="switchTab('duplicates')">Duplikate <span class="count-badge" id="cnt-dup">…</span></div>
+    <div class="tab" onclick="switchTab('macros')">Makro-Fehler <span class="count-badge" id="cnt-mac">…</span></div>
+    <div class="tab" onclick="switchTab('suspicious')">Verdächtig <span class="count-badge" id="cnt-sus">…</span></div>
+  </div>
+
+  <!-- Duplikate -->
+  <div class="section active" id="sec-duplicates">
+    <div class="loading" id="dup-loading">Lädt…</div>
+    <table id="dup-table" style="display:none">
+      <thead><tr>
+        <th>Ähnlichkeit</th>
+        <th>Eintrag A</th>
+        <th>Kcal / P / K / F (A)</th>
+        <th>Eintrag B</th>
+        <th>Kcal / P / K / F (B)</th>
+        <th>Aktion</th>
+      </tr></thead>
+      <tbody id="dup-body"></tbody>
+    </table>
+    <div class="empty" id="dup-empty" style="display:none"><div class="icon">✓</div>Keine Duplikate gefunden</div>
+  </div>
+
+  <!-- Makro-Fehler -->
+  <div class="section" id="sec-macros">
+    <div class="loading" id="mac-loading">Lädt…</div>
+    <table id="mac-table" style="display:none">
+      <thead><tr>
+        <th>Name</th>
+        <th>Kcal (eingetragen)</th>
+        <th>Kcal (berechnet)</th>
+        <th>Abweichung</th>
+        <th>P / K / F</th>
+        <th>Aktion</th>
+      </tr></thead>
+      <tbody id="mac-body"></tbody>
+    </table>
+    <div class="empty" id="mac-empty" style="display:none"><div class="icon">✓</div>Keine Makro-Fehler gefunden</div>
+  </div>
+
+  <!-- Verdächtig -->
+  <div class="section" id="sec-suspicious">
+    <div class="loading" id="sus-loading">Lädt…</div>
+    <table id="sus-table" style="display:none">
+      <thead><tr>
+        <th>Name</th>
+        <th>Kcal / P / K / F</th>
+        <th>Problem</th>
+        <th>Aktion</th>
+      </tr></thead>
+      <tbody id="sus-body"></tbody>
+    </table>
+    <div class="empty" id="sus-empty" style="display:none"><div class="icon">✓</div>Keine verdächtigen Einträge gefunden</div>
+  </div>
+</div>
+
+<script>
+  const API = "https://api.makro-tracking.com";
+  let ADMIN_KEY = "";
+
+  function doLogin() {
+    const key = document.getElementById("keyInput").value.trim();
+    if (!key) return;
+    ADMIN_KEY = key;
+    // Test mit stats-Endpunkt
+    fetch(`${API}/api/admin/stats`, { headers: { "x-admin-key": key } })
+      .then(r => {
+        if (r.status === 401) { document.getElementById("loginError").style.display = "block"; return null; }
+        return r.json();
+      })
+      .then(data => {
+        if (!data) return;
+        document.getElementById("loginScreen").style.display = "none";
+        document.getElementById("app").style.display = "block";
+        renderStats(data);
+        loadChecks();
+      });
+  }
+
+  function loadAll() { loadStats(); loadChecks(); }
+
+  function loadStats() {
+    fetch(`${API}/api/admin/stats`, { headers: { "x-admin-key": ADMIN_KEY } })
+      .then(r => r.json()).then(renderStats).catch(() => {});
+  }
+
+  function renderStats(d) {
+    document.getElementById("s-foods").textContent   = d.foods?.toLocaleString("de") ?? "—";
+    document.getElementById("s-users").textContent   = d.users?.toLocaleString("de") ?? "—";
+    document.getElementById("s-diary").textContent   = d.diary?.toLocaleString("de") ?? "—";
+    document.getElementById("s-searches").textContent = d.searches?.toLocaleString("de") ?? "—";
+  }
+
+  function loadChecks() {
+    fetch(`${API}/api/admin/db-check`, { headers: { "x-admin-key": ADMIN_KEY } })
+      .then(r => r.json())
+      .then(data => {
+        renderDuplicates(data.duplicates || []);
+        renderMacros(data.macroErrors || []);
+        renderSuspicious(data.suspicious || []);
+      })
+      .catch(err => console.error(err));
+  }
+
+  function switchTab(name) {
+    document.querySelectorAll(".tab").forEach((t, i) => {
+      const names = ["duplicates", "macros", "suspicious"];
+      t.classList.toggle("active", names[i] === name);
+    });
+    document.querySelectorAll(".section").forEach(s => s.classList.remove("active"));
+    document.getElementById("sec-" + name).classList.add("active");
+  }
+
+  function macroStr(row, suffix) {
+    const k = suffix ? `kcal_${suffix}` : "kcal_100";
+    const p = suffix ? `protein_${suffix}` : "protein_100";
+    const c = suffix ? `carbs_${suffix}` : "carbs_100";
+    const f = suffix ? `fat_${suffix}` : "fat_100";
+    return `${fmt(row[k])} / ${fmt(row[p])} / ${fmt(row[c])} / ${fmt(row[f])}`;
+  }
+  function fmt(v) { return v != null ? parseFloat(v).toFixed(1) : "—"; }
+
+  function deleteFood(id, rowEl) {
+    if (!confirm("Eintrag löschen?")) return;
+    fetch(`${API}/api/admin/food/${id}`, { method: "DELETE", headers: { "x-admin-key": ADMIN_KEY } })
+      .then(r => r.json()).then(() => rowEl.remove()).catch(alert);
+  }
+
+  function renderDuplicates(rows) {
+    document.getElementById("dup-loading").style.display = "none";
+    const badge = document.getElementById("cnt-dup");
+    badge.textContent = rows.length;
+    badge.className = "count-badge" + (rows.length === 0 ? " ok" : "");
+    if (rows.length === 0) { document.getElementById("dup-empty").style.display = "block"; return; }
+    document.getElementById("dup-table").style.display = "table";
+    const tbody = document.getElementById("dup-body");
+    tbody.innerHTML = rows.map(r => {
+      const sim = parseFloat(r.similarity);
+      const simClass = sim >= 0.95 ? "high" : "mid";
+      return `<tr id="dup-${r.id_a}-${r.id_b}">
+        <td><span class="sim ${simClass} mono">${(sim * 100).toFixed(0)}%</span></td>
+        <td class="name">${esc(r.name_a)}<br><small style="color:#555">ID ${r.id_a}</small></td>
+        <td class="mono" style="font-size:12px">${macroStr(r, "a")}</td>
+        <td class="name">${esc(r.name_b)}<br><small style="color:#555">ID ${r.id_b}</small></td>
+        <td class="mono" style="font-size:12px">${macroStr(r, "b")}</td>
+        <td>
+          <button class="btn-sm btn-danger" onclick="deleteFood(${r.id_a}, document.getElementById('dup-${r.id_a}-${r.id_b}'))">A löschen</button>
+          <button class="btn-sm btn-danger" style="margin-top:4px" onclick="deleteFood(${r.id_b}, document.getElementById('dup-${r.id_a}-${r.id_b}'))">B löschen</button>
+        </td>
+      </tr>`;
+    }).join("");
+  }
+
+  function renderMacros(rows) {
+    document.getElementById("mac-loading").style.display = "none";
+    const badge = document.getElementById("cnt-mac");
+    badge.textContent = rows.length;
+    badge.className = "count-badge" + (rows.length === 0 ? " ok" : "");
+    if (rows.length === 0) { document.getElementById("mac-empty").style.display = "block"; return; }
+    document.getElementById("mac-table").style.display = "table";
+    const tbody = document.getElementById("mac-body");
+    tbody.innerHTML = rows.map(r => {
+      const pct = parseFloat(r.diff_pct);
+      const cls = pct > 30 ? "bad" : "warn";
+      return `<tr id="mac-${r.id}">
+        <td class="name">${esc(r.name)}<br><small style="color:#555">ID ${r.id}</small></td>
+        <td class="mono">${fmt(r.kcal_100)} kcal</td>
+        <td class="mono">${fmt(r.kcal_calc)} kcal</td>
+        <td><span class="diff-pct ${cls}">+${fmt(r.diff_pct)}%</span><br><small style="color:#555">${fmt(r.diff)} kcal</small></td>
+        <td class="mono" style="font-size:12px">${fmt(r.protein_100)}g / ${fmt(r.carbs_100)}g / ${fmt(r.fat_100)}g</td>
+        <td><button class="btn-sm btn-danger" onclick="deleteFood(${r.id}, document.getElementById('mac-${r.id}'))">Löschen</button></td>
+      </tr>`;
+    }).join("");
+  }
+
+  function renderSuspicious(rows) {
+    document.getElementById("sus-loading").style.display = "none";
+    const badge = document.getElementById("cnt-sus");
+    badge.textContent = rows.length;
+    badge.className = "count-badge" + (rows.length === 0 ? " ok" : "");
+    if (rows.length === 0) { document.getElementById("sus-empty").style.display = "block"; return; }
+    document.getElementById("sus-table").style.display = "table";
+    const tbody = document.getElementById("sus-body");
+    tbody.innerHTML = rows.map(r => `<tr id="sus-${r.id}">
+      <td class="name">${esc(r.name)}<br><small style="color:#555">ID ${r.id}</small></td>
+      <td class="mono" style="font-size:12px">${fmt(r.kcal_100)} / ${fmt(r.protein_100)} / ${fmt(r.carbs_100)} / ${fmt(r.fat_100)}</td>
+      <td><span class="problem-badge">${esc(r.problem)}</span></td>
+      <td><button class="btn-sm btn-danger" onclick="deleteFood(${r.id}, document.getElementById('sus-${r.id}'))">Löschen</button></td>
+    </tr>`).join("");
+  }
+
+  function esc(s) {
+    return String(s ?? "").replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;");
+  }
+</script>
+</body>
+</html>
