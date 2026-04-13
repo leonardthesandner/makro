@@ -5,6 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>makro. Admin</title>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Syne:wght@700;800&display=swap" rel="stylesheet" />
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
   <style>
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
     body { background: #0c0c0c; color: #e0e0e0; font-family: "Inter", sans-serif; font-size: 14px; }
@@ -69,6 +70,21 @@
     .actions { display: flex; flex-direction: column; gap: 4px; }
     .toolbar { display: flex; gap: 8px; align-items: center; margin-bottom: 14px; }
     .ai-all-btn { margin-left: auto; }
+    .dash-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 16px; }
+    .dash-grid.full { grid-template-columns: 1fr; }
+    .dash-card { background: #111; border: 1px solid #1e1e1e; border-radius: 14px; padding: 20px; }
+    .dash-card h3 { font-family: "Syne", sans-serif; font-size: 13px; font-weight: 700; color: #666; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 16px; }
+    .dash-card canvas { max-height: 220px; }
+    .top-list { list-style: none; display: flex; flex-direction: column; gap: 7px; }
+    .top-list li { display: flex; align-items: center; gap: 10px; font-size: 13px; }
+    .top-list .rank { font-family: "Syne", sans-serif; font-size: 11px; color: #444; width: 20px; text-align: right; }
+    .top-list .bar-bg { flex: 1; background: #1a1a1a; border-radius: 4px; height: 6px; overflow: hidden; }
+    .top-list .bar-fill { height: 100%; border-radius: 4px; background: #f97316; }
+    .top-list .label { max-width: 160px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: #ccc; }
+    .top-list .val { font-family: monospace; font-size: 11px; color: #555; min-width: 30px; text-align: right; }
+    .user-table { width: 100%; }
+    .user-table td { padding: 6px 0; font-size: 12px; border-bottom: 1px solid #161616; }
+    .user-table td:last-child { text-align: right; color: #f97316; font-family: monospace; }
   </style>
 </head>
 <body>
@@ -94,9 +110,47 @@
   </div>
 
   <div class="tabs">
-    <div class="tab active" onclick="switchTab('duplicates')">Duplikate <span class="count-badge" id="cnt-dup">…</span></div>
+    <div class="tab active" onclick="switchTab('dashboard')">Dashboard</div>
+    <div class="tab" onclick="switchTab('duplicates')">Duplikate <span class="count-badge" id="cnt-dup">…</span></div>
     <div class="tab" onclick="switchTab('macros')">Makro-Fehler <span class="count-badge" id="cnt-mac">…</span></div>
     <div class="tab" onclick="switchTab('suspicious')">Verdächtig <span class="count-badge" id="cnt-sus">…</span></div>
+  </div>
+
+  <!-- Dashboard -->
+  <div class="section active" id="sec-dashboard">
+    <div class="loading" id="dash-loading">Lädt…</div>
+    <div id="dash-content" style="display:none">
+      <div class="dash-grid">
+        <div class="dash-card">
+          <h3>Neue Nutzer · letzte 12 Wochen</h3>
+          <canvas id="chart-users"></canvas>
+        </div>
+        <div class="dash-card">
+          <h3>Lebensmittel nach Quelle</h3>
+          <canvas id="chart-sources"></canvas>
+        </div>
+      </div>
+      <div class="dash-grid">
+        <div class="dash-card">
+          <h3>Tagebuch-Einträge · letzte 30 Tage</h3>
+          <canvas id="chart-diary"></canvas>
+        </div>
+        <div class="dash-card">
+          <h3>Suchanfragen · letzte 30 Tage</h3>
+          <canvas id="chart-searches"></canvas>
+        </div>
+      </div>
+      <div class="dash-grid">
+        <div class="dash-card">
+          <h3>Top 15 Suchanfragen</h3>
+          <ul class="top-list" id="top-searches"></ul>
+        </div>
+        <div class="dash-card">
+          <h3>Aktivste Nutzer</h3>
+          <table class="user-table" id="active-users"></table>
+        </div>
+      </div>
+    </div>
   </div>
 
   <!-- Duplikate -->
@@ -167,11 +221,12 @@
         document.getElementById("loginScreen").style.display = "none";
         document.getElementById("app").style.display = "block";
         renderStats(data);
+        loadDashboard();
         loadChecks();
       });
   }
 
-  function loadAll() { loadStats(); loadChecks(); }
+  function loadAll() { loadStats(); loadChecks(); loadDashboard(); }
 
   function loadStats() {
     fetch(`${API}/api/admin/stats`, { headers: { "x-admin-key": ADMIN_KEY } })
@@ -202,9 +257,94 @@
   }
 
   function switchTab(name) {
-    document.querySelectorAll(".tab").forEach((t, i) => t.classList.toggle("active", ["duplicates","macros","suspicious"][i] === name));
+    document.querySelectorAll(".tab").forEach((t, i) => t.classList.toggle("active", ["dashboard","duplicates","macros","suspicious"][i] === name));
     document.querySelectorAll(".section").forEach(s => s.classList.remove("active"));
     document.getElementById("sec-" + name).classList.add("active");
+  }
+
+  // ─── Dashboard ─────────────────────────────────────────────────────────────
+  const charts = {};
+
+  function loadDashboard() {
+    document.getElementById("dash-loading").style.display = "block";
+    document.getElementById("dash-content").style.display = "none";
+    fetch(`${API}/api/admin/dashboard`, { headers: { "x-admin-key": ADMIN_KEY } })
+      .then(r => r.json())
+      .then(d => {
+        document.getElementById("dash-loading").style.display = "none";
+        document.getElementById("dash-content").style.display = "block";
+        renderChartLine("chart-users",   d.usersOverTime,    "week",  "#60a5fa", "Nutzer");
+        renderChartLine("chart-diary",   d.diaryOverTime,    "day",   "#34d399", "Einträge");
+        renderChartLine("chart-searches",d.searchesOverTime, "day",   "#f97316", "Anfragen");
+        renderChartDoughnut("chart-sources", d.foodsBySource);
+        renderTopSearches(d.topSearches);
+        renderActiveUsers(d.activeUsers);
+      }).catch(err => {
+        document.getElementById("dash-loading").innerHTML = `<span style="color:#f87171">Fehler: ${err.message}</span>`;
+      });
+  }
+
+  const chartDefaults = {
+    responsive: true,
+    plugins: { legend: { display: false } },
+    scales: {
+      x: { ticks: { color: "#444", font: { size: 10 } }, grid: { color: "#111" } },
+      y: { ticks: { color: "#444", font: { size: 10 } }, grid: { color: "#1a1a1a" }, beginAtZero: true },
+    },
+  };
+
+  function renderChartLine(canvasId, rows, timeKey, color, label) {
+    const labels = rows.map(r => {
+      const d = new Date(r[timeKey]);
+      return d.toLocaleDateString("de-DE", { day: "2-digit", month: "2-digit" });
+    });
+    const data = rows.map(r => parseInt(r.count));
+    if (charts[canvasId]) charts[canvasId].destroy();
+    charts[canvasId] = new Chart(document.getElementById(canvasId), {
+      type: "line",
+      data: {
+        labels,
+        datasets: [{ label, data, borderColor: color, backgroundColor: color + "18",
+          tension: 0.4, fill: true, pointRadius: 3, pointBackgroundColor: color }],
+      },
+      options: { ...chartDefaults },
+    });
+  }
+
+  function renderChartDoughnut(canvasId, rows) {
+    const colors = ["#f97316","#60a5fa","#34d399","#f472b6","#a78bfa","#fbbf24","#6ee7b7"];
+    if (charts[canvasId]) charts[canvasId].destroy();
+    charts[canvasId] = new Chart(document.getElementById(canvasId), {
+      type: "doughnut",
+      data: {
+        labels: rows.map(r => r.source),
+        datasets: [{ data: rows.map(r => parseInt(r.count)), backgroundColor: colors, borderWidth: 0 }],
+      },
+      options: {
+        responsive: true,
+        plugins: {
+          legend: { position: "right", labels: { color: "#888", font: { size: 11 }, boxWidth: 12, padding: 10 } },
+        },
+        cutout: "65%",
+      },
+    });
+  }
+
+  function renderTopSearches(rows) {
+    const max = rows[0] ? parseInt(rows[0].count) : 1;
+    document.getElementById("top-searches").innerHTML = rows.map((r, i) => `
+      <li>
+        <span class="rank">${i + 1}.</span>
+        <span class="label" title="${esc(r.query)}">${esc(r.query)}</span>
+        <div class="bar-bg"><div class="bar-fill" style="width:${Math.round(parseInt(r.count)/max*100)}%"></div></div>
+        <span class="val">${r.count}</span>
+      </li>`).join("");
+  }
+
+  function renderActiveUsers(rows) {
+    document.getElementById("active-users").innerHTML = rows.map(r => `
+      <tr><td style="color:#ccc">${esc(r.email)}</td><td>${r.entries} Einträge</td></tr>
+    `).join("");
   }
 
   function fmt(v) { return v != null ? parseFloat(v).toFixed(1) : "—"; }
