@@ -150,6 +150,23 @@
       return apiCall("/api/analyze-recipe", "POST", { text });
     }
 
+    // Rezept-Bild/Screenshot → Zutatentext extrahieren
+    async function analyzeRecipeImage(imageFile) {
+      const auth = getAuth();
+      const form = new FormData();
+      form.append("image", imageFile);
+      const res = await fetch(BACKEND_URL + "/api/analyze-recipe-image", {
+        method: "POST",
+        headers: auth?.token ? { "Authorization": `Bearer ${auth.token}` } : {},
+        body: form,
+      });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        throw new Error(err.error || "Bildanalyse fehlgeschlagen");
+      }
+      return res.json();
+    }
+
     async function lookupBarcode(barcode) {
       return apiCall("/api/barcode", "POST", { barcode });
     }
@@ -1218,6 +1235,8 @@
       const [addIngText, setAddIngText] = useState("");
       const [addIngItems, setAddIngItems] = useState(null);
       const [addIngLoading, setAddIngLoading] = useState(false);
+      const [mpImageAnalyzing, setMpImageAnalyzing] = useState(false);
+      const mpImageInputRef = useRef(null);
       const inputStyle = { background: C.input, border: `1px solid ${C.border}`, borderRadius: 6, padding: "9px 10px", color: C.text, fontFamily: "Syne", fontSize: 14, outline: "none", width: "100%" };
 
       const getMpWord = () => {
@@ -1287,6 +1306,20 @@
       };
 
       const cancel = () => { setStep(STEP.idle); setIngredientText(""); setItems([]); setErr(null); setMealName(""); setPortionWeight(""); };
+
+      const handleMpImageCapture = async (e) => {
+        const file = e.target.files?.[0];
+        if (!file) return;
+        e.target.value = "";
+        setMpImageAnalyzing(true); setErr(null);
+        try {
+          const data = await analyzeRecipeImage(file);
+          if (data.text) {
+            setIngredientText(p => p.trim() ? p.trim() + "\n" + data.text : data.text);
+          }
+        } catch (e) { setErr("Rezept-Erkennung fehlgeschlagen: " + e.message); }
+        setMpImageAnalyzing(false);
+      };
 
       const analyzeAddIngredient = async () => {
         if (!addIngText.trim()) return;
@@ -1406,6 +1439,7 @@
                   </div>
                 )}
                 {mpTranscribing && <div style={{ padding: "2px 14px 6px", fontFamily: "Syne", fontSize: 13, color: C.muted, fontStyle: "italic" }} className="pulsing">Whisper erkennt Sprache…</div>}
+                {mpImageAnalyzing && <div style={{ padding: "2px 14px 6px", fontFamily: "Syne", fontSize: 13, color: C.muted, fontStyle: "italic" }} className="pulsing">Rezept wird erkannt…</div>}
                 <div style={{ padding: "8px 12px 12px", display: "flex", justifyContent: "space-between", alignItems: "center", borderTop: `1px solid ${C.border}`, gap: 8 }}>
                   <div style={{ display: "flex", gap: 8, flexShrink: 0 }}>
                     <button onClick={toggleMpVoice} disabled={mpTranscribing} style={{ background: mpListening ? "#f8717122" : mpTranscribing ? "#f59e0b22" : "transparent", border: `1px solid ${mpListening ? C.danger : mpTranscribing ? C.accent : C.border}`, borderRadius: 8, padding: "8px 12px", color: mpListening ? C.danger : mpTranscribing ? C.accent : C.muted, display: "flex", alignItems: "center", gap: 6 }}>
@@ -1413,6 +1447,16 @@
                       {mpListening && <Mono size={11} color={C.danger}>Aufnahme…</Mono>}
                       {mpTranscribing && <Mono size={11} color={C.accent}>Erkennt…</Mono>}
                     </button>
+                    {/* Rezept-Foto / Screenshot */}
+                    <button onClick={() => mpImageInputRef.current?.click()} disabled={mpImageAnalyzing}
+                      style={{ background: mpImageAnalyzing ? "#f59e0b22" : "transparent", border: `1px solid ${C.border}`, borderRadius: 8, padding: "8px 12px", color: mpImageAnalyzing ? C.accent : C.muted, display: "flex", alignItems: "center" }}
+                      title="Rezept-Foto oder Screenshot hochladen">
+                      {mpImageAnalyzing
+                        ? <span className="pulsing" style={{ fontSize: 16 }}>◈</span>
+                        : <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg>
+                      }
+                    </button>
+                    <input ref={mpImageInputRef} type="file" accept="image/*" onChange={handleMpImageCapture} style={{ display: "none" }} />
                     <button onClick={() => setMpScanning(true)} disabled={mpBarcodeLoading} style={{ background: mpBarcodeLoading ? "#f59e0b22" : "transparent", border: `1px solid ${C.border}`, borderRadius: 8, padding: "8px 12px", color: C.muted, display: "flex", alignItems: "center" }}>
                       {mpBarcodeLoading
                         ? <span className="pulsing" style={{ fontSize: 16 }}>⬛</span>
