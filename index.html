@@ -219,6 +219,8 @@
 
     // Account löschen
     async function deleteAccount() { return apiCall("/api/account", "DELETE"); }
+    async function fetchSubscription()     { return apiCall("/api/subscription"); }
+    async function initSubscription()      { return apiCall("/api/subscription/init", "POST"); }
     async function saveToArchive(recipe) {
       return apiCall("/api/archive", "POST", { recipe });
     }
@@ -3331,6 +3333,11 @@
       useEffect(() => {
         if (!auth) return;
 
+        // Load subscription status from backend
+        initSubscription()
+          .then(s => { if (s) setSub(s); })
+          .catch(() => {});
+
         // Load today's entries
         loadDiaryEntries(todayStr())
           .then(r => setEntries(r))
@@ -3375,7 +3382,13 @@
           .catch(() => {});
       }, [auth]);
 
-      const handleAuth = (data) => { setAuth(data); initTrialStart(); setSub(calcSub()); };
+      const handleAuth = async (data) => {
+        setAuth(data);
+        try {
+          const s = await initSubscription();
+          if (s) setSub(s);
+        } catch { setSub(calcSub()); }
+      };
 
       const logout = () => {
         clearAuth();
