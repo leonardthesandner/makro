@@ -3404,7 +3404,7 @@
       const handleAuth = async (data) => {
         setAuth(data);
         try {
-          const s = await initSubscription();
+          const s = await fetchSubscription();
           if (s) setSub(s);
         } catch { setSub(calcSub()); }
       };
