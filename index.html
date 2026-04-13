@@ -1214,6 +1214,10 @@
       const [mpBarcodeErr, setMpBarcodeErr] = useState(null);
       const [mpScannedProduct, setMpScannedProduct] = useState(null);
       const [mpBarcodeWeight, setMpBarcodeWeight] = useState("100");
+      const [addIngOpen, setAddIngOpen] = useState(false);
+      const [addIngText, setAddIngText] = useState("");
+      const [addIngItems, setAddIngItems] = useState(null);
+      const [addIngLoading, setAddIngLoading] = useState(false);
       const inputStyle = { background: C.input, border: `1px solid ${C.border}`, borderRadius: 6, padding: "9px 10px", color: C.text, fontFamily: "Syne", fontSize: 14, outline: "none", width: "100%" };
 
       const getMpWord = () => {
@@ -1283,6 +1287,24 @@
       };
 
       const cancel = () => { setStep(STEP.idle); setIngredientText(""); setItems([]); setErr(null); setMealName(""); setPortionWeight(""); };
+
+      const analyzeAddIngredient = async () => {
+        if (!addIngText.trim()) return;
+        setAddIngLoading(true);
+        try {
+          const data = await analyzeRecipe(addIngText);
+          setAddIngItems(data.items || []);
+        } catch (e) { setErr("Analyse fehlgeschlagen: " + e.message); }
+        setAddIngLoading(false);
+      };
+
+      const confirmAddIngredient = () => {
+        if (!addIngItems?.length) return;
+        setEditingRecipe(p => ({ ...p, items: [...(p.items || []), ...addIngItems] }));
+        setAddIngItems(null);
+        setAddIngText("");
+        setAddIngOpen(false);
+      };
 
       const recookFromArchive = (archived) => {
         setSubTab("aktiv");
@@ -1485,7 +1507,11 @@
                   <Card key={i} style={{ padding: "10px 12px" }}>
                     <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
                       <span style={{ fontFamily: "Syne", fontSize: 13, fontWeight: 700, color: C.text }}>{item.name_de || item.name}</span>
-                      <Mono size={11} color={C.muted}>{item.weight_g}g</Mono>
+                      <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                        <Mono size={11} color={C.muted}>{item.weight_g}g</Mono>
+                        <button onClick={() => setEditingRecipe(p => ({ ...p, items: p.items.filter((_,idx) => idx !== i) }))}
+                          style={{ background: "none", border: "none", color: "#f8717150", fontSize: 15, padding: "2px 2px", cursor: "pointer", lineHeight: 1 }}>✕</button>
+                      </div>
                     </div>
                     <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr 1fr", gap: 6 }}>
                       {MACROS.map(m => (
@@ -1497,6 +1523,60 @@
                     </div>
                   </Card>
                 ))}
+                {/* ── Zutat nachträglich hinzufügen ── */}
+                <div>
+                  <button onClick={() => { setAddIngOpen(p => !p); setAddIngItems(null); setAddIngText(""); }}
+                    style={{ width: "100%", background: addIngOpen ? "#f97316" + "18" : C.card, border: `1px solid ${addIngOpen ? C.accent + "60" : C.border}`, borderRadius: 10, padding: "10px 14px", color: addIngOpen ? C.accent : C.muted, fontFamily: "Syne", fontSize: 13, fontWeight: 700, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+                    <span>➕ Zutat nachträglich hinzufügen</span>
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" style={{ transform: addIngOpen ? "rotate(180deg)" : "none", transition: "transform 0.2s" }}><polyline points="6 9 12 15 18 9"/></svg>
+                  </button>
+
+                  {addIngOpen && (
+                    <Card style={{ padding: "12px 14px", marginTop: 6 }}>
+                      {addIngItems === null ? (
+                        <>
+                          <div style={{ fontFamily: "Syne", fontSize: 11, color: C.muted, marginBottom: 8 }}>Zutat mit Menge eingeben, z.B. „200g Kartoffeln roh" oder „1 EL Olivenöl"</div>
+                          <textarea value={addIngText} onChange={e => setAddIngText(e.target.value)}
+                            placeholder={"200g Kartoffeln roh\n1 EL Olivenöl"}
+                            style={{ ...inputStyle, minHeight: 70, resize: "none", lineHeight: 1.6 }} />
+                          <div style={{ display: "flex", gap: 8, marginTop: 10 }}>
+                            <Btn onClick={analyzeAddIngredient} disabled={!addIngText.trim() || addIngLoading} style={{ flex: 1 }}>
+                              {addIngLoading ? <span className="pulsing">Analysiert…</span> : "Makros berechnen →"}
+                            </Btn>
+                            <Btn onClick={() => setAddIngOpen(false)} variant="ghost">Abbrechen</Btn>
+                          </div>
+                        </>
+                      ) : (
+                        <>
+                          <div style={{ fontFamily: "Syne", fontSize: 11, color: C.accent, marginBottom: 8 }}>Erkannte Zutaten — tippen zum Korrigieren</div>
+                          {addIngItems.map((item, i) => (
+                            <div key={i} style={{ marginBottom: 8 }}>
+                              <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 4 }}>
+                                <span style={{ fontFamily: "Syne", fontSize: 13, fontWeight: 700, color: C.text }}>{item.name_de || item.name}</span>
+                                <Mono size={11} color={C.muted}>{item.weight_g}g</Mono>
+                              </div>
+                              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr 1fr", gap: 6 }}>
+                                {MACROS.map(m => (
+                                  <div key={m}>
+                                    <div style={{ fontFamily: "Syne", fontSize: 9, color: MC[m], textTransform: "uppercase", marginBottom: 2 }}>{m}</div>
+                                    <input type="text" inputMode="decimal" value={Math.round(item[m]*10)/10}
+                                      onChange={e => setAddIngItems(p => p.map((it,idx) => idx===i ? { ...it, [m]: parseFloat(e.target.value)||0 } : it))}
+                                      style={{ ...inputStyle, fontFamily: "Inter", fontSize: 13, color: MC[m], padding: "6px 8px" }} />
+                                  </div>
+                                ))}
+                              </div>
+                            </div>
+                          ))}
+                          <div style={{ display: "flex", gap: 8, marginTop: 8 }}>
+                            <Btn onClick={confirmAddIngredient} style={{ flex: 1 }}>Zum Mealprep hinzufügen ✓</Btn>
+                            <Btn onClick={() => { setAddIngItems(null); setAddIngText(""); }} variant="ghost">Nochmal</Btn>
+                          </div>
+                        </>
+                      )}
+                    </Card>
+                  )}
+                </div>
+
                 <Card accent style={{ padding: 14 }}>
                   <div style={{ fontFamily: "Syne", fontSize: 10, color: C.accent, textTransform: "uppercase", letterSpacing: 1, marginBottom: 10 }}>Gesamt</div>
                   {(() => { const t = editingRecipe.items.reduce((a,it) => ({ kcal:a.kcal+(it.kcal||0), protein:a.protein+(it.protein||0), carbs:a.carbs+(it.carbs||0), fat:a.fat+(it.fat||0) }), {kcal:0,protein:0,carbs:0,fat:0}); return (
