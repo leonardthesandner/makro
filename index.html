@@ -3352,8 +3352,8 @@
       useEffect(() => {
         if (!auth) return;
 
-        // Load subscription status from backend
-        initSubscription()
+        // Load subscription status from backend (nur lesen, nicht initialisieren)
+        fetchSubscription()
           .then(s => { if (s) setSub(s); })
           .catch(() => {});
 
