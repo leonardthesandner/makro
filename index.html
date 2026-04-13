@@ -219,8 +219,9 @@
 
     // Account löschen
     async function deleteAccount() { return apiCall("/api/account", "DELETE"); }
-    async function fetchSubscription()     { return apiCall("/api/subscription"); }
-    async function initSubscription()      { return apiCall("/api/subscription/init", "POST"); }
+    async function fetchSubscription()      { return apiCall("/api/subscription"); }
+    async function initSubscription()       { return apiCall("/api/subscription/init", "POST"); }
+    async function activateSubscription()   { return apiCall("/api/subscription/activate", "POST"); }
     async function saveToArchive(recipe) {
       return apiCall("/api/archive", "POST", { recipe });
     }
@@ -3324,9 +3325,12 @@
       const [paywall, setPaywall] = useState(null); // null | feature string
       const openPaywall = (feature = null) => setPaywall(feature || "");
       const closePaywall = () => setPaywall(null);
-      const handleSubscribe = () => {
+      const handleSubscribe = async () => {
         // TODO: Replace with RevenueCat purchase call when Play Console is ready
-        alert("Google Play Billing wird hier bald eingebunden.");
+        try {
+          const s = await activateSubscription();
+          if (s) { setSub(s); closePaywall(); }
+        } catch { alert("Fehler beim Aktivieren, bitte erneut versuchen."); }
       };
 
       // Load all data on auth
