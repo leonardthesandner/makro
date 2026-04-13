@@ -338,11 +338,7 @@
   }
 
   function setUserSub(email, userId, mode) {
-    let body;
-    if (mode === "pro")   body = { email, is_pro: true,  trial_start: null };
-    if (mode === "trial") body = { email, is_pro: false, trial_start: new Date().toISOString() };
-    if (mode === "free")  body = { email, is_pro: false, trial_start: null };
-
+    const body = { email, mode };
     fetch(`${API}/api/admin/user/subscription`, {
       method: "PATCH",
       headers: { "x-admin-key": ADMIN_KEY, "Content-Type": "application/json" },
