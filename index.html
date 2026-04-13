@@ -1297,8 +1297,41 @@
         if (!editingRecipe || !editingRecipe.name.trim() || !editingRecipe.cookedWeight) return;
         setEditSaving(true);
         const tw = parseFloat(editingRecipe.cookedWeight);
-        const t = editingRecipe.items.reduce((a, it) => ({ kcal: a.kcal + (it.kcal||0), protein: a.protein + (it.protein||0), carbs: a.carbs + (it.carbs||0), fat: a.fat + (it.fat||0) }), { kcal:0, protein:0, carbs:0, fat:0 });
-        const data = { name: editingRecipe.name.trim(), total_weight: tw, kcal_total: Math.round(t.kcal), protein_total: Math.round(t.protein*10)/10, carbs_total: Math.round(t.carbs*10)/10, fat_total: Math.round(t.fat*10)/10, ingredients: editingRecipe.recipe.ingredients, items: editingRecipe.items, portion_g: editingRecipe.portionWeight ? parseFloat(editingRecipe.portionWeight) : null };
+
+        // Wenn items vorhanden → Makros neu berechnen; sonst Original-Totals behalten
+        const hasItems = editingRecipe.items && editingRecipe.items.length > 0;
+        let kcal_total, protein_total, carbs_total, fat_total;
+        if (hasItems) {
+          const t = editingRecipe.items.reduce(
+            (a, it) => ({ kcal: a.kcal + (it.kcal||0), protein: a.protein + (it.protein||0), carbs: a.carbs + (it.carbs||0), fat: a.fat + (it.fat||0) }),
+            { kcal:0, protein:0, carbs:0, fat:0 }
+          );
+          kcal_total    = Math.round(t.kcal);
+          protein_total = Math.round(t.protein * 10) / 10;
+          carbs_total   = Math.round(t.carbs * 10) / 10;
+          fat_total     = Math.round(t.fat * 10) / 10;
+        } else {
+          // Älteres Rezept ohne Items: Original-Totals beibehalten
+          kcal_total    = parseFloat(editingRecipe.recipe.kcal_total)    || 0;
+          protein_total = parseFloat(editingRecipe.recipe.protein_total) || 0;
+          carbs_total   = parseFloat(editingRecipe.recipe.carbs_total)   || 0;
+          fat_total     = parseFloat(editingRecipe.recipe.fat_total)     || 0;
+        }
+
+        const data = {
+          name:          editingRecipe.name.trim(),
+          total_weight:  tw,
+          kcal_total, protein_total, carbs_total, fat_total,
+          // Direkt mitberechnen als Fallback für Offline-Modus
+          kcal_100:    tw > 0 ? kcal_total    / tw * 100 : 0,
+          protein_100: tw > 0 ? protein_total / tw * 100 : 0,
+          carbs_100:   tw > 0 ? carbs_total   / tw * 100 : 0,
+          fat_100:     tw > 0 ? fat_total     / tw * 100 : 0,
+          ingredients: editingRecipe.recipe.ingredients,
+          items:       editingRecipe.items,
+          portion_g:   editingRecipe.portionWeight ? parseFloat(editingRecipe.portionWeight) : null,
+        };
+
         await onEdit(editingRecipe.recipe.id, data);
         setEditSaving(false);
         setEditingRecipe(null);
@@ -1641,6 +1674,20 @@
                       <div style={{ fontFamily:"Syne", fontSize:10, color:C.muted, marginBottom:4 }}>Portionsgröße (g) — optional</div>
                       <input type="text" inputMode="decimal" placeholder="z.B. 350" value={editingRecipe.portionWeight || ""} onChange={e => setEditingRecipe(p => ({ ...p, portionWeight: e.target.value }))} style={inputStyle} />
                     </div>
+                    {editingRecipe.portionWeight && parseFloat(editingRecipe.portionWeight) > 0 && parseFloat(editingRecipe.cookedWeight) > 0 && (() => {
+                      const hasItems = editingRecipe.items && editingRecipe.items.length > 0;
+                      const t = hasItems
+                        ? editingRecipe.items.reduce((a,it) => ({ kcal:a.kcal+(it.kcal||0), protein:a.protein+(it.protein||0), carbs:a.carbs+(it.carbs||0), fat:a.fat+(it.fat||0) }), {kcal:0,protein:0,carbs:0,fat:0})
+                        : { kcal: parseFloat(editingRecipe.recipe.kcal_total)||0, protein: parseFloat(editingRecipe.recipe.protein_total)||0, carbs: parseFloat(editingRecipe.recipe.carbs_total)||0, fat: parseFloat(editingRecipe.recipe.fat_total)||0 };
+                      const tw = parseFloat(editingRecipe.cookedWeight);
+                      const pw = parseFloat(editingRecipe.portionWeight);
+                      const f = pw / tw;
+                      return (
+                        <div style={{ background: "#34d39910", borderRadius: 8, padding: "8px 12px", fontFamily: "Syne", fontSize: 12, color: C.carbs }}>
+                          Portion ({pw}g): {Math.round(t.kcal * f)} kcal · {Math.round(t.protein * f * 10) / 10}g E · {Math.round(t.carbs * f * 10) / 10}g KH · {Math.round(t.fat * f * 10) / 10}g F
+                        </div>
+                      );
+                    })()}
                   </div>
                 </Card>
                 <div style={{ display:"flex", gap:8 }}>
@@ -1671,6 +1718,19 @@
                     </div>
                   ))}
                 </div>
+                {r.portion_g && parseFloat(r.kcal_100) > 0 && (() => {
+                  const f = parseFloat(r.portion_g) / 100;
+                  return (
+                    <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 6, marginBottom: 8, background: C.soft, borderRadius: 8, padding: "8px 6px" }}>
+                      {MACROS.map(m => (
+                        <div key={m} style={{ textAlign: "center" }}>
+                          <Mono size={13} color={MC[m]} bold>{Math.round(parseFloat(r[`${m}_100`]) * f * (m === "kcal" ? 1 : 10) / (m === "kcal" ? 1 : 10))}</Mono>
+                          <div style={{ fontFamily: "Inter", fontSize: 9, color: C.muted }}>/{r.portion_g}g</div>
+                        </div>
+                      ))}
+                    </div>
+                  );
+                })()}
                 <div style={{ fontFamily: "Syne", fontSize: 10, color: C.muted, borderTop: `1px solid ${C.border}`, paddingTop: 8, marginBottom: 10 }}>
                   Pro 100g: {Math.round(r.kcal_100)} kcal · {Math.round(r.protein_100 * 10) / 10}g E · {Math.round(r.carbs_100 * 10) / 10}g KH · {Math.round(r.fat_100 * 10) / 10}g F
                 </div>
@@ -3610,6 +3670,7 @@
           setRecipes(p => p.map(r => r.id === saved.id ? saved : r));
           return saved;
         } catch {
+          // Offline-Fallback: kcal_100 etc. aus data übernehmen (bereits in saveEditRecipe berechnet)
           const updated = { ...data, id };
           setRecipes(p => p.map(r => r.id === id ? updated : r));
           return updated;
