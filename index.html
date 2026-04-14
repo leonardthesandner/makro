@@ -340,6 +340,8 @@
     function BarcodeScanner({ onScan, onClose }) {
       const scannerRef = useRef(null);
       const trackRef = useRef(null);
+      const rotScannerRef = useRef(null);
+      const rotIntervalRef = useRef(null);
       const [err, setErr] = useState(null);
       const [torchOn, setTorchOn] = useState(false);
       const [torchAvail, setTorchAvail] = useState(false);
@@ -378,12 +380,47 @@
               if (caps.torch) setTorchAvail(true);
             }
           }
+
+          // Parallel rotation scanner: catches vertical barcodes by scanning a 90°-rotated frame
+          try {
+            const rotDiv = document.createElement("div");
+            rotDiv.id = "bc-rot-div";
+            rotDiv.style.cssText = "position:absolute;width:1px;height:1px;overflow:hidden;opacity:0;pointer-events:none;";
+            document.body.appendChild(rotDiv);
+            const rotScanner = new Html5Qrcode("bc-rot-div");
+            rotScannerRef.current = rotScanner;
+
+            const vid = document.querySelector("#bc-div video");
+            const canvas = document.createElement("canvas");
+            const ctx = canvas.getContext("2d");
+
+            rotIntervalRef.current = setInterval(() => {
+              if (done || !vid || !vid.videoWidth) return;
+              const w = vid.videoWidth, h = vid.videoHeight;
+              canvas.width = h;
+              canvas.height = w;
+              ctx.save();
+              ctx.translate(h / 2, w / 2);
+              ctx.rotate(Math.PI / 2);
+              ctx.drawImage(vid, -w / 2, -h / 2, w, h);
+              ctx.restore();
+              canvas.toBlob(blob => {
+                if (done || !blob) return;
+                rotScanner.scanFile(new File([blob], "rot.jpg", { type: "image/jpeg" }), false)
+                  .then(text => { if (!done) { done = true; onScan(text); } })
+                  .catch(() => {});
+              }, "image/jpeg", 0.85);
+            }, 600);
+          } catch {}
         }).catch(() => {
           if (!done) setErr("Kamera-Zugriff verweigert oder nicht verfügbar.");
         });
 
         return () => {
           done = true;
+          clearInterval(rotIntervalRef.current);
+          try { rotScannerRef.current?.clear(); } catch {}
+          document.getElementById("bc-rot-div")?.remove();
           try { scannerRef.current?.stop().catch(() => {}); } catch {}
         };
       }, []);
