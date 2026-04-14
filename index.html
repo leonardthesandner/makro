@@ -359,7 +359,7 @@
 
         scanner.start(
           { facingMode: "environment" },
-          { fps: 15, formatsToSupport: formats },
+          { fps: 25, formatsToSupport: formats },
           (text) => {
             if (done) return;
             done = true;
@@ -367,9 +367,9 @@
           },
           () => {}
         ).then(() => {
-          const video = document.querySelector("#bc-div video");
-          if (video?.srcObject) {
-            const track = video.srcObject.getVideoTracks()[0];
+          const vid = document.querySelector("#bc-div video");
+          if (vid?.srcObject) {
+            const track = vid.srcObject.getVideoTracks()[0];
             if (track) {
               trackRef.current = track;
               const caps = track.getCapabilities?.() || {};
@@ -381,44 +381,59 @@
             }
           }
 
-          // Multi-angle rotation scanner: cycles through 45°, 90°, 135° to catch any orientation
+          // All-angle scanner — BarcodeDetector (native, all angles) or canvas-rotation fallback
           try {
-            const rotDiv = document.createElement("div");
-            rotDiv.id = "bc-rot-div";
-            rotDiv.style.cssText = "position:absolute;width:1px;height:1px;overflow:hidden;opacity:0;pointer-events:none;";
-            document.body.appendChild(rotDiv);
-            const rotScanner = new Html5Qrcode("bc-rot-div");
-            rotScannerRef.current = rotScanner;
+            if ("BarcodeDetector" in window) {
+              // Native API: handles every orientation at full speed
+              BarcodeDetector.getSupportedFormats().then(supported => {
+                const want = ["ean_13","ean_8","code_128","code_39","qr_code","upc_a","upc_e","itf"];
+                const formats = want.filter(f => supported.includes(f));
+                const detector = new BarcodeDetector({ formats: formats.length ? formats : supported });
+                rotIntervalRef.current = setInterval(async () => {
+                  if (done || !vid || !vid.videoWidth) return;
+                  try {
+                    const results = await detector.detect(vid);
+                    if (results.length && !done) { done = true; onScan(results[0].rawValue); }
+                  } catch {}
+                }, 120);
+              }).catch(() => {});
+            } else {
+              // Fallback: rotate canvas frame through 45°/90°/135° and feed to html5-qrcode scanFile
+              const rotDiv = document.createElement("div");
+              rotDiv.id = "bc-rot-div";
+              rotDiv.style.cssText = "position:absolute;width:1px;height:1px;overflow:hidden;opacity:0;pointer-events:none;";
+              document.body.appendChild(rotDiv);
+              const rotScanner = new Html5Qrcode("bc-rot-div");
+              rotScannerRef.current = rotScanner;
 
-            const vid = document.querySelector("#bc-div video");
-            const canvas = document.createElement("canvas");
-            const ctx = canvas.getContext("2d");
-            const angles = [45, 90, 135]; // 0° handled by main scanner
-            let angleIdx = 0;
+              const canvas = document.createElement("canvas");
+              const ctx = canvas.getContext("2d");
+              const angles = [45, 90, 135];
+              let angleIdx = 0;
+              let busy = false;
 
-            rotIntervalRef.current = setInterval(() => {
-              if (done || !vid || !vid.videoWidth) return;
-              const deg = angles[angleIdx % angles.length];
-              angleIdx++;
-              const rad = deg * Math.PI / 180;
-              const w = vid.videoWidth, h = vid.videoHeight;
-              // Compute bounding box for rotated image
-              const nw = Math.round(Math.abs(w * Math.cos(rad)) + Math.abs(h * Math.sin(rad)));
-              const nh = Math.round(Math.abs(w * Math.sin(rad)) + Math.abs(h * Math.cos(rad)));
-              canvas.width = nw;
-              canvas.height = nh;
-              ctx.save();
-              ctx.translate(nw / 2, nh / 2);
-              ctx.rotate(rad);
-              ctx.drawImage(vid, -w / 2, -h / 2, w, h);
-              ctx.restore();
-              canvas.toBlob(blob => {
-                if (done || !blob) return;
-                rotScanner.scanFile(new File([blob], "rot.jpg", { type: "image/jpeg" }), false)
-                  .then(text => { if (!done) { done = true; onScan(text); } })
-                  .catch(() => {});
-              }, "image/jpeg", 0.85);
-            }, 300);
+              rotIntervalRef.current = setInterval(() => {
+                if (done || busy || !vid || !vid.videoWidth) return;
+                busy = true;
+                const rad = angles[angleIdx++ % angles.length] * Math.PI / 180;
+                const w = vid.videoWidth, h = vid.videoHeight;
+                const nw = Math.round(Math.abs(w * Math.cos(rad)) + Math.abs(h * Math.sin(rad)));
+                const nh = Math.round(Math.abs(w * Math.sin(rad)) + Math.abs(h * Math.cos(rad)));
+                canvas.width = nw; canvas.height = nh;
+                ctx.save();
+                ctx.translate(nw / 2, nh / 2);
+                ctx.rotate(rad);
+                ctx.drawImage(vid, -w / 2, -h / 2, w, h);
+                ctx.restore();
+                canvas.toBlob(blob => {
+                  if (done || !blob) { busy = false; return; }
+                  rotScanner.scanFile(new File([blob], "rot.jpg", { type: "image/jpeg" }), false)
+                    .then(text => { if (!done) { done = true; onScan(text); } })
+                    .catch(() => {})
+                    .finally(() => { busy = false; });
+                }, "image/jpeg", 0.85);
+              }, 250);
+            }
           } catch {}
         }).catch(() => {
           if (!done) setErr("Kamera-Zugriff verweigert oder nicht verfügbar.");
