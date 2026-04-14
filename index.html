@@ -307,6 +307,36 @@
       <div style={{ fontFamily: "Syne", fontSize: 10, color: C.muted, textTransform: "uppercase", letterSpacing: 1.2, marginBottom: 10 }}>{children}</div>
     );
 
+    // MacroInput: controlled input das Dezimalstellen und Leerfeld korrekt behandelt.
+    // Intern wird der rohe String gehalten; parseFloat wird erst onBlur committet.
+    const MacroInput = ({ value, onChange, color, style: sx }) => {
+      const [draft, setDraft] = React.useState(null); // null = nicht im Edit-Modus
+      const displayVal = draft !== null ? draft : (value === 0 || value === "0" ? "0" : String(Math.round(parseFloat(value || 0) * 10) / 10));
+      return (
+        <input
+          type="text"
+          inputMode="decimal"
+          value={displayVal}
+          onChange={e => {
+            const raw = e.target.value.replace(",", "."); // Komma → Punkt
+            // Nur Ziffern, Punkt und führendes Minus erlauben
+            if (/^-?\d*\.?\d*$/.test(raw) || raw === "") setDraft(raw);
+          }}
+          onFocus={e => {
+            // Beim Fokus: zeige vollen Wert als String, select all
+            setDraft(String(Math.round(parseFloat(value || 0) * 10) / 10));
+            e.target.select();
+          }}
+          onBlur={() => {
+            const parsed = parseFloat(draft);
+            onChange(isNaN(parsed) ? 0 : Math.round(parsed * 100) / 100);
+            setDraft(null);
+          }}
+          style={sx}
+        />
+      );
+    };
+
     function BarcodeScanner({ onScan, onClose }) {
       const scannerRef = useRef(null);
       const [err, setErr] = useState(null);
@@ -1300,7 +1330,7 @@
         } catch (e) { setErr("Die Zutaten konnten nicht analysiert werden. Bitte prüfe deine Internetverbindung und versuche es erneut."); setStep(STEP.entering); }
       };
 
-      const updateItem = (i, field, val) => setItems(p => p.map((it, idx) => idx === i ? { ...it, [field]: parseFloat(val) || 0 } : it));
+      const updateItem = (i, field, val) => setItems(p => p.map((it, idx) => idx === i ? { ...it, [field]: val } : it));
       const totals = items.reduce((a, it) => ({ kcal: a.kcal + (it.kcal || 0), protein: a.protein + (it.protein || 0), carbs: a.carbs + (it.carbs || 0), fat: a.fat + (it.fat || 0) }), { kcal: 0, protein: 0, carbs: 0, fat: 0 });
 
       const saveMealprep = () => {
@@ -1550,7 +1580,7 @@
                       {MACROS.map(m => (
                         <div key={m}>
                           <div style={{ fontFamily: "Syne", fontSize: 9, color: MC[m], textTransform: "uppercase", marginBottom: 2 }}>{m}</div>
-                          <input type="text" inputMode="decimal" value={Math.round(item[m] * 10) / 10} onChange={e => updateItem(i, m, e.target.value)} style={{ ...inputStyle, fontFamily: "Inter", fontSize: 13, color: MC[m], padding: "6px 8px" }} />
+                          <MacroInput value={item[m]} onChange={val => updateItem(i, m, val)} color={MC[m]} style={{ ...inputStyle, fontFamily: "Inter", fontSize: 13, color: MC[m], padding: "6px 8px" }} />
                         </div>
                       ))}
                     </div>
@@ -1626,7 +1656,7 @@
                       {MACROS.map(m => (
                         <div key={m}>
                           <div style={{ fontFamily: "Syne", fontSize: 9, color: MC[m], textTransform: "uppercase", marginBottom: 2 }}>{m}</div>
-                          <input type="text" inputMode="decimal" value={Math.round(item[m]*10)/10} onChange={e => setEditingRecipe(p => ({ ...p, items: p.items.map((it,idx) => idx===i ? { ...it, [m]: parseFloat(e.target.value)||0 } : it) }))} style={{ ...inputStyle, fontFamily: "Inter", fontSize: 13, color: MC[m], padding: "6px 8px" }} />
+                          <MacroInput value={item[m]} onChange={val => setEditingRecipe(p => ({ ...p, items: p.items.map((it,idx) => idx===i ? { ...it, [m]: val } : it) }))} style={{ ...inputStyle, fontFamily: "Inter", fontSize: 13, color: MC[m], padding: "6px 8px" }} />
                         </div>
                       ))}
                     </div>
@@ -1668,9 +1698,7 @@
                                 {MACROS.map(m => (
                                   <div key={m}>
                                     <div style={{ fontFamily: "Syne", fontSize: 9, color: MC[m], textTransform: "uppercase", marginBottom: 2 }}>{m}</div>
-                                    <input type="text" inputMode="decimal" value={Math.round(item[m]*10)/10}
-                                      onChange={e => setAddIngItems(p => p.map((it,idx) => idx===i ? { ...it, [m]: parseFloat(e.target.value)||0 } : it))}
-                                      style={{ ...inputStyle, fontFamily: "Inter", fontSize: 13, color: MC[m], padding: "6px 8px" }} />
+                                    <MacroInput value={item[m]} onChange={val => setAddIngItems(p => p.map((it,idx) => idx===i ? { ...it, [m]: val } : it))} style={{ ...inputStyle, fontFamily: "Inter", fontSize: 13, color: MC[m], padding: "6px 8px" }} />
                                   </div>
                                 ))}
                               </div>
@@ -2195,10 +2223,10 @@
         if (idx !== i) return it;
         if (field === "weight_g") {
           const w = parseFloat(val) || 0;
-          if (w > 0 && it.kcal_100 != null) return { ...it, weight_g: w, kcal: Math.round(it.kcal_100*w/100), protein: Math.round(it.protein_100*w/100*10)/10, carbs: Math.round(it.carbs_100*w/100*10)/10, fat: Math.round(it.fat_100*w/100*10)/10 };
-          return { ...it, weight_g: parseFloat(val)||0 };
+          if (w > 0 && it.kcal_100 != null) return { ...it, weight_g: val, kcal: Math.round(it.kcal_100*w/100), protein: Math.round(it.protein_100*w/100*10)/10, carbs: Math.round(it.carbs_100*w/100*10)/10, fat: Math.round(it.fat_100*w/100*10)/10 };
+          return { ...it, weight_g: val };
         }
-        return { ...it, [field]: parseFloat(val)||0 };
+        return { ...it, [field]: val };
       }));
 
       const saveAddEntry = async () => {
@@ -2396,7 +2424,7 @@
                                     {MACROS.map(m => (
                                       <div key={m}>
                                         <div style={{ fontFamily: "Syne", fontSize: 8, color: MC[m], textTransform: "uppercase", marginBottom: 2 }}>{m}</div>
-                                        <input type="text" inputMode="decimal" value={Math.round((item[m]||0)*10)/10} onChange={e => updateAddItem(i,m,e.target.value)} style={{ ...iStyle, color: MC[m] }} />
+                                        <MacroInput value={item[m]||0} onChange={val => updateAddItem(i,m,val)} style={{ ...iStyle, color: MC[m] }} />
                                       </div>
                                     ))}
                                   </div>
