@@ -381,7 +381,7 @@
             }
           }
 
-          // Parallel rotation scanner: catches vertical barcodes by scanning a 90°-rotated frame
+          // Multi-angle rotation scanner: cycles through 45°, 90°, 135° to catch any orientation
           try {
             const rotDiv = document.createElement("div");
             rotDiv.id = "bc-rot-div";
@@ -393,15 +393,23 @@
             const vid = document.querySelector("#bc-div video");
             const canvas = document.createElement("canvas");
             const ctx = canvas.getContext("2d");
+            const angles = [45, 90, 135]; // 0° handled by main scanner
+            let angleIdx = 0;
 
             rotIntervalRef.current = setInterval(() => {
               if (done || !vid || !vid.videoWidth) return;
+              const deg = angles[angleIdx % angles.length];
+              angleIdx++;
+              const rad = deg * Math.PI / 180;
               const w = vid.videoWidth, h = vid.videoHeight;
-              canvas.width = h;
-              canvas.height = w;
+              // Compute bounding box for rotated image
+              const nw = Math.round(Math.abs(w * Math.cos(rad)) + Math.abs(h * Math.sin(rad)));
+              const nh = Math.round(Math.abs(w * Math.sin(rad)) + Math.abs(h * Math.cos(rad)));
+              canvas.width = nw;
+              canvas.height = nh;
               ctx.save();
-              ctx.translate(h / 2, w / 2);
-              ctx.rotate(Math.PI / 2);
+              ctx.translate(nw / 2, nh / 2);
+              ctx.rotate(rad);
               ctx.drawImage(vid, -w / 2, -h / 2, w, h);
               ctx.restore();
               canvas.toBlob(blob => {
@@ -410,7 +418,7 @@
                   .then(text => { if (!done) { done = true; onScan(text); } })
                   .catch(() => {});
               }, "image/jpeg", 0.85);
-            }, 600);
+            }, 300);
           } catch {}
         }).catch(() => {
           if (!done) setErr("Kamera-Zugriff verweigert oder nicht verfügbar.");
