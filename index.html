@@ -338,196 +338,61 @@
     };
 
     function BarcodeScanner({ onScan, onClose }) {
-      const videoRef   = useRef(null);
-      const trackRef   = useRef(null);
-      const rafRef     = useRef(null);
       const scannerRef = useRef(null);
-      const doneRef    = useRef(false);
-      const [err, setErr]         = useState(null);
-      const [torch, setTorch]     = useState(false);
-      const [torchOk, setTorchOk] = useState(false);
-
-      const toggleTorch = async () => {
-        const track = trackRef.current;
-        if (!track) return;
-        const next = !torch;
-        try {
-          await track.applyConstraints({ advanced: [{ torch: next }] });
-          setTorch(next);
-        } catch (e) {
-          console.warn("Torch failed:", e);
-        }
-      };
+      const [err, setErr] = useState(null);
 
       useEffect(() => {
-        let stream;
-        doneRef.current = false;
+        let done = false;
+        let scanner;
+        try {
+          scanner = new Html5Qrcode("bc-div");
+          scannerRef.current = scanner;
+        } catch { onClose(); return; }
 
-        const start = async () => {
-          // Weiteste Linse: zoom auf Minimum, kein Autofokus-Constraint
-          try {
-            stream = await navigator.mediaDevices.getUserMedia({
-              video: {
-                facingMode: "environment",
-                width:  { ideal: 1920 },
-                height: { ideal: 1080 },
-              },
-            });
-          } catch {
-            setErr("Kein Kamerazugriff. Bitte in den Browser-Einstellungen erlauben.");
-            return;
+        // QR_CODE=0, CODE_39=3, CODE_128=5, EAN_13=9, EAN_8=10, UPC_A=14, UPC_E=15
+        const formats = [0, 3, 5, 9, 10, 14, 15];
+
+        scanner.start(
+          { facingMode: "environment" },
+          { fps: 15, qrbox: (vw, vh) => ({ width: Math.round(Math.min(vw, vh) * 0.85), height: Math.round(Math.min(vw, vh) * 0.35) }), formatsToSupport: formats },
+          (text) => {
+            if (done) return;
+            done = true;
+            onScan(text);
+          },
+          () => {}
+        ).then(() => {
+          const video = document.querySelector("#bc-div video");
+          if (video?.srcObject) {
+            const track = video.srcObject.getVideoTracks()[0];
+            if (track) {
+              const caps = track.getCapabilities?.() || {};
+              const constraints = { advanced: [] };
+              if (caps.focusMode?.includes("continuous")) constraints.advanced.push({ focusMode: "continuous" });
+              if (caps.zoom) constraints.advanced.push({ zoom: caps.zoom.min ?? 1 });
+              if (constraints.advanced.length) track.applyConstraints(constraints).catch(() => {});
+            }
           }
-
-          const track = stream.getVideoTracks()[0];
-          trackRef.current = track;
-
-          // Erst Video starten — Constraints erst danach setzen (Track muss aktiv sein)
-          const video = videoRef.current;
-          if (!video) return;
-          video.srcObject = stream;
-          video.setAttribute("playsinline", "true");
-          await video.play().catch(() => {});
-
-          // Capabilities erst nach play() verlässlich auslesen
-          const caps = track.getCapabilities?.() || {};
-          const adv = [];
-
-          // Weiteste Linse: minimaler Zoom
-          if (caps.zoom) adv.push({ zoom: caps.zoom.min ?? 1 });
-
-          // Fokus: single-shot → fokussiert einmal scharf, bleibt dann stehen
-          // Kein continuous (jagt nach), kein manual (unscharf)
-          if (caps.focusMode?.includes("single-shot")) adv.push({ focusMode: "single-shot" });
-
-          // Taschenlampe: Capability prüfen
-          if (caps.torch === true) setTorchOk(true);
-
-          if (adv.length) track.applyConstraints({ advanced: adv }).catch(() => {});
-
-          // ── Native BarcodeDetector (Chrome/Android, sehr schnell) ──────────
-          const FORMATS = ["ean_13","ean_8","upc_a","upc_e","code_128","code_39","qr_code","itf","codabar","data_matrix"];
-          let detector = null;
-          if ("BarcodeDetector" in window) {
-            try { detector = new BarcodeDetector({ formats: FORMATS }); } catch {}
-          }
-
-          if (detector) {
-            const scan = async () => {
-              if (doneRef.current) return;
-              if (video.readyState >= 2) {
-                try {
-                  const codes = await detector.detect(video);
-                  if (codes.length > 0 && !doneRef.current) {
-                    doneRef.current = true;
-                    navigator.vibrate?.([40, 30, 40]);
-                    onScan(codes[0].rawValue);
-                    return;
-                  }
-                } catch {}
-              }
-              rafRef.current = requestAnimationFrame(scan);
-            };
-            rafRef.current = requestAnimationFrame(scan);
-
-          } else if (typeof Html5Qrcode !== "undefined") {
-            // ── Fallback: global geladenes Html5Qrcode ──────────────────────
-            // Stream stoppen bevor Html5Qrcode seinen eigenen öffnet
-            stream.getTracks().forEach(t => t.stop());
-            stream = null;
-            try {
-              const scanner = new Html5Qrcode("bc-fallback");
-              scannerRef.current = scanner;
-              await scanner.start(
-                { facingMode: "environment" },
-                {
-                  fps: 25,
-                  qrbox: (vw, vh) => ({ width: vw, height: vh }), // voller Screen
-                  formatsToSupport: [0, 3, 5, 9, 10, 14, 15],
-                },
-                (text) => {
-                  if (doneRef.current) return;
-                  doneRef.current = true;
-                  navigator.vibrate?.([40, 30, 40]);
-                  onScan(text);
-                },
-                () => {}
-              );
-            } catch { setErr("Scanner konnte nicht gestartet werden."); }
-          } else {
-            setErr("Dieser Browser unterstützt keinen Barcode-Scanner.");
-          }
-        };
-
-        start();
+        }).catch(() => {
+          if (!done) setErr("Kamera-Zugriff verweigert oder nicht verfügbar.");
+        });
 
         return () => {
-          doneRef.current = true;
-          cancelAnimationFrame(rafRef.current);
-          // Taschenlampe aus
-          try { trackRef.current?.applyConstraints({ advanced: [{ torch: false }] }); } catch {}
-          trackRef.current?.stop();
-          stream?.getTracks().forEach(t => t.stop());
-          // Html5Qrcode stoppen
-          if (scannerRef.current) {
-            try { scannerRef.current.stop().catch(() => {}); } catch {}
-          }
+          done = true;
+          try { scannerRef.current?.stop().catch(() => {}); } catch {}
         };
       }, []);
 
       return (
-        <div style={{ position: "fixed", inset: 0, zIndex: 200, background: "#000", overflow: "hidden" }}>
-          {/* Vollbild-Video */}
-          <video ref={videoRef} playsInline muted
-            style={{ position: "absolute", inset: 0, width: "100%", height: "100%", objectFit: "cover" }} />
-          {/* Html5Qrcode Fallback-Container */}
-          <div id="bc-fallback" style={{ position: "absolute", inset: 0, zIndex: 0 }} />
-
-          {/* Ecken-Rahmen */}
-          {[["0%","0%",0,0],["100%","0%",-1,0],["0%","100%",0,-1],["100%","100%",-1,-1]].map(([l,t,tx,ty],i) => (
-            <div key={i} style={{
-              position: "absolute", left: l, top: t,
-              width: 32, height: 32,
-              transform: `translate(${tx*100}%, ${ty*100}%)`,
-              borderTop:  `${ty===0?"3px solid #f97316":"none"}`,
-              borderBottom: `${ty!==0?"3px solid #f97316":"none"}`,
-              borderLeft:  `${tx===0?"3px solid #f97316":"none"}`,
-              borderRight: `${tx!==0?"3px solid #f97316":"none"}`,
-              borderRadius: tx===0&&ty===0?"3px 0 0 0":tx!==0&&ty===0?"0 3px 0 0":tx===0&&ty!==0?"0 0 0 3px":"0 0 3px 0",
-              pointerEvents: "none", zIndex: 3,
-            }} />
-          ))}
-
-          {/* Header */}
-          <div style={{ position: "absolute", top: 0, left: 0, right: 0, padding: "52px 20px 20px", background: "linear-gradient(to bottom, #000d 0%, transparent 100%)", zIndex: 4, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-            <div style={{ fontFamily: "Syne", fontSize: 16, fontWeight: 800, color: "#fff" }}>
-              makro<span style={{ color: "#f97316" }}>.</span>
-            </div>
-            <button onClick={onClose} style={{ background: "rgba(0,0,0,0.45)", backdropFilter: "blur(8px)", border: "1px solid rgba(255,255,255,0.15)", borderRadius: "50%", width: 36, height: 36, color: "#fff", fontSize: 18, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center" }}>✕</button>
+        <div style={{ position: "fixed", inset: 0, zIndex: 200, background: "#000" }}>
+          <div id="bc-div" style={{ position: "absolute", inset: 0 }} />
+          <div style={{ position: "absolute", top: 0, left: 0, right: 0, padding: "52px 16px 16px", background: "linear-gradient(#000e, transparent)", zIndex: 1, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+            <span style={{ fontFamily: "Syne", fontSize: 16, fontWeight: 700, color: "#fff" }}>Barcode scannen</span>
+            <button onClick={onClose} style={{ background: "none", border: "none", color: "#fff", fontSize: 26, cursor: "pointer", padding: 4 }}>✕</button>
           </div>
-
-          {/* Footer */}
-          <div style={{ position: "absolute", bottom: 0, left: 0, right: 0, padding: "24px 24px calc(32px + env(safe-area-inset-bottom))", background: "linear-gradient(to top, #000d 0%, transparent 100%)", zIndex: 4, display: "flex", flexDirection: "column", alignItems: "center", gap: 16 }}>
-            {torchOk && (
-              <button onClick={toggleTorch} style={{
-                background: torch ? "#f97316" : "rgba(0,0,0,0.45)",
-                backdropFilter: "blur(8px)",
-                border: `1px solid ${torch ? "#f97316" : "rgba(255,255,255,0.2)"}`,
-                borderRadius: "50%", width: 54, height: 54,
-                display: "flex", alignItems: "center", justifyContent: "center",
-                cursor: "pointer", transition: "background 0.2s, border 0.2s",
-              }}>
-                {/* Taschenlampen-Icon (Licht-Kegel) */}
-                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke={torch ? "#000" : "#fff"} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-                  <polygon points="7,2 17,2 22,8 12,22 2,8" fill={torch ? "rgba(0,0,0,0.15)" : "rgba(255,255,255,0.1)"} stroke={torch ? "#000" : "#fff"} strokeWidth="1.6"/>
-                  <line x1="7" y1="2" x2="2" y2="8"/>
-                  <line x1="17" y1="2" x2="22" y2="8"/>
-                  <line x1="2" y1="8" x2="22" y2="8"/>
-                  <circle cx="12" cy="7" r="1.5" fill={torch ? "#000" : "#fff"} stroke="none"/>
-                </svg>
-              </button>
-            )}
-            <span style={{ fontFamily: "Syne", fontSize: 13, color: err ? "#f87171" : "rgba(255,255,255,0.55)", textAlign: "center" }}>
-              {err || "Barcode wird automatisch erkannt"}
+          <div style={{ position: "absolute", bottom: 0, left: 0, right: 0, padding: "16px 16px 36px", background: "linear-gradient(transparent, #000e)", zIndex: 1, textAlign: "center" }}>
+            <span style={{ fontFamily: "Syne", fontSize: 13, color: err ? "#f87171" : "#aaa" }}>
+              {err || "Halte den Barcode in den Rahmen"}
             </span>
           </div>
         </div>
