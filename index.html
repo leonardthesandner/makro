@@ -549,7 +549,7 @@
           navigator.vibrate?.([40, 60, 40]);
           setItems(enriched);
           if (!text.trim()) setText("Foto-Analyse");
-        } catch (e) { setErr("Bildanalyse fehlgeschlagen: " + e.message); setImagePreview(null); }
+        } catch (e) { setErr("Das Bild konnte nicht analysiert werden. Bitte versuche es erneut oder gib die Mahlzeit manuell ein."); setImagePreview(null); }
         setImageAnalyzing(false);
         e.target.value = "";
       };
@@ -613,14 +613,14 @@
               });
               const data = await res.json();
               if (data.text) setText(p => (p ? p + " " + data.text : data.text).slice(0, 200));
-              else if (data.error) setErr("Spracheingabe: " + data.error);
-            } catch (e) { setErr("Spracheingabe fehlgeschlagen"); }
+              else if (data.error) setErr("Spracherkennung fehlgeschlagen. Bitte noch einmal versuchen.");
+            } catch (e) { setErr("Sprachaufnahme konnte nicht verarbeitet werden. Bitte noch einmal versuchen."); }
             setTranscribing(false);
           };
           mediaRecorderRef.current = recorder;
           recorder.start();
           setListening(true);
-        } catch { setErr("Mikrofon-Zugriff verweigert"); }
+        } catch { setErr("Kein Mikrofon-Zugriff. Bitte erlaube den Mikrofonzugriff in den Browser-Einstellungen."); }
       };
 
       const handleBarcodeScan = async (barcode) => {
@@ -636,7 +636,7 @@
             setBarcodeErr(`Produkt nicht gefunden (${barcode})`);
           }
         } catch (e) {
-          setBarcodeErr("Suche fehlgeschlagen: " + e.message);
+          setBarcodeErr("Produkt konnte nicht gefunden werden. Bitte prüfe die Internetverbindung und versuche es erneut.");
         }
         setBarcodeLoading(false);
       };
@@ -683,7 +683,7 @@
             return item;
           });
           setItems(enriched);
-        } catch (e) { setErr("Analyse fehlgeschlagen: " + e.message); }
+        } catch (e) { setErr("Die Mahlzeit konnte nicht analysiert werden. Bitte prüfe deine Internetverbindung und versuche es erneut."); }
         setLoading(false);
       };
 
@@ -769,7 +769,7 @@
             </div>
           </Card>
 
-          {loading && <div className="pulsing" style={{ textAlign: "center", padding: 24, fontFamily: "Syne", fontSize: 14, color: C.muted }}>Claude analysiert deine Mahlzeit…</div>}
+          {loading && <div className="pulsing" style={{ textAlign: "center", padding: 24, fontFamily: "Syne", fontSize: 14, color: C.muted }}>KI analysiert deine Mahlzeit…</div>}
           {imageAnalyzing && (
             <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 10 }}>
               {imagePreview && <img src={imagePreview} alt="" style={{ width: "100%", maxHeight: 200, objectFit: "cover", borderRadius: 12, border: `1px solid ${C.border}` }} />}
@@ -1269,7 +1269,7 @@
           setItems(data.items);
           setCookedWeight(String(Math.round(data.raw_weight_g * 0.85)));
           setStep(STEP.naming);
-        } catch (e) { setErr("Analyse fehlgeschlagen: " + e.message); setStep(STEP.entering); }
+        } catch (e) { setErr("Die Zutaten konnten nicht analysiert werden. Bitte prüfe deine Internetverbindung und versuche es erneut."); setStep(STEP.entering); }
       };
 
       const updateItem = (i, field, val) => setItems(p => p.map((it, idx) => idx === i ? { ...it, [field]: parseFloat(val) || 0 } : it));
@@ -1350,7 +1350,7 @@
           if (data.text) {
             setIngredientText(p => p.trim() ? p.trim() + "\n" + data.text : data.text);
           }
-        } catch (e) { setErr("Rezept-Erkennung fehlgeschlagen: " + e.message); }
+        } catch (e) { setErr("Das Rezeptfoto konnte nicht gelesen werden. Bitte ein deutlicheres Foto machen oder die Zutaten manuell eingeben."); }
         setMpImageAnalyzing(false);
       };
 
@@ -1360,7 +1360,7 @@
         try {
           const data = await analyzeRecipe(addIngText);
           setAddIngItems(data.items || []);
-        } catch (e) { setErr("Analyse fehlgeschlagen: " + e.message); }
+        } catch (e) { setErr("Die Zutat konnte nicht analysiert werden. Bitte erneut versuchen."); }
         setAddIngLoading(false);
       };
 
@@ -1404,14 +1404,14 @@
               });
               const data = await res.json();
               if (data.text) setIngredientText(p => p.trim() ? p.trim() + "\n" + data.text : data.text);
-              else if (data.error) setErr("Spracheingabe: " + data.error);
-            } catch { setErr("Spracheingabe fehlgeschlagen"); }
+              else if (data.error) setErr("Spracherkennung fehlgeschlagen. Bitte noch einmal versuchen.");
+            } catch { setErr("Sprachaufnahme konnte nicht verarbeitet werden. Bitte noch einmal versuchen."); }
             setMpTranscribing(false);
           };
           mpMediaRecorderRef.current = recorder;
           recorder.start();
           setMpListening(true);
-        } catch { setErr("Mikrofon-Zugriff verweigert"); }
+        } catch { setErr("Kein Mikrofon-Zugriff. Bitte erlaube den Mikrofonzugriff in den Browser-Einstellungen."); }
       };
 
       const handleMpBarcodeScan = async (barcode) => {
@@ -1424,7 +1424,7 @@
           } else {
             setMpBarcodeErr(`Produkt nicht gefunden (${barcode})`);
           }
-        } catch (e) { setMpBarcodeErr("Barcode-Suche fehlgeschlagen: " + e.message); }
+        } catch (e) { setMpBarcodeErr("Produkt konnte nicht gefunden werden. Bitte prüfe die Internetverbindung und versuche es erneut."); }
         setMpBarcodeLoading(false);
       };
 
@@ -1456,9 +1456,13 @@
 
             {step === STEP.entering && (
               <Card accent style={{ display: "flex", flexDirection: "column" }}>
-                <div style={{ padding: "12px 14px 0", fontFamily: "Syne", fontSize: 12, color: C.accent, marginBottom: 6 }}>Zutaten eingeben (roh, vor dem Kochen)</div>
-                <textarea ref={mpTextareaRef} value={ingredientText} onChange={e => setIngredientText(e.target.value)}
+                <div style={{ padding: "12px 14px 0", display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 6 }}>
+                  <span style={{ fontFamily: "Syne", fontSize: 12, color: C.accent }}>Zutaten eingeben (roh, vor dem Kochen)</span>
+                  <span style={{ fontFamily: "Inter", fontSize: 10, color: ingredientText.length > 450 ? C.danger : C.muted }}>{ingredientText.length}/500</span>
+                </div>
+                <textarea ref={mpTextareaRef} value={ingredientText} onChange={e => setIngredientText(e.target.value.slice(0, 500))}
                   placeholder={"1000g rohes Hühnchen\n1 Dose gehackte Tomaten\n1 EL Olivenöl\n1 Packung Sahne 20%\nSalz, Pfeffer, Knoblauch"}
+                  maxLength={500}
                   style={{ width: "100%", minHeight: 140, background: "transparent", border: "none", outline: "none", padding: "8px 14px 12px", color: C.text, fontFamily: "Syne", fontSize: 15, lineHeight: 1.7 }} />
                 {mpSuggestions.length > 0 && (
                   <div style={{ display: "flex", gap: 6, flexWrap: "wrap", padding: "0 12px 10px" }}>
@@ -1502,7 +1506,7 @@
               </Card>
             )}
 
-            {step === STEP.analyzing && <div className="pulsing" style={{ textAlign: "center", padding: 32, fontFamily: "Syne", fontSize: 14, color: C.muted }}>Claude analysiert die Zutaten…</div>}
+            {step === STEP.analyzing && <div className="pulsing" style={{ textAlign: "center", padding: 32, fontFamily: "Syne", fontSize: 14, color: C.muted }}>KI analysiert die Zutaten…</div>}
             {err && <div style={{ background: "#f8717112", border: `1px solid #f8717128`, borderRadius: 8, padding: "10px 14px", color: C.danger, fontFamily: "Syne", fontSize: 13 }}>{err}</div>}
 
             {step === STEP.naming && (
