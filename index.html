@@ -350,10 +350,13 @@
       const toggleTorch = async () => {
         const track = trackRef.current;
         if (!track) return;
+        const next = !torch;
         try {
-          await track.applyConstraints({ advanced: [{ torch: !torch }] });
-          setTorch(t => !t);
-        } catch {}
+          await track.applyConstraints({ advanced: [{ torch: next }] });
+          setTorch(next);
+        } catch (e) {
+          console.warn("Torch failed:", e);
+        }
       };
 
       useEffect(() => {
@@ -378,19 +381,28 @@
           const track = stream.getVideoTracks()[0];
           trackRef.current = track;
 
-          // Zoom auf Minimum setzen → weiteste verfügbare Linse
-          const caps = track.getCapabilities?.() || {};
-          const adv = [];
-          if (caps.zoom)    adv.push({ zoom: caps.zoom.min ?? 1 });
-          if (caps.torch !== undefined) setTorchOk(true);
-          // Kein focusMode-Constraint — Standardverhalten des Geräts ist besser
-          if (adv.length) track.applyConstraints({ advanced: adv }).catch(() => {});
-
+          // Erst Video starten — Constraints erst danach setzen (Track muss aktiv sein)
           const video = videoRef.current;
           if (!video) return;
           video.srcObject = stream;
           video.setAttribute("playsinline", "true");
           await video.play().catch(() => {});
+
+          // Capabilities erst nach play() verlässlich auslesen
+          const caps = track.getCapabilities?.() || {};
+          const adv = [];
+
+          // Weiteste Linse: minimaler Zoom
+          if (caps.zoom) adv.push({ zoom: caps.zoom.min ?? 1 });
+
+          // Fokus: single-shot → fokussiert einmal scharf, bleibt dann stehen
+          // Kein continuous (jagt nach), kein manual (unscharf)
+          if (caps.focusMode?.includes("single-shot")) adv.push({ focusMode: "single-shot" });
+
+          // Taschenlampe: Capability prüfen
+          if (caps.torch === true) setTorchOk(true);
+
+          if (adv.length) track.applyConstraints({ advanced: adv }).catch(() => {});
 
           // ── Native BarcodeDetector (Chrome/Android, sehr schnell) ──────────
           const FORMATS = ["ean_13","ean_8","upc_a","upc_e","code_128","code_39","qr_code","itf","codabar","data_matrix"];
