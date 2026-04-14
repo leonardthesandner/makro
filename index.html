@@ -338,17 +338,15 @@
     };
 
     function BarcodeScanner({ onScan, onClose }) {
-      const videoRef  = useRef(null);
-      const canvasRef = useRef(null);
-      const trackRef  = useRef(null);
-      const rafRef    = useRef(null);
-      const doneRef   = useRef(false);
-      const [err, setErr]       = useState(null);
-      const [torch, setTorch]   = useState(false);
+      const videoRef   = useRef(null);
+      const trackRef   = useRef(null);
+      const rafRef     = useRef(null);
+      const scannerRef = useRef(null);
+      const doneRef    = useRef(false);
+      const [err, setErr]         = useState(null);
+      const [torch, setTorch]     = useState(false);
       const [torchOk, setTorchOk] = useState(false);
-      const [hint, setHint]     = useState("Richte die Kamera auf einen Barcode");
 
-      // Taschenlampe an/aus
       const toggleTorch = async () => {
         const track = trackRef.current;
         if (!track) return;
@@ -360,11 +358,17 @@
 
       useEffect(() => {
         let stream;
+        doneRef.current = false;
 
         const start = async () => {
+          // Weiteste Linse: zoom auf Minimum, kein Autofokus-Constraint
           try {
             stream = await navigator.mediaDevices.getUserMedia({
-              video: { facingMode: "environment", width: { ideal: 1280 }, height: { ideal: 720 } },
+              video: {
+                facingMode: "environment",
+                width:  { ideal: 1920 },
+                height: { ideal: 1080 },
+              },
             });
           } catch {
             setErr("Kein Kamerazugriff. Bitte in den Browser-Einstellungen erlauben.");
@@ -374,29 +378,28 @@
           const track = stream.getVideoTracks()[0];
           trackRef.current = track;
 
-          // Kamera-Optimierungen
+          // Zoom auf Minimum setzen → weiteste verfügbare Linse
           const caps = track.getCapabilities?.() || {};
           const adv = [];
-          if (caps.focusMode?.includes("continuous")) adv.push({ focusMode: "continuous" });
-          if (caps.exposureMode?.includes("continuous")) adv.push({ exposureMode: "continuous" });
-          if (caps.torch !== undefined) { setTorchOk(true); }
+          if (caps.zoom)    adv.push({ zoom: caps.zoom.min ?? 1 });
+          if (caps.torch !== undefined) setTorchOk(true);
+          // Kein focusMode-Constraint — Standardverhalten des Geräts ist besser
           if (adv.length) track.applyConstraints({ advanced: adv }).catch(() => {});
 
           const video = videoRef.current;
+          if (!video) return;
           video.srcObject = stream;
-          await video.play();
+          video.setAttribute("playsinline", "true");
+          await video.play().catch(() => {});
 
-          // BarcodeDetector (nativ, sehr schnell) oder Fallback auf html5-qrcode
+          // ── Native BarcodeDetector (Chrome/Android, sehr schnell) ──────────
           const FORMATS = ["ean_13","ean_8","upc_a","upc_e","code_128","code_39","qr_code","itf","codabar","data_matrix"];
-          let detector;
+          let detector = null;
           if ("BarcodeDetector" in window) {
-            try {
-              detector = new BarcodeDetector({ formats: FORMATS });
-            } catch { detector = null; }
+            try { detector = new BarcodeDetector({ formats: FORMATS }); } catch {}
           }
 
           if (detector) {
-            // Native BarcodeDetector: scannt jeden Frame, sehr schnell
             const scan = async () => {
               if (doneRef.current) return;
               if (video.readyState >= 2) {
@@ -413,16 +416,22 @@
               rafRef.current = requestAnimationFrame(scan);
             };
             rafRef.current = requestAnimationFrame(scan);
-          } else {
-            // Fallback: html5-qrcode (voller Bildschirm, kein qrbox)
+
+          } else if (typeof Html5Qrcode !== "undefined") {
+            // ── Fallback: global geladenes Html5Qrcode ──────────────────────
+            // Stream stoppen bevor Html5Qrcode seinen eigenen öffnet
+            stream.getTracks().forEach(t => t.stop());
+            stream = null;
             try {
-              const { Html5Qrcode } = await import("https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.esm.min.js").catch(() => ({}));
-              if (!Html5Qrcode) { setErr("Scanner nicht verfügbar."); return; }
               const scanner = new Html5Qrcode("bc-fallback");
-              trackRef.current._scanner = scanner;
+              scannerRef.current = scanner;
               await scanner.start(
                 { facingMode: "environment" },
-                { fps: 20, qrbox: undefined },
+                {
+                  fps: 25,
+                  qrbox: (vw, vh) => ({ width: vw, height: vh }), // voller Screen
+                  formatsToSupport: [0, 3, 5, 9, 10, 14, 15],
+                },
                 (text) => {
                   if (doneRef.current) return;
                   doneRef.current = true;
@@ -432,6 +441,8 @@
                 () => {}
               );
             } catch { setErr("Scanner konnte nicht gestartet werden."); }
+          } else {
+            setErr("Dieser Browser unterstützt keinen Barcode-Scanner.");
           }
         };
 
@@ -440,7 +451,14 @@
         return () => {
           doneRef.current = true;
           cancelAnimationFrame(rafRef.current);
-          stream?.getTracks().forEach(t => { try { t.applyConstraints({ advanced: [{ torch: false }] }); } catch {} t.stop(); });
+          // Taschenlampe aus
+          try { trackRef.current?.applyConstraints({ advanced: [{ torch: false }] }); } catch {}
+          trackRef.current?.stop();
+          stream?.getTracks().forEach(t => t.stop());
+          // Html5Qrcode stoppen
+          if (scannerRef.current) {
+            try { scannerRef.current.stop().catch(() => {}); } catch {}
+          }
         };
       }, []);
 
@@ -449,69 +467,57 @@
           {/* Vollbild-Video */}
           <video ref={videoRef} playsInline muted
             style={{ position: "absolute", inset: 0, width: "100%", height: "100%", objectFit: "cover" }} />
-          <canvas ref={canvasRef} style={{ display: "none" }} />
-          <div id="bc-fallback" style={{ display: "none" }} />
+          {/* Html5Qrcode Fallback-Container */}
+          <div id="bc-fallback" style={{ position: "absolute", inset: 0, zIndex: 0 }} />
 
-          {/* Scan-Linie Animation über gesamten Screen */}
-          <div style={{ position: "absolute", inset: 0, pointerEvents: "none", overflow: "hidden" }}>
-            <div style={{
-              position: "absolute", left: 0, right: 0, height: 2,
-              background: "linear-gradient(90deg, transparent, #f97316cc, #f97316, #f97316cc, transparent)",
-              boxShadow: "0 0 8px #f97316aa",
-              animation: "scanLine 2s ease-in-out infinite",
-            }} />
-          </div>
-
-          {/* Ecken-Rahmen als visueller Hinweis (dekorativ, kein Zwang) */}
-          {[["0%","0%","rotate(0deg)"],["100%","0%","rotate(90deg)"],["0%","100%","rotate(-90deg)"],["100%","100%","rotate(180deg)"]].map(([l,t,rot],i) => (
+          {/* Ecken-Rahmen */}
+          {[["0%","0%",0,0],["100%","0%",-1,0],["0%","100%",0,-1],["100%","100%",-1,-1]].map(([l,t,tx,ty],i) => (
             <div key={i} style={{
               position: "absolute", left: l, top: t,
-              width: 28, height: 28,
-              transform: `translate(${i%2===1?"-100%":"0"}, ${i>1?"-100%":"0"}) ${rot}`,
-              borderTop: "3px solid #f97316", borderLeft: "3px solid #f97316",
-              borderRadius: "3px 0 0 0", pointerEvents: "none",
+              width: 32, height: 32,
+              transform: `translate(${tx*100}%, ${ty*100}%)`,
+              borderTop:  `${ty===0?"3px solid #f97316":"none"}`,
+              borderBottom: `${ty!==0?"3px solid #f97316":"none"}`,
+              borderLeft:  `${tx===0?"3px solid #f97316":"none"}`,
+              borderRight: `${tx!==0?"3px solid #f97316":"none"}`,
+              borderRadius: tx===0&&ty===0?"3px 0 0 0":tx!==0&&ty===0?"0 3px 0 0":tx===0&&ty!==0?"0 0 0 3px":"0 0 3px 0",
+              pointerEvents: "none", zIndex: 3,
             }} />
           ))}
 
           {/* Header */}
-          <div style={{ position: "absolute", top: 0, left: 0, right: 0, padding: "52px 20px 20px", background: "linear-gradient(to bottom, #000d 0%, transparent 100%)", zIndex: 2, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+          <div style={{ position: "absolute", top: 0, left: 0, right: 0, padding: "52px 20px 20px", background: "linear-gradient(to bottom, #000d 0%, transparent 100%)", zIndex: 4, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
             <div style={{ fontFamily: "Syne", fontSize: 16, fontWeight: 800, color: "#fff" }}>
               makro<span style={{ color: "#f97316" }}>.</span>
             </div>
-            <button onClick={onClose} style={{ background: "rgba(255,255,255,0.12)", backdropFilter: "blur(8px)", border: "1px solid rgba(255,255,255,0.15)", borderRadius: "50%", width: 36, height: 36, color: "#fff", fontSize: 18, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center" }}>✕</button>
+            <button onClick={onClose} style={{ background: "rgba(0,0,0,0.45)", backdropFilter: "blur(8px)", border: "1px solid rgba(255,255,255,0.15)", borderRadius: "50%", width: 36, height: 36, color: "#fff", fontSize: 18, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center" }}>✕</button>
           </div>
 
           {/* Footer */}
-          <div style={{ position: "absolute", bottom: 0, left: 0, right: 0, padding: "24px 24px calc(32px + env(safe-area-inset-bottom))", background: "linear-gradient(to top, #000e 0%, transparent 100%)", zIndex: 2, display: "flex", flexDirection: "column", alignItems: "center", gap: 16 }}>
-            {/* Taschenlampe */}
+          <div style={{ position: "absolute", bottom: 0, left: 0, right: 0, padding: "24px 24px calc(32px + env(safe-area-inset-bottom))", background: "linear-gradient(to top, #000d 0%, transparent 100%)", zIndex: 4, display: "flex", flexDirection: "column", alignItems: "center", gap: 16 }}>
             {torchOk && (
               <button onClick={toggleTorch} style={{
-                background: torch ? "#f97316" : "rgba(255,255,255,0.12)",
+                background: torch ? "#f97316" : "rgba(0,0,0,0.45)",
                 backdropFilter: "blur(8px)",
-                border: `1px solid ${torch ? "#f97316" : "rgba(255,255,255,0.15)"}`,
-                borderRadius: "50%", width: 52, height: 52,
+                border: `1px solid ${torch ? "#f97316" : "rgba(255,255,255,0.2)"}`,
+                borderRadius: "50%", width: 54, height: 54,
                 display: "flex", alignItems: "center", justifyContent: "center",
-                cursor: "pointer", transition: "all 0.2s",
+                cursor: "pointer", transition: "background 0.2s, border 0.2s",
               }}>
-                <svg width="22" height="22" viewBox="0 0 24 24" fill={torch ? "#000" : "#fff"}>
-                  <path d="M9 2h6l1 7H8L9 2zm-1 7h8l-2 13H8L8 9zM8 9l-2 3h2m8-3l2 3h-2"/>
-                  <polygon points="8,9 16,9 14,22 10,22" fill={torch ? "#000" : "#fff"} opacity="0.9"/>
-                  <rect x="9" y="2" width="6" height="7" rx="1" fill={torch ? "#000" : "#fff"}/>
+                {/* Taschenlampen-Icon (Licht-Kegel) */}
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke={torch ? "#000" : "#fff"} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+                  <polygon points="7,2 17,2 22,8 12,22 2,8" fill={torch ? "rgba(0,0,0,0.15)" : "rgba(255,255,255,0.1)"} stroke={torch ? "#000" : "#fff"} strokeWidth="1.6"/>
+                  <line x1="7" y1="2" x2="2" y2="8"/>
+                  <line x1="17" y1="2" x2="22" y2="8"/>
+                  <line x1="2" y1="8" x2="22" y2="8"/>
+                  <circle cx="12" cy="7" r="1.5" fill={torch ? "#000" : "#fff"} stroke="none"/>
                 </svg>
               </button>
             )}
-            <span style={{ fontFamily: "Syne", fontSize: 13, color: err ? "#f87171" : "rgba(255,255,255,0.6)", textAlign: "center" }}>
+            <span style={{ fontFamily: "Syne", fontSize: 13, color: err ? "#f87171" : "rgba(255,255,255,0.55)", textAlign: "center" }}>
               {err || "Barcode wird automatisch erkannt"}
             </span>
           </div>
-
-          <style>{`
-            @keyframes scanLine {
-              0%   { top: 10%; }
-              50%  { top: 90%; }
-              100% { top: 10%; }
-            }
-          `}</style>
         </div>
       );
     }
