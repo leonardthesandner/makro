@@ -14,6 +14,7 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Syne:wght@400;600;700;800&display=swap" rel="stylesheet" />
   <script src="https://accounts.google.com/gsi/client" async defer></script>
+  <script src="https://appleid.cdn-apple.com/appleauth/static/jsapi/appleid/1/en_US/appleid.auth.js" async defer></script>
   <script>
     // iOS PWA standalone: inputs sometimes don't focus on tap — force focus on touchend
     if (window.navigator.standalone) {
@@ -3382,6 +3383,28 @@
         setLoading(false);
       };
 
+      const handleAppleSignIn = async () => {
+        try {
+          if (!window.AppleID?.auth) return setErr("Apple Sign-In nicht verfügbar");
+          window.AppleID.auth.init({
+            clientId: "com.makro-tracking.web",
+            scope: "name email",
+            redirectURI: "https://makro-tracking.com/auth/apple/callback",
+            usePopup: true,
+          });
+          const response = await window.AppleID.auth.signIn();
+          setLoading(true); setErr(null);
+          const data = await authApiCall("/api/auth/apple", "POST", {
+            id_token: response.authorization.id_token,
+            user: response.user || null,
+          });
+          saveAuth(data); onAuth(data);
+        } catch (e) {
+          if (e?.error !== "popup_closed_by_user") setErr(e.message || "Apple-Anmeldung fehlgeschlagen");
+        }
+        setLoading(false);
+      };
+
       useEffect(() => {
         const init = () => {
           if (!window.google?.accounts?.id) return;
@@ -3530,6 +3553,11 @@
         <div style={{ width: "100%", display: "flex", flexDirection: "column", gap: 12 }}>
           {/* Google Button */}
           <div ref={googleBtnRef} style={{ width: "100%", minHeight: 44 }} />
+          {/* Apple Button */}
+          <button onClick={handleAppleSignIn} style={{ width: "100%", height: 44, background: "#fff", border: "1px solid #e0e0e0", borderRadius: 8, display: "flex", alignItems: "center", justifyContent: "center", gap: 10, cursor: "pointer", fontFamily: "Inter", fontSize: 15, fontWeight: 500, color: "#000" }}>
+            <svg width="18" height="18" viewBox="0 0 814 1000"><path d="M788.1 340.9c-5.8 4.5-108.2 62.2-108.2 190.5 0 148.4 130.3 200.9 134.2 202.2-.6 3.2-20.7 71.9-68.7 141.9-42.8 61.6-87.5 123.1-155.5 123.1s-85.5-39.5-164-39.5c-76 0-103.7 40.8-165.9 40.8s-105-37.5-157.2-103.1c-44.2-55.5-81.1-143.3-81.1-226.1 0-189.2 123.4-289.4 244.8-289.4 62.5 0 114.3 41.4 153.2 41.4 37.1 0 96.2-43.9 165.9-43.9 26.8 0 109.5 2.6 161.7 99.3zm-240.3-109c-22.4-26.2-41.3-63.7-41.3-101.2 0-5.2.6-10.4 1.3-15.6 38.1 1.3 84.4 25.5 111.5 55.2 22.4 24.9 44.2 62.4 44.2 102.5 0 5.8-.6 11.7-1.9 17-3.2.6-6.5.6-9.7.6-35.5 0-79.5-23.1-104.1-58.5z"/></svg>
+            Mit Apple fortfahren
+          </button>
           {/* Divider */}
           <div style={{ display: "flex", alignItems: "center", gap: 10, margin: "4px 0" }}>
             <div style={{ flex: 1, height: 1, background: C.border }} />
