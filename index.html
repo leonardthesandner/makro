@@ -2701,7 +2701,7 @@
                   const bucketPx = 44;
                   const fw = Math.max(280, chartBuckets.length * bucketPx);
                   return (
-                    <div style={{ overflowX: "auto", WebkitOverflowScrolling: "touch", marginRight: -14, paddingRight: 14 }}>
+                    <div style={{ overflowX: "auto", WebkitOverflowScrolling: "touch", marginRight: -14, paddingRight: 14 }} onTouchStart={e => e.stopPropagation()} onTouchEnd={e => e.stopPropagation()}>
                       <div style={{ width: `${fw}px` }}>
                         <MultiLineChart series={activeSeries} n={chartBuckets.length} H={84} fixedWidth={fw} />
                         <div style={{ position: "relative", height: 16, marginTop: 4 }}>
