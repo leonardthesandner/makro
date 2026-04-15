@@ -1,0 +1,10 @@
+[{
+  "relation": ["delegate_permission/common.handle_all_urls"],
+  "target": {
+    "namespace": "android_app",
+    "package_name": "com.makro_tracking.twa",
+    "sha256_cert_fingerprints": [
+      "7D:5A:F9:7D:94:DE:E9:6D:62:0B:A9:4E:4B:E4:6D:E0:14:3F:49:33:BF:3F:FA:71:9B:0E:2E:47:74:DC:CC:D3"
+    ]
+  }
+}]
