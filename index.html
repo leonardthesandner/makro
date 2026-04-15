@@ -2248,9 +2248,10 @@
         if (period === "wochen") {
           const start = new Date(b.key + "T12:00:00");
           const end = new Date(b.key + "T12:00:00"); end.setDate(end.getDate() + 6);
-          const fmt = (d) => d.toLocaleDateString("de-DE", { day: "numeric", month: "short" });
-          if (short) return fmt(start);
-          return `${fmt(start)} – ${fmt(end)}`;
+          const fmtLong  = (d) => d.toLocaleDateString("de-DE", { day: "numeric", month: "short" });
+          const fmtShort = (d) => `${d.getDate()}.${d.getMonth() + 1}.`;
+          if (short) return fmtShort(start);
+          return `${fmtLong(start)} – ${fmtLong(end)}`;
         }
         if (period === "monate") {
           const d = new Date(b.key + "-01T12:00:00");
@@ -2698,14 +2699,21 @@
               {activeSeries.length > 0 ? (<>
                 <MultiLineChart series={activeSeries} n={chartBuckets.length} H={84} />
                 <div style={{ position: "relative", height: 16, marginTop: 4 }}>
-                  {chartBuckets.map((b, i) => {
-                    const pct = chartBuckets.length > 1 ? i / (chartBuckets.length - 1) * 100 : 50;
-                    return (
-                      <div key={b.key} style={{ position: "absolute", left: `${pct}%`, transform: "translateX(-50%)", textAlign: "center", whiteSpace: "nowrap" }}>
-                        <span style={{ fontFamily: "Inter", fontSize: 9, color: C.muted }}>{bucketLabel(b, true)}</span>
-                      </div>
-                    );
-                  })}
+                  {(() => {
+                    const total = chartBuckets.length;
+                    const step = Math.max(1, Math.ceil(total / 5));
+                    return chartBuckets.map((b, i) => {
+                      const isFirst = i === 0;
+                      const isLast  = i === total - 1;
+                      if (!isFirst && !isLast && i % step !== 0) return null;
+                      const pct = total > 1 ? i / (total - 1) * 100 : 50;
+                      return (
+                        <div key={b.key} style={{ position: "absolute", left: `${pct}%`, transform: "translateX(-50%)", textAlign: "center", whiteSpace: "nowrap" }}>
+                          <span style={{ fontFamily: "Inter", fontSize: 9, color: C.muted }}>{bucketLabel(b, true)}</span>
+                        </div>
+                      );
+                    });
+                  })()}
                 </div>
                 <div style={{ marginTop: 12, paddingTop: 10, borderTop: `1px solid ${C.border}`, display: "flex", flexDirection: "column", gap: 5 }}>
                   {activeSeries.map(s => {
