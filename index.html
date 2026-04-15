@@ -1358,6 +1358,8 @@
       const [mealName, setMealName] = useState("");
       const [cookedWeight, setCookedWeight] = useState("");
       const [portionWeight, setPortionWeight] = useState("");
+      const [portionMode, setPortionMode] = useState("weight"); // "weight" | "count"
+      const [portionCount, setPortionCount] = useState("");
       const [err, setErr] = useState(null);
       const [mpListening, setMpListening] = useState(false);
       const [mpTranscribing, setMpTranscribing] = useState(false);
@@ -1418,14 +1420,17 @@
         const r = { id: Date.now(), name: mealName.trim(), total_weight: tw, kcal_total: Math.round(totals.kcal), protein_total: Math.round(totals.protein * 10) / 10, carbs_total: Math.round(totals.carbs * 10) / 10, fat_total: Math.round(totals.fat * 10) / 10, ingredients: ingredientText, items };
         r.kcal_100 = r.kcal_total / tw * 100; r.protein_100 = r.protein_total / tw * 100;
         r.carbs_100 = r.carbs_total / tw * 100; r.fat_100 = r.fat_total / tw * 100;
-        if (portionWeight) r.portion_g = parseFloat(portionWeight);
+        if (portionMode === "count" && portionCount && parseInt(portionCount) > 0)
+          r.portion_g = tw / parseInt(portionCount);
+        else if (portionMode === "weight" && portionWeight)
+          r.portion_g = parseFloat(portionWeight);
         onAdd(r);
-        setStep(STEP.idle); setIngredientText(""); setItems([]); setMealName(""); setCookedWeight(""); setPortionWeight("");
+        setStep(STEP.idle); setIngredientText(""); setItems([]); setMealName(""); setCookedWeight(""); setPortionWeight(""); setPortionCount(""); setPortionMode("weight");
       };
 
       const startEditRecipe = (r) => {
         const storedItems = r.items ? (typeof r.items === "string" ? JSON.parse(r.items) : r.items) : [];
-        setEditingRecipe({ recipe: r, items: storedItems, name: r.name, cookedWeight: String(parseFloat(r.total_weight)), portionWeight: r.portion_g ? String(parseFloat(r.portion_g)) : "" });
+        setEditingRecipe({ recipe: r, items: storedItems, name: r.name, cookedWeight: String(parseFloat(r.total_weight)), portionWeight: r.portion_g ? String(parseFloat(r.portion_g)) : "", portionMode: "weight", portionCount: "" });
         setStep(STEP.editing);
         setSubTab("aktiv");
       };
@@ -1466,7 +1471,9 @@
           fat_100:     tw > 0 ? fat_total     / tw * 100 : 0,
           ingredients: editingRecipe.recipe.ingredients,
           items:       editingRecipe.items,
-          portion_g:   editingRecipe.portionWeight ? parseFloat(editingRecipe.portionWeight) : null,
+          portion_g:   (editingRecipe.portionMode||"weight") === "count" && editingRecipe.portionCount && parseInt(editingRecipe.portionCount) > 0
+            ? tw / parseInt(editingRecipe.portionCount)
+            : editingRecipe.portionWeight ? parseFloat(editingRecipe.portionWeight) : null,
         };
 
         await onEdit(editingRecipe.recipe.id, data);
@@ -1475,7 +1482,7 @@
         setStep(STEP.idle);
       };
 
-      const cancel = () => { setStep(STEP.idle); setIngredientText(""); setItems([]); setErr(null); setMealName(""); setPortionWeight(""); };
+      const cancel = () => { setStep(STEP.idle); setIngredientText(""); setItems([]); setErr(null); setMealName(""); setPortionWeight(""); setPortionCount(""); setPortionMode("weight"); };
 
       const handleMpImageCapture = async (e) => {
         const file = e.target.files?.[0];
@@ -1685,8 +1692,19 @@
                       <input type="text" inputMode="decimal" placeholder="z.B. 1400" value={cookedWeight} onChange={e => setCookedWeight(e.target.value)} style={inputStyle} />
                     </div>
                     <div>
-                      <div style={{ fontFamily: "Syne", fontSize: 10, color: C.muted, marginBottom: 4 }}>Portionsgröße (g) — optional</div>
-                      <input type="text" inputMode="decimal" placeholder="z.B. 350" value={portionWeight} onChange={e => setPortionWeight(e.target.value)} style={inputStyle} />
+                      <div style={{ fontFamily: "Syne", fontSize: 10, color: C.muted, marginBottom: 8 }}>Portionsgröße — optional</div>
+                      <div style={{ display: "flex", gap: 6, marginBottom: 8 }}>
+                        {[["weight","Gewicht (g)"],["count","Anzahl"]].map(([m,l]) => (
+                          <button key={m} onClick={() => setPortionMode(m)} style={{ fontFamily:"Syne", fontSize:11, fontWeight:700, padding:"4px 14px", borderRadius:20, background: portionMode===m ? C.accent : C.soft, color: portionMode===m ? "#000" : C.muted, border:`1px solid ${C.border}`, cursor:"pointer" }}>{l}</button>
+                        ))}
+                      </div>
+                      {portionMode === "weight"
+                        ? <input type="text" inputMode="decimal" placeholder="z.B. 350" value={portionWeight} onChange={e => setPortionWeight(e.target.value)} style={inputStyle} />
+                        : <input type="text" inputMode="numeric" placeholder="z.B. 4" value={portionCount} onChange={e => setPortionCount(e.target.value)} style={inputStyle} />
+                      }
+                      {portionMode === "count" && portionCount && parseInt(portionCount) > 0 && cookedWeight && parseFloat(cookedWeight) > 0 && (
+                        <div style={{ fontFamily:"Syne", fontSize:11, color:C.muted, marginTop:5 }}>→ {Math.round(parseFloat(cookedWeight) / parseInt(portionCount))}g pro Portion</div>
+                      )}
                     </div>
                   </div>
                 </Card>
@@ -1810,20 +1828,35 @@
                       <input type="text" inputMode="decimal" value={editingRecipe.cookedWeight} onChange={e => setEditingRecipe(p => ({ ...p, cookedWeight: e.target.value }))} style={inputStyle} />
                     </div>
                     <div>
-                      <div style={{ fontFamily:"Syne", fontSize:10, color:C.muted, marginBottom:4 }}>Portionsgröße (g) — optional</div>
-                      <input type="text" inputMode="decimal" placeholder="z.B. 350" value={editingRecipe.portionWeight || ""} onChange={e => setEditingRecipe(p => ({ ...p, portionWeight: e.target.value }))} style={inputStyle} />
+                      <div style={{ fontFamily:"Syne", fontSize:10, color:C.muted, marginBottom:8 }}>Portionsgröße — optional</div>
+                      <div style={{ display:"flex", gap:6, marginBottom:8 }}>
+                        {[["weight","Gewicht (g)"],["count","Anzahl"]].map(([m,l]) => (
+                          <button key={m} onClick={() => setEditingRecipe(p => ({ ...p, portionMode: m }))} style={{ fontFamily:"Syne", fontSize:11, fontWeight:700, padding:"4px 14px", borderRadius:20, background:(editingRecipe.portionMode||"weight")===m ? C.accent : C.soft, color:(editingRecipe.portionMode||"weight")===m ? "#000" : C.muted, border:`1px solid ${C.border}`, cursor:"pointer" }}>{l}</button>
+                        ))}
+                      </div>
+                      {(editingRecipe.portionMode||"weight") === "weight"
+                        ? <input type="text" inputMode="decimal" placeholder="z.B. 350" value={editingRecipe.portionWeight||""} onChange={e => setEditingRecipe(p => ({ ...p, portionWeight: e.target.value }))} style={inputStyle} />
+                        : <input type="text" inputMode="numeric" placeholder="z.B. 4" value={editingRecipe.portionCount||""} onChange={e => setEditingRecipe(p => ({ ...p, portionCount: e.target.value }))} style={inputStyle} />
+                      }
+                      {(editingRecipe.portionMode||"weight") === "count" && editingRecipe.portionCount && parseInt(editingRecipe.portionCount) > 0 && parseFloat(editingRecipe.cookedWeight) > 0 && (
+                        <div style={{ fontFamily:"Syne", fontSize:11, color:C.muted, marginTop:5 }}>→ {Math.round(parseFloat(editingRecipe.cookedWeight) / parseInt(editingRecipe.portionCount))}g pro Portion</div>
+                      )}
                     </div>
-                    {editingRecipe.portionWeight && parseFloat(editingRecipe.portionWeight) > 0 && parseFloat(editingRecipe.cookedWeight) > 0 && (() => {
+                    {(() => {
+                      const tw = parseFloat(editingRecipe.cookedWeight);
+                      const pm = editingRecipe.portionMode || "weight";
+                      const pw = pm === "count" && editingRecipe.portionCount && parseInt(editingRecipe.portionCount) > 0
+                        ? tw / parseInt(editingRecipe.portionCount)
+                        : parseFloat(editingRecipe.portionWeight);
+                      if (!pw || pw <= 0 || !tw || tw <= 0) return null;
                       const hasItems = editingRecipe.items && editingRecipe.items.length > 0;
                       const t = hasItems
                         ? editingRecipe.items.reduce((a,it) => ({ kcal:a.kcal+(it.kcal||0), protein:a.protein+(it.protein||0), carbs:a.carbs+(it.carbs||0), fat:a.fat+(it.fat||0) }), {kcal:0,protein:0,carbs:0,fat:0})
                         : { kcal: parseFloat(editingRecipe.recipe.kcal_total)||0, protein: parseFloat(editingRecipe.recipe.protein_total)||0, carbs: parseFloat(editingRecipe.recipe.carbs_total)||0, fat: parseFloat(editingRecipe.recipe.fat_total)||0 };
-                      const tw = parseFloat(editingRecipe.cookedWeight);
-                      const pw = parseFloat(editingRecipe.portionWeight);
                       const f = pw / tw;
                       return (
-                        <div style={{ background: "#34d39910", borderRadius: 8, padding: "8px 12px", fontFamily: "Syne", fontSize: 12, color: C.carbs }}>
-                          Portion ({pw}g): {Math.round(t.kcal * f)} kcal · {Math.round(t.protein * f * 10) / 10}g E · {Math.round(t.carbs * f * 10) / 10}g KH · {Math.round(t.fat * f * 10) / 10}g F
+                        <div style={{ background:"#34d39910", borderRadius:8, padding:"8px 12px", fontFamily:"Syne", fontSize:12, color:C.carbs }}>
+                          Portion ({Math.round(pw)}g): {Math.round(t.kcal*f)} kcal · {Math.round(t.protein*f*10)/10}g E · {Math.round(t.carbs*f*10)/10}g KH · {Math.round(t.fat*f*10)/10}g F
                         </div>
                       );
                     })()}
