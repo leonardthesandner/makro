@@ -2697,8 +2697,8 @@
               </div>
               {activeSeries.length > 0 ? (<>
                 {(() => {
-                  const bucketPx = 44;
-                  const fw = Math.max(280, chartBuckets.length * bucketPx);
+                  const bucketPx = 60;
+                  const fw = Math.max(420, chartBuckets.length * bucketPx);
                   return (
                     <div style={{ overflowX: "auto", WebkitOverflowScrolling: "touch", touchAction: "pan-x", marginRight: -14, paddingRight: 14 }} onTouchStart={e => e.stopPropagation()} onTouchEnd={e => e.stopPropagation()}>
                       <div style={{ width: `${fw}px` }}>
