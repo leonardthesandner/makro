@@ -2698,12 +2698,11 @@
               </div>
               {activeSeries.length > 0 ? (<>
                 {(() => {
-                  const scroll = period === "wochen";
-                  const bucketPx = 40;
-                  const fw = scroll ? Math.max(280, chartBuckets.length * bucketPx) : undefined;
+                  const bucketPx = 44;
+                  const fw = Math.max(280, chartBuckets.length * bucketPx);
                   return (
-                    <div style={{ overflowX: scroll ? "auto" : "visible", WebkitOverflowScrolling: "touch", marginRight: -14, paddingRight: 14 }}>
-                      <div style={{ width: fw ? `${fw}px` : "100%" }}>
+                    <div style={{ overflowX: "auto", WebkitOverflowScrolling: "touch", marginRight: -14, paddingRight: 14 }}>
+                      <div style={{ width: `${fw}px` }}>
                         <MultiLineChart series={activeSeries} n={chartBuckets.length} H={84} fixedWidth={fw} />
                         <div style={{ position: "relative", height: 16, marginTop: 4 }}>
                           {chartBuckets.map((b, i) => {
