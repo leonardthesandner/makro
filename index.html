@@ -2064,8 +2064,8 @@
         return Math.max(0, Math.min(n - 1, idx));
       };
 
-      const onDown = (e) => { e.preventDefault(); setActiveIdx(getIdxFromEvent(e)); };
-      const onMove = (e) => { if (activeIdx !== null) { e.preventDefault(); setActiveIdx(getIdxFromEvent(e)); } };
+      const onDown = (e) => { setActiveIdx(getIdxFromEvent(e)); };
+      const onMove = (e) => { if (activeIdx !== null) setActiveIdx(getIdxFromEvent(e)); };
       const onUp   = () => setActiveIdx(null);
 
       // Per-series y-scale so every line uses the full chart height
@@ -2098,8 +2098,7 @@
             }
           </div>
           <svg ref={svgRef} viewBox={`0 0 ${VW} ${VH}`} style={{ width: fixedWidth ? `${fixedWidth}px` : "100%", display: "block", touchAction: "pan-x", userSelect: "none" }}
-            onPointerDown={onDown} onPointerMove={onMove} onPointerUp={onUp} onPointerLeave={onUp}
-            onTouchStart={onDown} onTouchMove={onMove} onTouchEnd={onUp}>
+            onPointerDown={onDown} onPointerMove={onMove} onPointerUp={onUp} onPointerLeave={onUp}>
             {seriesScales.map(s => {
               const d = smoothPath(s.data, s.toY);
               if (!d) return null;
