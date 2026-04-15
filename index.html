@@ -2124,7 +2124,7 @@
 
     function HistoryTab({ targets, loadRange, loadDay, onDelete, updateEntry, loadBodyWeights, saveBodyWeight, onAdd, recipes, userFoods, voiceLang, loadActivities, onDeleteStrava }) {
       const PERIODS = [
-        { id: "tage",   label: "Tage",   daysBack: 6,    chartTitle: "Tagesverlauf" },
+        { id: "tage",   label: "Tage",   daysBack: 29,   chartTitle: "Tagesverlauf" },
         { id: "wochen", label: "Wochen", daysBack: 83,   chartTitle: "Wochenverlauf" },
         { id: "monate", label: "Monate", daysBack: 364,  chartTitle: "Monatsverlauf" },
         { id: "jahre",  label: "Jahre",  daysBack: 1824, chartTitle: "Jahresverlauf" },
@@ -2222,7 +2222,7 @@
           if (d.toDateString() === t.toDateString()) return "Heute";
           if (d.toDateString() === y.toDateString()) return "Gestern";
         }
-        if (short) return d.toLocaleDateString("de-DE", { weekday: "short" });
+        if (short) return `${d.getDate()}.${d.getMonth() + 1}.`;
         return d.toLocaleDateString("de-DE", { weekday: "long", day: "numeric", month: "short" });
       };
 
