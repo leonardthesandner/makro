@@ -2147,6 +2147,7 @@
       const [dayBurnedSaving, setDayBurnedSaving] = useState(false);
       const [dayBurnedSaved, setDayBurnedSaved] = useState(false);
       const [activeStats, setActiveStats] = useState(new Set(["gewicht", "kcal"]));
+      const xAxisScrollRef = React.useRef(null);
       const toggleStat = (id) => setActiveStats(prev => { const n = new Set(prev); n.has(id) ? n.delete(id) : n.add(id); return n; });
 
       const [stravaActivities, setStravaActivities] = useState({}); // date → activities[]
@@ -2206,6 +2207,13 @@
       };
 
       useEffect(() => { loadData(period); }, []);
+
+      // Nach Laden und bei Periodenwechsel: x-Achse zum aktuellen Tag (rechts) scrollen
+      useEffect(() => {
+        if (!loading && xAxisScrollRef.current) {
+          xAxisScrollRef.current.scrollLeft = xAxisScrollRef.current.scrollWidth;
+        }
+      }, [loading, period]);
 
       const changePeriod = (p) => {
         setPeriod(p);
@@ -2704,7 +2712,7 @@
                 {(() => {
                   const fw = Math.max(420, chartBuckets.length * 60);
                   return (
-                    <div className="no-scrollbar" style={{ overflowX: "auto", touchAction: "pan-x", marginRight: -14, paddingRight: 14, marginTop: 4 }}
+                    <div ref={xAxisScrollRef} className="no-scrollbar" style={{ overflowX: "auto", touchAction: "pan-x", marginRight: -14, paddingRight: 14, marginTop: 4 }}
                       onTouchStart={e => e.stopPropagation()} onTouchEnd={e => e.stopPropagation()}>
                       <div style={{ position: "relative", height: 16, width: `${fw}px` }}>
                         {chartBuckets.map((b, i) => {
