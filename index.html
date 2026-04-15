@@ -1359,6 +1359,7 @@
       const [cookedWeight, setCookedWeight] = useState("");
       const [portionWeight, setPortionWeight] = useState("");
       const [portionMode, setPortionMode] = useState("weight"); // "weight" | "count"
+      const [showWeightInfo, setShowWeightInfo] = useState(false);
       const [portionCount, setPortionCount] = useState("");
       const [err, setErr] = useState(null);
       const [mpListening, setMpListening] = useState(false);
@@ -1700,7 +1701,19 @@
                       <input placeholder="z.B. Hähnchen-Tomaten-Sahnesoße" value={mealName} onChange={e => setMealName(e.target.value)} style={inputStyle} />
                     </div>
                     <div>
-                      <div style={{ fontFamily: "Syne", fontSize: 10, color: C.muted, marginBottom: 4 }}>Fertig gekochtes Gesamtgewicht (g) — bitte abwiegen!</div>
+                      <div style={{ display:"flex", alignItems:"center", gap:6, marginBottom:4 }}>
+                        <span style={{ fontFamily:"Syne", fontSize:10, color:C.muted }}>Fertig gekochtes Gesamtgewicht (g)</span>
+                        <button onClick={() => setShowWeightInfo(p => !p)} style={{ background:"none", border:`1px solid ${C.border}`, borderRadius:"50%", width:16, height:16, display:"flex", alignItems:"center", justifyContent:"center", cursor:"pointer", padding:0, flexShrink:0 }}>
+                          <span style={{ fontFamily:"Syne", fontSize:9, fontWeight:800, color:C.muted, lineHeight:1 }}>i</span>
+                        </button>
+                      </div>
+                      {showWeightInfo && (
+                        <div style={{ background:C.soft, border:`1px solid ${C.border}`, borderRadius:8, padding:"10px 12px", marginBottom:8, fontFamily:"Syne", fontSize:11, color:C.muted, lineHeight:1.6 }}>
+                          <div style={{ fontWeight:700, color:C.text, marginBottom:4 }}>Wann ist abwiegen wichtig?</div>
+                          <div style={{ marginBottom:6 }}>🍝 <b>Lasagne, Aufläufe, One-Pot:</b> Gesamtgewicht ist weniger kritisch — Portionen lassen sich direkt einteilen (z.B. ½ Auflaufform = 1 Portion).</div>
+                          <div>🍛 <b>Soßen ohne Beilage</b> (Bolognese, Curry, …): Hier lohnt sich nochmaliges Abwiegen. makro. schätzt das Endgewicht, aber durch Wasserverdunstung beim Kochen kann es zu Abweichungen kommen — ein kurzes Nachwiegen macht die Makros deutlich genauer.</div>
+                        </div>
+                      )}
                       <input type="text" inputMode="decimal" placeholder="z.B. 1400" value={cookedWeight} onChange={e => setCookedWeight(e.target.value)} style={inputStyle} />
                     </div>
                     <div>
@@ -1836,7 +1849,19 @@
                       <input value={editingRecipe.name} onChange={e => setEditingRecipe(p => ({ ...p, name: e.target.value }))} style={inputStyle} />
                     </div>
                     <div>
-                      <div style={{ fontFamily:"Syne", fontSize:10, color:C.muted, marginBottom:4 }}>Fertig gekochtes Gewicht (g)</div>
+                      <div style={{ display:"flex", alignItems:"center", gap:6, marginBottom:4 }}>
+                        <span style={{ fontFamily:"Syne", fontSize:10, color:C.muted }}>Fertig gekochtes Gewicht (g)</span>
+                        <button onClick={() => setEditingRecipe(p => ({ ...p, showWeightInfo: !p.showWeightInfo }))} style={{ background:"none", border:`1px solid ${C.border}`, borderRadius:"50%", width:16, height:16, display:"flex", alignItems:"center", justifyContent:"center", cursor:"pointer", padding:0, flexShrink:0 }}>
+                          <span style={{ fontFamily:"Syne", fontSize:9, fontWeight:800, color:C.muted, lineHeight:1 }}>i</span>
+                        </button>
+                      </div>
+                      {editingRecipe.showWeightInfo && (
+                        <div style={{ background:C.soft, border:`1px solid ${C.border}`, borderRadius:8, padding:"10px 12px", marginBottom:8, fontFamily:"Syne", fontSize:11, color:C.muted, lineHeight:1.6 }}>
+                          <div style={{ fontWeight:700, color:C.text, marginBottom:4 }}>Wann ist abwiegen wichtig?</div>
+                          <div style={{ marginBottom:6 }}>🍝 <b>Lasagne, Aufläufe, One-Pot:</b> Gesamtgewicht ist weniger kritisch — Portionen lassen sich direkt einteilen (z.B. ½ Auflaufform = 1 Portion).</div>
+                          <div>🍛 <b>Soßen ohne Beilage</b> (Bolognese, Curry, …): Hier lohnt sich nochmaliges Abwiegen. makro. schätzt das Endgewicht, aber durch Wasserverdunstung beim Kochen kann es zu Abweichungen kommen — ein kurzes Nachwiegen macht die Makros deutlich genauer.</div>
+                        </div>
+                      )}
                       <input type="text" inputMode="decimal" value={editingRecipe.cookedWeight} onChange={e => setEditingRecipe(p => ({ ...p, cookedWeight: e.target.value }))} style={inputStyle} />
                     </div>
                     <div>
