@@ -2725,10 +2725,10 @@
                 })}
               </div>
               {activeSeries.length > 0 ? (<>
-                {/* Wrapper stops touch events from bubbling to the tab-swipe handler */}
-                <div onTouchStart={e => e.stopPropagation()} onTouchEnd={e => e.stopPropagation()} onTouchMove={e => e.stopPropagation()}>
-                {/* Chart SVG — crosshair on tap/drag, viewBox pans with chartScrollOffset */}
-                <div style={{ position: "relative" }}>
+                {/* Single wrapper: position:relative for overlay anchor + stops tab-swipe touch events */}
+                <div style={{ position: "relative" }}
+                  onTouchStart={e => e.stopPropagation()} onTouchEnd={e => e.stopPropagation()} onTouchMove={e => e.stopPropagation()}>
+                  {/* Info overlay — absolutely positioned top-left of this wrapper */}
                   {chartActivePoints.length > 0 && (
                     <div style={{ position: "absolute", top: 4, left: 4, zIndex: 10, display: "flex", gap: 8, flexWrap: "wrap", pointerEvents: "none", background: "rgba(0,0,0,0.5)", borderRadius: 6, padding: "3px 8px" }}>
                       {chartActivePoints.map(s => (
@@ -2738,20 +2738,20 @@
                       ))}
                     </div>
                   )}
+                  {/* Chart SVG — direct child, sets the reference width */}
                   <MultiLineChart series={activeSeries} n={chartBuckets.length} H={84}
                     onActiveChange={setChartActivePoints}
                     scrollOffset={chartScrollOffset} totalWidth={chartFw} />
+                  {/* X-axis SVG — same parent → identical rendered width → perfect alignment */}
+                  <svg ref={xAxisStripRef} viewBox={`${chartScrollOffset} 0 280 14`}
+                    style={{ width: "100%", display: "block", height: 14, marginTop: 4, touchAction: "none", cursor: "ew-resize" }}
+                    onPointerDown={onXDown} onPointerMove={onXMove} onPointerUp={onXUp} onPointerLeave={onXUp}>
+                    {chartBuckets.map((b, i) => (
+                      <text key={b.key} x={i * chartStep} y={11} textAnchor="middle"
+                        fontFamily="Inter" fontSize="9" fill={C.muted}>{bucketLabel(b, true)}</text>
+                    ))}
+                  </svg>
                 </div>
-                {/* X-axis SVG — same viewBox → labels stay in sync; drag here to pan */}
-                <svg ref={xAxisStripRef} viewBox={`${chartScrollOffset} 0 280 14`}
-                  style={{ width: "100%", display: "block", height: 14, marginTop: 4, touchAction: "none", cursor: "ew-resize" }}
-                  onPointerDown={onXDown} onPointerMove={onXMove} onPointerUp={onXUp} onPointerLeave={onXUp}>
-                  {chartBuckets.map((b, i) => (
-                    <text key={b.key} x={i * chartStep} y={11} textAnchor="middle"
-                      fontFamily="Inter" fontSize="9" fill={C.muted}>{bucketLabel(b, true)}</text>
-                  ))}
-                </svg>
-                </div>{/* end touch-stop wrapper */}
                 <div style={{ marginTop: 12, paddingTop: 10, borderTop: `1px solid ${C.border}`, display: "flex", flexDirection: "column", gap: 5 }}>
                   {activeSeries.map(s => {
                     const valid = s.data.filter(v => v != null);
