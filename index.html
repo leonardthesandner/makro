@@ -3991,14 +3991,14 @@
           </div>
           <div style={{ flex: 1, overflow: "hidden", position: "relative" }} onTouchStart={onTouchStart} onTouchEnd={onTouchEnd}>
             {/* InputTab always mounted — shown as positioned panel when active or animating */}
-            <div style={tab === "input" || outTab === "input" ? { position: "absolute", inset: 0, overflowY: "auto", WebkitOverflowScrolling: "touch", zIndex: 1 } : { display: "none" }}
+            <div style={tab === "input" || outTab === "input" ? { position: "absolute", inset: 0, overflowY: "auto", overflowX: "hidden", WebkitOverflowScrolling: "touch", zIndex: 1 } : { display: "none" }}
               className={tab === "input" && outTab ? `slide-from-${slideDir}` : outTab === "input" ? `slide-to-${slideDir === "right" ? "left" : "right"}` : ""}
               onAnimationEnd={outTab === "input" ? onAnimEnd : undefined}>
               <InputTab recipes={recipes} onSave={addEntry} voiceLang={voiceLang} userFoods={userFoods} profile={profile} />
             </div>
             {/* Incoming non-input tab */}
             {tab !== "input" && (
-              <div key={"in-" + tab} style={{ position: "absolute", inset: 0, overflowY: "auto", WebkitOverflowScrolling: "touch", zIndex: 1 }}
+              <div key={"in-" + tab} style={{ position: "absolute", inset: 0, overflowY: "auto", overflowX: "hidden", WebkitOverflowScrolling: "touch", zIndex: 1 }}
                 className={outTab ? `slide-from-${slideDir}` : ""}>
                 {tab === "today"     && <TodayTab entries={entries} targets={targets} onDelete={deleteEntry} onEdit={e => setEditingEntry(e)} burnedKcal={burnedToday} onSaveBurned={async (v) => { await saveBodyWeightAPI(todayStr(), null, v); setBurnedToday(v); }} todayWeight={todayWeight} onSaveWeight={async (v) => { await saveBodyWeightAPI(todayStr(), v, null); setTodayWeight(v); }} stravaActivities={stravaToday} onDeleteStrava={async (id) => { await deleteStravaActivityAPI(id); setStravaToday(p => p.filter(a => a.strava_id !== id)); }} />}
                 {tab === "mealprep"  && <BlurGate locked={!sub.hasAccess} feature="Rezepte" onUnlock={() => openPaywall("Rezepte")}><MealprepTab recipes={recipes} onAdd={addRecipe} onEdit={editRecipe} onDelete={removeRecipe} onArchive={archiveRecipe} archive={archive} voiceLang={voiceLang} userFoods={userFoods} /></BlurGate>}
@@ -4008,7 +4008,7 @@
             )}
             {/* Outgoing non-input tab */}
             {outTab && outTab !== "input" && (
-              <div key={"out-" + outTab} style={{ position: "absolute", inset: 0, overflowY: "auto", WebkitOverflowScrolling: "touch", zIndex: 1 }}
+              <div key={"out-" + outTab} style={{ position: "absolute", inset: 0, overflowY: "auto", overflowX: "hidden", WebkitOverflowScrolling: "touch", zIndex: 1 }}
                 className={`slide-to-${slideDir === "right" ? "left" : "right"}`}
                 onAnimationEnd={onAnimEnd}>
                 {outTab === "today"     && <TodayTab entries={entries} targets={targets} onDelete={deleteEntry} onEdit={e => setEditingEntry(e)} burnedKcal={burnedToday} onSaveBurned={async (v) => { await saveBodyWeightAPI(todayStr(), null, v); setBurnedToday(v); }} todayWeight={todayWeight} onSaveWeight={async (v) => { await saveBodyWeightAPI(todayStr(), v, null); setTodayWeight(v); }} stravaActivities={stravaToday} onDeleteStrava={async (id) => { await deleteStravaActivityAPI(id); setStravaToday(p => p.filter(a => a.strava_id !== id)); }} />}
