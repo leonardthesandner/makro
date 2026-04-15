@@ -2031,10 +2031,10 @@
       return <>{mpContent}{mpPortal}</>;
     }
 
-    function MultiLineChart({ series, n = 7, H = 80 }) {
+    function MultiLineChart({ series, n = 7, H = 80, fixedWidth }) {
       const [activeIdx, setActiveIdx] = React.useState(null);
       const svgRef = React.useRef(null);
-      const VW = 280, VH = H;
+      const VW = fixedWidth || 280, VH = H;
       const padT = 8, padB = 8, padL = 0, padR = 0;
       const chartW = VW - padL - padR;
       const step = n > 1 ? chartW / (n - 1) : 0;
@@ -2097,7 +2097,7 @@
               : <span style={{ fontFamily: "Inter", fontSize: 10, color: "transparent" }}>·</span>
             }
           </div>
-          <svg ref={svgRef} viewBox={`0 0 ${VW} ${VH}`} style={{ width: "100%", display: "block", touchAction: "none", userSelect: "none" }}
+          <svg ref={svgRef} viewBox={`0 0 ${VW} ${VH}`} style={{ width: fixedWidth ? `${fixedWidth}px` : "100%", display: "block", touchAction: "pan-y", userSelect: "none" }}
             onPointerDown={onDown} onPointerMove={onMove} onPointerUp={onUp} onPointerLeave={onUp}
             onTouchStart={onDown} onTouchMove={onMove} onTouchEnd={onUp}>
             {seriesScales.map(s => {
@@ -2697,24 +2697,28 @@
                 })}
               </div>
               {activeSeries.length > 0 ? (<>
-                <MultiLineChart series={activeSeries} n={chartBuckets.length} H={84} />
-                <div style={{ position: "relative", height: 16, marginTop: 4 }}>
-                  {(() => {
-                    const total = chartBuckets.length;
-                    const step = Math.max(1, Math.ceil(total / 5));
-                    return chartBuckets.map((b, i) => {
-                      const isFirst = i === 0;
-                      const isLast  = i === total - 1;
-                      if (!isFirst && !isLast && i % step !== 0) return null;
-                      const pct = total > 1 ? i / (total - 1) * 100 : 50;
-                      return (
-                        <div key={b.key} style={{ position: "absolute", left: `${pct}%`, transform: "translateX(-50%)", textAlign: "center", whiteSpace: "nowrap" }}>
-                          <span style={{ fontFamily: "Inter", fontSize: 9, color: C.muted }}>{bucketLabel(b, true)}</span>
+                {(() => {
+                  const scroll = period === "wochen";
+                  const bucketPx = 40;
+                  const fw = scroll ? Math.max(280, chartBuckets.length * bucketPx) : undefined;
+                  return (
+                    <div style={{ overflowX: scroll ? "auto" : "visible", WebkitOverflowScrolling: "touch", marginRight: -14, paddingRight: 14 }}>
+                      <div style={{ width: fw ? `${fw}px` : "100%" }}>
+                        <MultiLineChart series={activeSeries} n={chartBuckets.length} H={84} fixedWidth={fw} />
+                        <div style={{ position: "relative", height: 16, marginTop: 4 }}>
+                          {chartBuckets.map((b, i) => {
+                            const pct = chartBuckets.length > 1 ? i / (chartBuckets.length - 1) * 100 : 50;
+                            return (
+                              <div key={b.key} style={{ position: "absolute", left: `${pct}%`, transform: "translateX(-50%)", textAlign: "center", whiteSpace: "nowrap" }}>
+                                <span style={{ fontFamily: "Inter", fontSize: 9, color: C.muted }}>{bucketLabel(b, true)}</span>
+                              </div>
+                            );
+                          })}
                         </div>
-                      );
-                    });
-                  })()}
-                </div>
+                      </div>
+                    </div>
+                  );
+                })()}
                 <div style={{ marginTop: 12, paddingTop: 10, borderTop: `1px solid ${C.border}`, display: "flex", flexDirection: "column", gap: 5 }}>
                   {activeSeries.map(s => {
                     const valid = s.data.filter(v => v != null);
