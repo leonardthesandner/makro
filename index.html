@@ -194,6 +194,11 @@
       return apiCall(`/api/recipes/${id}`, "DELETE");
     }
 
+    // Favorit togglen
+    async function toggleRecipeFavorite(id, is_favorite) {
+      return apiCall(`/api/recipes/${id}/favorite`, "PATCH", { is_favorite });
+    }
+
     // Diary entries
     async function loadDiaryEntries(date) {
       return apiCall(`/api/diary?date=${date}`);
@@ -892,32 +897,49 @@
           )}
           {err && <div style={{ background: "#f8717112", border: `1px solid #f8717128`, borderRadius: 8, padding: "10px 14px", color: C.danger, fontFamily: "Syne", fontSize: 13 }}>{err}</div>}
 
-          {recipes.length > 0 && !loading && (
-            <div style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center" }}>
-              <span style={{ fontFamily: "Syne", fontSize: 10, color: C.muted, textTransform: "uppercase", letterSpacing: 1 }}>Mealprep:</span>
-              {recipes.map(r => (
-                <button key={r.id} onClick={() => {
-                  const w = parseFloat(r.portion_g) || parseFloat(r.total_weight) || 100;
-                  const k100 = parseFloat(r.kcal_100) || 0;
-                  const p100 = parseFloat(r.protein_100) || 0;
-                  const c100 = parseFloat(r.carbs_100) || 0;
-                  const f100 = parseFloat(r.fat_100) || 0;
-                  const kcal    = Math.round(k100 * w / 100);
-                  const protein = Math.round(p100 * w / 100 * 10) / 10;
-                  const carbs   = Math.round(c100 * w / 100 * 10) / 10;
-                  const fat     = Math.round(f100 * w / 100 * 10) / 10;
-                  const totalW  = parseFloat(r.total_weight) || w;
-                  const recipeItemsStored = r.items ? (typeof r.items === "string" ? JSON.parse(r.items) : r.items) : [];
-                  const newItem = { name_de: r.name, weight_g: w, kcal, protein, carbs, fat, kcal_100: k100, protein_100: p100, carbs_100: c100, fat_100: f100, source: "recipe", recipeItems: recipeItemsStored, recipeTotalWeight: totalW };
-                  setText(p => p.trim() ? p.trim() + "\n" + r.name : r.name);
-                  setItems(p => [...p, newItem]);
-                }}
-                  style={{ fontFamily: "Syne", fontSize: 12, fontWeight: 600, padding: "5px 12px", borderRadius: 20, background: C.card, border: `1px solid ${C.border}`, color: C.text, cursor: "pointer" }}>
-                  {r.name}
-                </button>
-              ))}
-            </div>
-          )}
+          {recipes.length > 0 && !loading && (() => {
+            const addRecipeToInput = (r) => {
+              const w = parseFloat(r.portion_g) || parseFloat(r.total_weight) || 100;
+              const k100 = parseFloat(r.kcal_100) || 0;
+              const p100 = parseFloat(r.protein_100) || 0;
+              const c100 = parseFloat(r.carbs_100) || 0;
+              const f100 = parseFloat(r.fat_100) || 0;
+              const kcal    = Math.round(k100 * w / 100);
+              const protein = Math.round(p100 * w / 100 * 10) / 10;
+              const carbs   = Math.round(c100 * w / 100 * 10) / 10;
+              const fat     = Math.round(f100 * w / 100 * 10) / 10;
+              const totalW  = parseFloat(r.total_weight) || w;
+              const recipeItemsStored = r.items ? (typeof r.items === "string" ? JSON.parse(r.items) : r.items) : [];
+              const newItem = { name_de: r.name, weight_g: w, kcal, protein, carbs, fat, kcal_100: k100, protein_100: p100, carbs_100: c100, fat_100: f100, source: "recipe", recipeItems: recipeItemsStored, recipeTotalWeight: totalW };
+              setText(p => p.trim() ? p.trim() + "\n" + r.name : r.name);
+              setItems(p => [...p, newItem]);
+            };
+            const favorites = recipes.filter(r => r.is_favorite);
+            return (
+              <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+                {favorites.length > 0 && (
+                  <div style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center" }}>
+                    <span style={{ fontFamily: "Syne", fontSize: 10, color: "#f59e0b", textTransform: "uppercase", letterSpacing: 1 }}>★ Favoriten:</span>
+                    {favorites.map(r => (
+                      <button key={r.id} onClick={() => addRecipeToInput(r)}
+                        style={{ fontFamily: "Syne", fontSize: 12, fontWeight: 600, padding: "5px 12px", borderRadius: 20, background: "#f59e0b18", border: "1px solid #f59e0b55", color: C.text, cursor: "pointer" }}>
+                        {r.name}
+                      </button>
+                    ))}
+                  </div>
+                )}
+                <div style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center" }}>
+                  <span style={{ fontFamily: "Syne", fontSize: 10, color: C.muted, textTransform: "uppercase", letterSpacing: 1 }}>Mealprep:</span>
+                  {recipes.map(r => (
+                    <button key={r.id} onClick={() => addRecipeToInput(r)}
+                      style={{ fontFamily: "Syne", fontSize: 12, fontWeight: 600, padding: "5px 12px", borderRadius: 20, background: C.card, border: `1px solid ${C.border}`, color: C.text, cursor: "pointer" }}>
+                      {r.name}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            );
+          })()}
 
           {items.length > 0 && (
             <div className="fade-up" style={{ display: "flex", flexDirection: "column", gap: 10 }}>
@@ -1348,7 +1370,7 @@
       );
     }
 
-    function MealprepTab({ recipes, onAdd, onEdit, onDelete, onArchive, archive, voiceLang, userFoods }) {
+    function MealprepTab({ recipes, onAdd, onEdit, onDelete, onArchive, onToggleFavorite, archive, voiceLang, userFoods }) {
       const STEP = { idle: "idle", entering: "entering", analyzing: "analyzing", naming: "naming", editing: "editing" };
       const [step, setStep] = useState(STEP.idle);
       const [editingRecipe, setEditingRecipe] = useState(null); // { recipe, items, name, cookedWeight }
@@ -1600,17 +1622,17 @@
       const mpContent = (
         <div style={{ padding: 16, display: "flex", flexDirection: "column", gap: 12 }}>
           <div style={{ display: "flex", gap: 0, background: C.card, borderRadius: 10, padding: 3, border: `1px solid ${C.border}` }}>
-            {[["aktiv", "Aktiv"], ["archiv", `Archiv (${archive.length})`]].map(([id, label]) => (
-              <button key={id} onClick={() => setSubTab(id)} style={{ flex: 1, padding: "7px 0", borderRadius: 8, border: "none", background: subTab === id ? C.accent : "transparent", color: subTab === id ? "#000" : C.muted, fontFamily: "Syne", fontSize: 12, fontWeight: 700, cursor: "pointer", textTransform: "uppercase", letterSpacing: 0.5 }}>
+            {[["aktiv", "Aktiv"], ["favoriten", "★ Favoriten"], ["archiv", `Archiv (${archive.length})`]].map(([id, label]) => (
+              <button key={id} onClick={() => setSubTab(id)} style={{ flex: 1, padding: "7px 0", borderRadius: 8, border: "none", background: subTab === id ? (id === "favoriten" ? "#f59e0b" : C.accent) : "transparent", color: subTab === id ? "#000" : C.muted, fontFamily: "Syne", fontSize: 11, fontWeight: 700, cursor: "pointer", textTransform: "uppercase", letterSpacing: 0.5 }}>
                 {label}
               </button>
             ))}
           </div>
 
-          {subTab === "aktiv" && <>
+          {(subTab === "aktiv" || subTab === "favoriten") && <>
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-              <SectionLabel>Aktive Mealpreps ({recipes.length})</SectionLabel>
-              {step === STEP.idle && <Btn onClick={() => setStep(STEP.entering)} small variant="ghost">+ Neu kochen</Btn>}
+              <SectionLabel>{subTab === "favoriten" ? `Favoriten (${recipes.filter(r=>r.is_favorite).length})` : `Aktive Mealpreps (${recipes.length})`}</SectionLabel>
+              {step === STEP.idle && subTab === "aktiv" && <Btn onClick={() => setStep(STEP.entering)} small variant="ghost">+ Neu kochen</Btn>}
             </div>
 
             {step === STEP.entering && (
@@ -1908,7 +1930,7 @@
               </div>
             )}
 
-            {step === STEP.idle && recipes.map(r => (
+            {step === STEP.idle && (subTab === "aktiv" ? recipes : recipes.filter(r => r.is_favorite)).map(r => (
               <Card key={r.id} style={{ padding: "12px 14px" }}>
                 <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 10 }}>
                   <div style={{ flex: 1 }}>
@@ -1919,7 +1941,10 @@
                       Gesamtgewicht: {r.total_weight}g{r.portion_g ? ` · Portion: ${r.portion_g}g` : ""}
                     </div>
                   </div>
-                  <button onClick={() => onDelete(r.id)} style={{ background: "none", border: "none", color: "#f8717140", fontSize: 16, padding: 4 }}>✕</button>
+                  <div style={{ display: "flex", alignItems: "center", gap: 2 }}>
+                    <button onClick={() => onToggleFavorite(r.id, !r.is_favorite)} style={{ background: "none", border: "none", color: r.is_favorite ? "#f59e0b" : C.border, fontSize: 18, padding: 4, cursor: "pointer", lineHeight: 1 }}>{r.is_favorite ? "★" : "☆"}</button>
+                    <button onClick={() => onDelete(r.id)} style={{ background: "none", border: "none", color: "#f8717140", fontSize: 16, padding: 4 }}>✕</button>
+                  </div>
                 </div>
                 <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 6, marginBottom: 8 }}>
                   {MACROS.map(m => (
@@ -1950,6 +1975,11 @@
                 <Btn onClick={() => onArchive(r)} full variant="ghost" small>Aufgegessen ✓</Btn>
               </Card>
             ))}
+            {subTab === "favoriten" && recipes.filter(r => r.is_favorite).length === 0 && (
+              <div style={{ textAlign: "center", padding: 40, color: C.muted, fontFamily: "Syne", fontSize: 14, lineHeight: 1.9 }}>
+                Noch keine Favoriten.<br />Tippe auf ☆ bei einem Rezept<br />um es als Favorit zu markieren.
+              </div>
+            )}
           </>}
 
           {subTab === "archiv" && <>
@@ -3923,6 +3953,11 @@
         deleteRecipeFromServer(id).catch(() => {});
       };
 
+      const toggleFavorite = async (id, is_favorite) => {
+        setRecipes(p => p.map(r => r.id === id ? { ...r, is_favorite } : r));
+        toggleRecipeFavorite(id, is_favorite).catch(() => {});
+      };
+
       const editRecipe = async (id, data) => {
         try {
           const saved = await updateRecipeOnServer(id, data);
@@ -4041,7 +4076,7 @@
               <div key={"in-" + tab} style={{ position: "absolute", inset: 0, overflowY: "auto", overflowX: "hidden", WebkitOverflowScrolling: "touch", zIndex: 1 }}
                 className={outTab ? `slide-from-${slideDir}` : ""}>
                 {tab === "today"     && <TodayTab entries={entries} targets={targets} onDelete={deleteEntry} onEdit={e => setEditingEntry(e)} burnedKcal={burnedToday} onSaveBurned={async (v) => { await saveBodyWeightAPI(todayStr(), null, v); setBurnedToday(v); }} todayWeight={todayWeight} onSaveWeight={async (v) => { await saveBodyWeightAPI(todayStr(), v, null); setTodayWeight(v); }} stravaActivities={stravaToday} onDeleteStrava={async (id) => { await deleteStravaActivityAPI(id); setStravaToday(p => p.filter(a => a.strava_id !== id)); }} />}
-                {tab === "mealprep"  && <BlurGate locked={!sub.hasAccess} feature="Rezepte" onUnlock={() => openPaywall("Rezepte")}><MealprepTab recipes={recipes} onAdd={addRecipe} onEdit={editRecipe} onDelete={removeRecipe} onArchive={archiveRecipe} archive={archive} voiceLang={voiceLang} userFoods={userFoods} /></BlurGate>}
+                {tab === "mealprep"  && <BlurGate locked={!sub.hasAccess} feature="Rezepte" onUnlock={() => openPaywall("Rezepte")}><MealprepTab recipes={recipes} onAdd={addRecipe} onEdit={editRecipe} onDelete={removeRecipe} onArchive={archiveRecipe} onToggleFavorite={toggleFavorite} archive={archive} voiceLang={voiceLang} userFoods={userFoods} /></BlurGate>}
                 {tab === "history"   && <BlurGate locked={!sub.hasAccess} feature="Verlauf" onUnlock={() => openPaywall("Verlauf")}><HistoryTab targets={targets} loadRange={loadDiaryRange} loadDay={loadDiaryEntries} onDelete={deleteEntry} updateEntry={updateDiaryEntry} loadBodyWeights={loadBodyWeightRange} saveBodyWeight={saveBodyWeightAPI} onAdd={addEntryForDate} recipes={recipes} userFoods={userFoods} voiceLang={voiceLang} loadActivities={loadStravaActivities} onDeleteStrava={async (id) => { await deleteStravaActivityAPI(id); }} /></BlurGate>}
                 {tab === "userfoods" && <BlurGate locked={!sub.hasAccess} feature="Eigene Lebensmittel" onUnlock={() => openPaywall("Eigene Lebensmittel")}><UserFoodsTab userFoods={userFoods} onAdd={addUserFood} onUpdate={updateUserFood} onDelete={deleteUserFood} /></BlurGate>}
               </div>
@@ -4052,7 +4087,7 @@
                 className={`slide-to-${slideDir === "right" ? "left" : "right"}`}
                 onAnimationEnd={onAnimEnd}>
                 {outTab === "today"     && <TodayTab entries={entries} targets={targets} onDelete={deleteEntry} onEdit={e => setEditingEntry(e)} burnedKcal={burnedToday} onSaveBurned={async (v) => { await saveBodyWeightAPI(todayStr(), null, v); setBurnedToday(v); }} todayWeight={todayWeight} onSaveWeight={async (v) => { await saveBodyWeightAPI(todayStr(), v, null); setTodayWeight(v); }} stravaActivities={stravaToday} onDeleteStrava={async (id) => { await deleteStravaActivityAPI(id); setStravaToday(p => p.filter(a => a.strava_id !== id)); }} />}
-                {outTab === "mealprep"  && <BlurGate locked={!sub.hasAccess} feature="Rezepte" onUnlock={() => openPaywall("Rezepte")}><MealprepTab recipes={recipes} onAdd={addRecipe} onEdit={editRecipe} onDelete={removeRecipe} onArchive={archiveRecipe} archive={archive} voiceLang={voiceLang} userFoods={userFoods} /></BlurGate>}
+                {outTab === "mealprep"  && <BlurGate locked={!sub.hasAccess} feature="Rezepte" onUnlock={() => openPaywall("Rezepte")}><MealprepTab recipes={recipes} onAdd={addRecipe} onEdit={editRecipe} onDelete={removeRecipe} onArchive={archiveRecipe} onToggleFavorite={toggleFavorite} archive={archive} voiceLang={voiceLang} userFoods={userFoods} /></BlurGate>}
                 {outTab === "history"   && <BlurGate locked={!sub.hasAccess} feature="Verlauf" onUnlock={() => openPaywall("Verlauf")}><HistoryTab targets={targets} loadRange={loadDiaryRange} loadDay={loadDiaryEntries} onDelete={deleteEntry} updateEntry={updateDiaryEntry} loadBodyWeights={loadBodyWeightRange} saveBodyWeight={saveBodyWeightAPI} onAdd={addEntryForDate} recipes={recipes} userFoods={userFoods} voiceLang={voiceLang} loadActivities={loadStravaActivities} onDeleteStrava={async (id) => { await deleteStravaActivityAPI(id); }} /></BlurGate>}
                 {outTab === "userfoods" && <BlurGate locked={!sub.hasAccess} feature="Eigene Lebensmittel" onUnlock={() => openPaywall("Eigene Lebensmittel")}><UserFoodsTab userFoods={userFoods} onAdd={addUserFood} onUpdate={updateUserFood} onDelete={deleteUserFood} /></BlurGate>}
               </div>
