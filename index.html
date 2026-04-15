@@ -1221,13 +1221,13 @@
       const [weightSaving, setWeightSaving] = useState(false);
       const [weightSaved, setWeightSaved] = useState(false);
       const saveBurned = async () => {
-        const v = parseFloat(burnedInput) || 0;
+        const v = parseFloat(String(burnedInput).replace(",", ".")) || 0;
         setBurnedSaving(true);
         try { await onSaveBurned(v); setBurnedSaved(true); setTimeout(() => setBurnedSaved(false), 2000); } catch {}
         setBurnedSaving(false);
       };
       const saveWeight = async () => {
-        const v = parseFloat(weightInput);
+        const v = parseFloat(String(weightInput).replace(",", "."));
         if (!v) return;
         setWeightSaving(true);
         try { await onSaveWeight(v); setWeightSaved(true); setTimeout(() => setWeightSaved(false), 2000); } catch {}
@@ -2363,7 +2363,7 @@
       };
 
       const saveDayWeight = async () => {
-        const w = parseFloat(dayWeight);
+        const w = parseFloat(String(dayWeight).replace(",", "."));
         if (!w || w <= 0) return;
         setDayWeightSaving(true);
         try {
@@ -2375,7 +2375,7 @@
       };
 
       const saveDayBurned = async () => {
-        const b = parseFloat(dayBurned) || 0;
+        const b = parseFloat(String(dayBurned).replace(",", ".")) || 0;
         setDayBurnedSaving(true);
         try {
           await saveBodyWeight(selectedDay.date, null, b);
