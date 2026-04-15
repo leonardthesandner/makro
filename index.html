@@ -2745,7 +2745,7 @@
                   {/* X-axis — HTML div, label left% computed from chartScrollOffset
                        so it maps to exactly the same screen pixels as the SVG viewBox */}
                   <div ref={xAxisStripRef}
-                    style={{ position: "relative", height: 16, marginTop: 4, overflow: "hidden", touchAction: "none", cursor: "ew-resize" }}
+                    style={{ position: "relative", height: 20, marginTop: 4, overflow: "hidden", touchAction: "none", cursor: "ew-resize" }}
                     onPointerDown={onXDown} onPointerMove={onXMove} onPointerUp={onXUp} onPointerLeave={onXUp}>
                     {chartBuckets.map((b, i) => {
                       const leftPct = (i * chartStep - chartScrollOffset) / 280 * 100;
