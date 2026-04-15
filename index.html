@@ -2725,6 +2725,8 @@
                 })}
               </div>
               {activeSeries.length > 0 ? (<>
+                {/* Wrapper stops touch events from bubbling to the tab-swipe handler */}
+                <div onTouchStart={e => e.stopPropagation()} onTouchEnd={e => e.stopPropagation()} onTouchMove={e => e.stopPropagation()}>
                 {/* Chart SVG — crosshair on tap/drag, viewBox pans with chartScrollOffset */}
                 <div style={{ position: "relative" }}>
                   {chartActivePoints.length > 0 && (
@@ -2749,6 +2751,7 @@
                       fontFamily="Inter" fontSize="9" fill={C.muted}>{bucketLabel(b, true)}</text>
                   ))}
                 </svg>
+                </div>{/* end touch-stop wrapper */}
                 <div style={{ marginTop: 12, paddingTop: 10, borderTop: `1px solid ${C.border}`, display: "flex", flexDirection: "column", gap: 5 }}>
                   {activeSeries.map(s => {
                     const valid = s.data.filter(v => v != null);
