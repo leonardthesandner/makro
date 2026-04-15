@@ -928,15 +928,17 @@
                     ))}
                   </div>
                 )}
-                <div style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center" }}>
-                  <span style={{ fontFamily: "Syne", fontSize: 10, color: C.muted, textTransform: "uppercase", letterSpacing: 1 }}>Mealprep:</span>
-                  {recipes.map(r => (
-                    <button key={r.id} onClick={() => addRecipeToInput(r)}
-                      style={{ fontFamily: "Syne", fontSize: 12, fontWeight: 600, padding: "5px 12px", borderRadius: 20, background: C.card, border: `1px solid ${C.border}`, color: C.text, cursor: "pointer" }}>
-                      {r.name}
-                    </button>
-                  ))}
-                </div>
+                {recipes.filter(r => !r.is_favorite).length > 0 && (
+                  <div style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center" }}>
+                    <span style={{ fontFamily: "Syne", fontSize: 10, color: C.muted, textTransform: "uppercase", letterSpacing: 1 }}>Mealprep:</span>
+                    {recipes.filter(r => !r.is_favorite).map(r => (
+                      <button key={r.id} onClick={() => addRecipeToInput(r)}
+                        style={{ fontFamily: "Syne", fontSize: 12, fontWeight: 600, padding: "5px 12px", borderRadius: 20, background: C.card, border: `1px solid ${C.border}`, color: C.text, cursor: "pointer" }}>
+                        {r.name}
+                      </button>
+                    ))}
+                  </div>
+                )}
               </div>
             );
           })()}
@@ -1376,6 +1378,7 @@
       const [editingRecipe, setEditingRecipe] = useState(null); // { recipe, items, name, cookedWeight }
       const [editSaving, setEditSaving] = useState(false);
       const [subTab, setSubTab] = useState("aktiv");
+      const [showFavInfo, setShowFavInfo] = useState(false);
       const [ingredientText, setIngredientText] = useState("");
       const mpTextareaRef = useRef(null);
       const [items, setItems] = useState([]);
@@ -1631,9 +1634,19 @@
 
           {(subTab === "aktiv" || subTab === "favoriten") && <>
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-              <SectionLabel>{subTab === "favoriten" ? `Favoriten (${recipes.filter(r=>r.is_favorite).length})` : `Aktive Mealpreps (${recipes.length})`}</SectionLabel>
+              <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                <SectionLabel>{subTab === "favoriten" ? `Favoriten (${recipes.filter(r=>r.is_favorite).length})` : `Aktive Mealpreps (${recipes.length})`}</SectionLabel>
+                {subTab === "favoriten" && (
+                  <button onClick={() => setShowFavInfo(p => !p)} style={{ background: "none", border: `1px solid ${C.border}`, borderRadius: "50%", width: 16, height: 16, fontSize: 10, color: C.muted, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, lineHeight: 1 }}>ⓘ</button>
+                )}
+              </div>
               {step === STEP.idle && subTab === "aktiv" && <Btn onClick={() => setStep(STEP.entering)} small variant="ghost">+ Neu kochen</Btn>}
             </div>
+            {subTab === "favoriten" && showFavInfo && (
+              <div style={{ background: C.soft, border: `1px solid ${C.border}`, borderRadius: 10, padding: "10px 14px", fontFamily: "Syne", fontSize: 12, color: C.muted, lineHeight: 1.6 }}>
+                Favoriten sind für <strong style={{ color: C.text }}>Routinen</strong> gedacht — Mahlzeiten die du regelmäßig zubereitest. Sie erscheinen auf der Eingabeseite ganz oben, damit du sie mit einem Tippen hinzufügen kannst.
+              </div>
+            )}
 
             {step === STEP.entering && (
               <Card accent style={{ display: "flex", flexDirection: "column" }}>
@@ -1934,17 +1947,17 @@
               <Card key={r.id} style={{ padding: "12px 14px" }}>
                 <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 10 }}>
                   <div style={{ flex: 1 }}>
-                    <button onClick={() => startEditRecipe(r)} style={{ background: "none", border: "none", padding: 0, color: C.text, fontFamily: "Syne", fontSize: 15, fontWeight: 700, cursor: "pointer", textAlign: "left", textDecoration: "underline", textDecorationColor: C.border }}>
-                      {r.name}
-                    </button>
+                    <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                      <button onClick={() => startEditRecipe(r)} style={{ background: "none", border: "none", padding: 0, color: C.text, fontFamily: "Syne", fontSize: 15, fontWeight: 700, cursor: "pointer", textAlign: "left", textDecoration: "underline", textDecorationColor: C.border }}>
+                        {r.name}
+                      </button>
+                      <button onClick={() => onToggleFavorite(r.id, !r.is_favorite)} style={{ background: "none", border: "none", color: r.is_favorite ? "#f59e0b" : C.border, fontSize: 16, padding: 0, cursor: "pointer", lineHeight: 1, flexShrink: 0 }}>{r.is_favorite ? "★" : "☆"}</button>
+                    </div>
                     <div style={{ fontFamily: "Syne", fontSize: 10, color: C.muted, marginTop: 2 }}>
                       Gesamtgewicht: {r.total_weight}g{r.portion_g ? ` · Portion: ${r.portion_g}g` : ""}
                     </div>
                   </div>
-                  <div style={{ display: "flex", alignItems: "center", gap: 2 }}>
-                    <button onClick={() => onToggleFavorite(r.id, !r.is_favorite)} style={{ background: "none", border: "none", color: r.is_favorite ? "#f59e0b" : C.border, fontSize: 18, padding: 4, cursor: "pointer", lineHeight: 1 }}>{r.is_favorite ? "★" : "☆"}</button>
-                    <button onClick={() => onDelete(r.id)} style={{ background: "none", border: "none", color: "#f8717140", fontSize: 16, padding: 4 }}>✕</button>
-                  </div>
+                  <button onClick={() => onDelete(r.id)} style={{ background: "none", border: "none", color: "#f8717140", fontSize: 16, padding: 4 }}>✕</button>
                 </div>
                 <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 6, marginBottom: 8 }}>
                   {MACROS.map(m => (
