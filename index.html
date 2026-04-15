@@ -2099,7 +2099,7 @@
               : <span style={{ fontFamily: "Inter", fontSize: 10, color: "transparent" }}>·</span>
             }
           </div>
-          <svg ref={svgRef} viewBox={`0 0 ${VW} ${VH}`} style={{ width: fixedWidth ? `${fixedWidth}px` : "100%", display: "block", touchAction: "pan-x", userSelect: "none" }}
+          <svg ref={svgRef} viewBox={`0 0 ${VW} ${VH}`} style={{ width: "100%", display: "block", touchAction: "none", userSelect: "none" }}
             onPointerDown={onDown} onPointerMove={onMove} onPointerUp={onUp} onPointerLeave={onUp}>
             {seriesScales.map(s => {
               const d = smoothPath(s.data, s.toY);
@@ -2698,23 +2698,23 @@
                 })}
               </div>
               {activeSeries.length > 0 ? (<>
+                {/* Chart: volle Breite, Wisch-Crosshair funktioniert normal */}
+                <MultiLineChart series={activeSeries} n={chartBuckets.length} H={84} />
+                {/* Nur die x-Achse scrollt */}
                 {(() => {
-                  const bucketPx = 60;
-                  const fw = Math.max(420, chartBuckets.length * bucketPx);
+                  const fw = Math.max(420, chartBuckets.length * 60);
                   return (
-                    <div className="no-scrollbar" style={{ overflowX: "auto", WebkitOverflowScrolling: "touch", touchAction: "pan-x", marginRight: -14, paddingRight: 14 }} onTouchStart={e => e.stopPropagation()} onTouchEnd={e => e.stopPropagation()}>
-                      <div style={{ width: `${fw}px` }}>
-                        <MultiLineChart series={activeSeries} n={chartBuckets.length} H={84} fixedWidth={fw} />
-                        <div style={{ position: "relative", height: 16, marginTop: 4 }}>
-                          {chartBuckets.map((b, i) => {
-                            const pct = chartBuckets.length > 1 ? i / (chartBuckets.length - 1) * 100 : 50;
-                            return (
-                              <div key={b.key} style={{ position: "absolute", left: `${pct}%`, transform: "translateX(-50%)", textAlign: "center", whiteSpace: "nowrap" }}>
-                                <span style={{ fontFamily: "Inter", fontSize: 9, color: C.muted }}>{bucketLabel(b, true)}</span>
-                              </div>
-                            );
-                          })}
-                        </div>
+                    <div className="no-scrollbar" style={{ overflowX: "auto", touchAction: "pan-x", marginRight: -14, paddingRight: 14, marginTop: 4 }}
+                      onTouchStart={e => e.stopPropagation()} onTouchEnd={e => e.stopPropagation()}>
+                      <div style={{ position: "relative", height: 16, width: `${fw}px` }}>
+                        {chartBuckets.map((b, i) => {
+                          const pct = chartBuckets.length > 1 ? i / (chartBuckets.length - 1) * 100 : 50;
+                          return (
+                            <div key={b.key} style={{ position: "absolute", left: `${pct}%`, transform: "translateX(-50%)", textAlign: "center", whiteSpace: "nowrap" }}>
+                              <span style={{ fontFamily: "Inter", fontSize: 9, color: C.muted }}>{bucketLabel(b, true)}</span>
+                            </div>
+                          );
+                        })}
                       </div>
                     </div>
                   );
