@@ -1420,17 +1420,27 @@
         const r = { id: Date.now(), name: mealName.trim(), total_weight: tw, kcal_total: Math.round(totals.kcal), protein_total: Math.round(totals.protein * 10) / 10, carbs_total: Math.round(totals.carbs * 10) / 10, fat_total: Math.round(totals.fat * 10) / 10, ingredients: ingredientText, items };
         r.kcal_100 = r.kcal_total / tw * 100; r.protein_100 = r.protein_total / tw * 100;
         r.carbs_100 = r.carbs_total / tw * 100; r.fat_100 = r.fat_total / tw * 100;
-        if (portionMode === "count" && portionCount && parseInt(portionCount) > 0)
+        if (portionMode === "count" && portionCount && parseInt(portionCount) > 0) {
+          r.portion_count = parseInt(portionCount);
           r.portion_g = tw / parseInt(portionCount);
-        else if (portionMode === "weight" && portionWeight)
+        } else if (portionMode === "weight" && portionWeight) {
           r.portion_g = parseFloat(portionWeight);
+          r.portion_count = null;
+        }
         onAdd(r);
         setStep(STEP.idle); setIngredientText(""); setItems([]); setMealName(""); setCookedWeight(""); setPortionWeight(""); setPortionCount(""); setPortionMode("weight");
       };
 
       const startEditRecipe = (r) => {
         const storedItems = r.items ? (typeof r.items === "string" ? JSON.parse(r.items) : r.items) : [];
-        setEditingRecipe({ recipe: r, items: storedItems, name: r.name, cookedWeight: String(parseFloat(r.total_weight)), portionWeight: r.portion_g ? String(parseFloat(r.portion_g)) : "", portionMode: "weight", portionCount: "" });
+        const hasCount = r.portion_count && parseInt(r.portion_count) > 0;
+        setEditingRecipe({
+          recipe: r, items: storedItems, name: r.name,
+          cookedWeight: String(parseFloat(r.total_weight)),
+          portionMode: hasCount ? "count" : "weight",
+          portionCount: hasCount ? String(parseInt(r.portion_count)) : "",
+          portionWeight: !hasCount && r.portion_g ? String(parseFloat(r.portion_g)) : "",
+        });
         setStep(STEP.editing);
         setSubTab("aktiv");
       };
@@ -1474,6 +1484,8 @@
           portion_g:   (editingRecipe.portionMode||"weight") === "count" && editingRecipe.portionCount && parseInt(editingRecipe.portionCount) > 0
             ? tw / parseInt(editingRecipe.portionCount)
             : editingRecipe.portionWeight ? parseFloat(editingRecipe.portionWeight) : null,
+          portion_count: (editingRecipe.portionMode||"weight") === "count" && editingRecipe.portionCount
+            ? parseInt(editingRecipe.portionCount) : null,
         };
 
         await onEdit(editingRecipe.recipe.id, data);
