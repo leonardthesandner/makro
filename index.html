@@ -2742,15 +2742,20 @@
                   <MultiLineChart series={activeSeries} n={chartBuckets.length} H={84}
                     onActiveChange={setChartActivePoints}
                     scrollOffset={chartScrollOffset} totalWidth={chartFw} />
-                  {/* X-axis SVG — same parent → identical rendered width → perfect alignment */}
-                  <svg ref={xAxisStripRef} viewBox={`${chartScrollOffset} 0 280 14`}
-                    style={{ width: "100%", display: "block", height: 14, marginTop: 4, touchAction: "none", cursor: "ew-resize" }}
+                  {/* X-axis — HTML div, label left% computed from chartScrollOffset
+                       so it maps to exactly the same screen pixels as the SVG viewBox */}
+                  <div ref={xAxisStripRef}
+                    style={{ position: "relative", height: 16, marginTop: 4, overflow: "hidden", touchAction: "none", cursor: "ew-resize" }}
                     onPointerDown={onXDown} onPointerMove={onXMove} onPointerUp={onXUp} onPointerLeave={onXUp}>
-                    {chartBuckets.map((b, i) => (
-                      <text key={b.key} x={i * chartStep} y={11} textAnchor="middle"
-                        fontFamily="Inter" fontSize="9" fill={C.muted}>{bucketLabel(b, true)}</text>
-                    ))}
-                  </svg>
+                    {chartBuckets.map((b, i) => {
+                      const leftPct = (i * chartStep - chartScrollOffset) / 280 * 100;
+                      return (
+                        <div key={b.key} style={{ position: "absolute", left: `${leftPct}%`, transform: "translateX(-50%)", top: 2, pointerEvents: "none" }}>
+                          <span style={{ fontFamily: "Inter", fontSize: 9, color: C.muted, whiteSpace: "nowrap" }}>{bucketLabel(b, true)}</span>
+                        </div>
+                      );
+                    })}
+                  </div>
                 </div>
                 <div style={{ marginTop: 12, paddingTop: 10, borderTop: `1px solid ${C.border}`, display: "flex", flexDirection: "column", gap: 5 }}>
                   {activeSeries.map(s => {
