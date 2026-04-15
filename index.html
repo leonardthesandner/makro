@@ -2033,14 +2033,13 @@
       return <>{mpContent}{mpPortal}</>;
     }
 
-    function MultiLineChart({ series, n = 7, H = 80, onActiveChange }) {
+    function MultiLineChart({ series, n = 7, H = 80, onActiveChange, scrollOffset = 0, totalWidth = 280 }) {
       const [activeIdx, setActiveIdx] = React.useState(null);
       const svgRef = React.useRef(null);
-      const VW = 280, VH = H;
-      const padT = 8, padB = 8, padL = 0, padR = 0;
-      const chartW = VW - padL - padR;
-      const step = n > 1 ? chartW / (n - 1) : 0;
-      const toX = i => padL + i * step;
+      const VW = 280, VH = H;   // VW = visible SVG viewport width (fixed)
+      const padT = 8, padB = 8;
+      const step = n > 1 ? totalWidth / (n - 1) : 0;
+      const toX = i => i * step;
 
       const smoothPath = (data, toY) => {
         const pts = [];
@@ -2049,8 +2048,8 @@
         let d = `M${pts[0][0]} ${pts[0][1]}`;
         for (let i = 1; i < pts.length; i++) {
           const [x0, y0] = pts[i - 1]; const [x1, y1] = pts[i];
-          const dx = (x1 - x0) * 0.4;
-          d += ` C${x0 + dx} ${y0} ${x1 - dx} ${y1} ${x1} ${y1}`;
+          const cx = (x1 - x0) * 0.4;
+          d += ` C${x0 + cx} ${y0} ${x1 - cx} ${y1} ${x1} ${y1}`;
         }
         return d;
       };
@@ -2068,12 +2067,12 @@
       seriesScalesRef.current = seriesScales;
 
       const getIdxFromEvent = (e) => {
-        const svg = svgRef.current;
-        if (!svg) return null;
+        const svg = svgRef.current; if (!svg) return null;
         const rect = svg.getBoundingClientRect();
         const clientX = e.touches ? e.touches[0].clientX : e.clientX;
-        const relX = (clientX - rect.left) / rect.width * VW;
-        const idx = Math.round((relX - padL) / (step || 1));
+        // Convert screen position → SVG coordinate (viewport is [scrollOffset .. scrollOffset+VW])
+        const svgX = (clientX - rect.left) / rect.width * VW + scrollOffset;
+        const idx = Math.round(svgX / (step || 1));
         return Math.max(0, Math.min(n - 1, idx));
       };
 
@@ -2085,7 +2084,7 @@
         onActiveChange(pts);
       };
 
-      const onDown = (e) => { const idx = getIdxFromEvent(e); setActiveIdx(idx); notify(idx); };
+      const onDown = (e) => { e.currentTarget.setPointerCapture(e.pointerId); const idx = getIdxFromEvent(e); setActiveIdx(idx); notify(idx); };
       const onMove = (e) => { if (activeIdx !== null) { const idx = getIdxFromEvent(e); setActiveIdx(idx); notify(idx); } };
       const onUp   = () => { setActiveIdx(null); notify(null); };
 
@@ -2096,7 +2095,9 @@
         : [];
 
       return (
-        <svg ref={svgRef} viewBox={`0 0 ${VW} ${VH}`} style={{ width: "100%", display: "block", touchAction: "none", userSelect: "none" }}
+        // viewBox shifts with scrollOffset → chart pans without DOM scroll
+        <svg ref={svgRef} viewBox={`${scrollOffset} 0 ${VW} ${VH}`}
+          style={{ width: "100%", display: "block", touchAction: "none", userSelect: "none" }}
           onPointerDown={onDown} onPointerMove={onMove} onPointerUp={onUp} onPointerLeave={onUp}>
           {seriesScales.map(s => {
             const d = smoothPath(s.data, s.toY);
@@ -2144,7 +2145,9 @@
       const [dayBurnedSaved, setDayBurnedSaved] = useState(false);
       const [activeStats, setActiveStats] = useState(new Set(["gewicht", "kcal"]));
       const [chartActivePoints, setChartActivePoints] = useState([]);
-      const xAxisScrollRef = React.useRef(null);
+      const [chartScrollOffset, setChartScrollOffset] = useState(0);
+      const xDragRef = React.useRef(null);
+      const xAxisStripRef = React.useRef(null);
       const toggleStat = (id) => setActiveStats(prev => { const n = new Set(prev); n.has(id) ? n.delete(id) : n.add(id); return n; });
 
       const [stravaActivities, setStravaActivities] = useState({}); // date → activities[]
@@ -2205,10 +2208,11 @@
 
       useEffect(() => { loadData(period); }, []);
 
-      // Nach Laden und bei Periodenwechsel: x-Achse zum aktuellen Tag (rechts) scrollen
+      // Nach Laden und bei Periodenwechsel: Chart zum aktuellen Tag (rechts) scrollen
       useEffect(() => {
-        if (!loading && xAxisScrollRef.current) {
-          xAxisScrollRef.current.scrollLeft = xAxisScrollRef.current.scrollWidth;
+        if (!loading) {
+          const _fw = Math.max(420, chartBuckets.length * 60);
+          setChartScrollOffset(Math.max(0, _fw - 280));
         }
       }, [loading, period]);
 
@@ -2671,6 +2675,24 @@
       const activeSeries = statsCharts.filter(c => activeStats.has(c.id));
       const singleActive = activeSeries.length === 1 ? activeSeries[0] : null;
 
+      // Chart scroll geometry (shared by chart SVG and x-axis SVG via viewBox)
+      const chartFw = Math.max(420, chartBuckets.length * 60);
+      const chartStep = chartBuckets.length > 1 ? chartFw / (chartBuckets.length - 1) : 0;
+      const chartMaxOff = Math.max(0, chartFw - 280);
+      const onXDown = (e) => {
+        e.currentTarget.setPointerCapture(e.pointerId);
+        xDragRef.current = { startX: e.clientX, startOffset: chartScrollOffset, screenW: e.currentTarget.getBoundingClientRect().width };
+        e.stopPropagation();
+      };
+      const onXMove = (e) => {
+        if (!xDragRef.current) return;
+        const dx = e.clientX - xDragRef.current.startX; // positive = dragged right
+        const delta = -dx * 280 / xDragRef.current.screenW; // SVG units (label follows finger)
+        setChartScrollOffset(Math.max(0, Math.min(chartMaxOff, xDragRef.current.startOffset + delta)));
+        e.stopPropagation();
+      };
+      const onXUp = (e) => { xDragRef.current = null; e.stopPropagation(); };
+
       return (
         <>
         <div style={{ padding: 16, display: "flex", flexDirection: "column", gap: 10 }}>
@@ -2703,10 +2725,10 @@
                 })}
               </div>
               {activeSeries.length > 0 ? (<>
-                {/* Chart + info overlay — SVG never scrolls, crosshair works across full width */}
+                {/* Chart SVG — crosshair on tap/drag, viewBox pans with chartScrollOffset */}
                 <div style={{ position: "relative" }}>
                   {chartActivePoints.length > 0 && (
-                    <div style={{ position: "absolute", top: 4, left: 4, zIndex: 10, display: "flex", gap: 8, flexWrap: "wrap", pointerEvents: "none", background: "rgba(0,0,0,0.45)", borderRadius: 6, padding: "3px 7px" }}>
+                    <div style={{ position: "absolute", top: 4, left: 4, zIndex: 10, display: "flex", gap: 8, flexWrap: "wrap", pointerEvents: "none", background: "rgba(0,0,0,0.5)", borderRadius: 6, padding: "3px 8px" }}>
                       {chartActivePoints.map(s => (
                         <span key={s.id} style={{ fontFamily: "Inter", fontSize: 11, fontWeight: 700, color: s.color }}>
                           {s.label} {Number(s.v).toFixed(s.dec || 0)}{s.unit ? "\u202f" + s.unit : ""}
@@ -2714,27 +2736,19 @@
                       ))}
                     </div>
                   )}
-                  <MultiLineChart series={activeSeries} n={chartBuckets.length} H={84} onActiveChange={setChartActivePoints} />
+                  <MultiLineChart series={activeSeries} n={chartBuckets.length} H={84}
+                    onActiveChange={setChartActivePoints}
+                    scrollOffset={chartScrollOffset} totalWidth={chartFw} />
                 </div>
-                {/* Only x-axis labels scroll */}
-                {(() => {
-                  const fw = Math.max(420, chartBuckets.length * 60);
-                  return (
-                    <div ref={xAxisScrollRef} className="no-scrollbar" style={{ overflowX: "auto", touchAction: "pan-x", marginRight: -14, paddingRight: 14, marginTop: 4 }}
-                      onTouchStart={e => e.stopPropagation()} onTouchEnd={e => e.stopPropagation()}>
-                      <div style={{ position: "relative", height: 16, width: `${fw}px` }}>
-                        {chartBuckets.map((b, i) => {
-                          const pct = chartBuckets.length > 1 ? i / (chartBuckets.length - 1) * 100 : 50;
-                          return (
-                            <div key={b.key} style={{ position: "absolute", left: `${pct}%`, transform: "translateX(-50%)", textAlign: "center", whiteSpace: "nowrap" }}>
-                              <span style={{ fontFamily: "Inter", fontSize: 9, color: C.muted }}>{bucketLabel(b, true)}</span>
-                            </div>
-                          );
-                        })}
-                      </div>
-                    </div>
-                  );
-                })()}
+                {/* X-axis SVG — same viewBox → labels stay in sync; drag here to pan */}
+                <svg ref={xAxisStripRef} viewBox={`${chartScrollOffset} 0 280 14`}
+                  style={{ width: "100%", display: "block", height: 14, marginTop: 4, touchAction: "none", cursor: "ew-resize" }}
+                  onPointerDown={onXDown} onPointerMove={onXMove} onPointerUp={onXUp} onPointerLeave={onXUp}>
+                  {chartBuckets.map((b, i) => (
+                    <text key={b.key} x={i * chartStep} y={11} textAnchor="middle"
+                      fontFamily="Inter" fontSize="9" fill={C.muted}>{bucketLabel(b, true)}</text>
+                  ))}
+                </svg>
                 <div style={{ marginTop: 12, paddingTop: 10, borderTop: `1px solid ${C.border}`, display: "flex", flexDirection: "column", gap: 5 }}>
                   {activeSeries.map(s => {
                     const valid = s.data.filter(v => v != null);
