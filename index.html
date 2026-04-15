@@ -2033,10 +2033,10 @@
       return <>{mpContent}{mpPortal}</>;
     }
 
-    function MultiLineChart({ series, n = 7, H = 80, fixedWidth }) {
+    function MultiLineChart({ series, n = 7, H = 80, onActiveChange }) {
       const [activeIdx, setActiveIdx] = React.useState(null);
       const svgRef = React.useRef(null);
-      const VW = fixedWidth || 280, VH = H;
+      const VW = 280, VH = H;
       const padT = 8, padB = 8, padL = 0, padR = 0;
       const chartW = VW - padL - padR;
       const step = n > 1 ? chartW / (n - 1) : 0;
@@ -2048,13 +2048,24 @@
         if (pts.length < 2) return pts.length === 1 ? `M${pts[0][0]} ${pts[0][1]}` : "";
         let d = `M${pts[0][0]} ${pts[0][1]}`;
         for (let i = 1; i < pts.length; i++) {
-          const [x0, y0] = pts[i - 1];
-          const [x1, y1] = pts[i];
+          const [x0, y0] = pts[i - 1]; const [x1, y1] = pts[i];
           const dx = (x1 - x0) * 0.4;
           d += ` C${x0 + dx} ${y0} ${x1 - dx} ${y1} ${x1} ${y1}`;
         }
         return d;
       };
+
+      const seriesScales = series.map(s => {
+        const valid = s.data.filter(v => v != null);
+        const mn = valid.length ? Math.min(...valid) : 0;
+        const mx = valid.length ? Math.max(...valid) : 1;
+        const range = mx - mn || 1;
+        const toY = v => padT + (1 - (v - mn) / range) * (VH - padT - padB);
+        return { ...s, toY, mn, mx };
+      });
+
+      const seriesScalesRef = React.useRef(seriesScales);
+      seriesScalesRef.current = seriesScales;
 
       const getIdxFromEvent = (e) => {
         const svg = svgRef.current;
@@ -2066,19 +2077,17 @@
         return Math.max(0, Math.min(n - 1, idx));
       };
 
-      const onDown = (e) => { setActiveIdx(getIdxFromEvent(e)); };
-      const onMove = (e) => { if (activeIdx !== null) setActiveIdx(getIdxFromEvent(e)); };
-      const onUp   = () => setActiveIdx(null);
+      const notify = (idx) => {
+        if (!onActiveChange) return;
+        const pts = idx !== null
+          ? seriesScalesRef.current.map(s => ({ ...s, v: s.data[idx] })).filter(s => s.v != null)
+          : [];
+        onActiveChange(pts);
+      };
 
-      // Per-series y-scale so every line uses the full chart height
-      const seriesScales = series.map(s => {
-        const valid = s.data.filter(v => v != null);
-        const mn = valid.length ? Math.min(...valid) : 0;
-        const mx = valid.length ? Math.max(...valid) : 1;
-        const range = mx - mn || 1;
-        const toY = v => padT + (1 - (v - mn) / range) * (VH - padT - padB);
-        return { ...s, toY, mn, mx };
-      });
+      const onDown = (e) => { const idx = getIdxFromEvent(e); setActiveIdx(idx); notify(idx); };
+      const onMove = (e) => { if (activeIdx !== null) { const idx = getIdxFromEvent(e); setActiveIdx(idx); notify(idx); } };
+      const onUp   = () => { setActiveIdx(null); notify(null); };
 
       if (seriesScales.every(s => s.data.every(v => v == null))) return null;
 
@@ -2087,38 +2096,25 @@
         : [];
 
       return (
-        <div>
-          {/* Fixed info row above chart — never covered by finger */}
-          <div style={{ minHeight: 20, marginBottom: 6, display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center" }}>
-            {activePoints.length > 0
-              ? activePoints.map(s => (
-                  <span key={s.id} style={{ fontFamily: "Inter", fontSize: 11, fontWeight: 700, color: s.color }}>
-                    {s.label} {Number(s.v).toFixed(s.dec || 0)}{s.unit ? "\u202f" + s.unit : ""}
-                  </span>
-                ))
-              : <span style={{ fontFamily: "Inter", fontSize: 10, color: "transparent" }}>·</span>
-            }
-          </div>
-          <svg ref={svgRef} viewBox={`0 0 ${VW} ${VH}`} style={{ width: fixedWidth ? `${fixedWidth}px` : "100%", display: "block", touchAction: "pan-x", userSelect: "none" }}
-            onPointerDown={onDown} onPointerMove={onMove} onPointerUp={onUp} onPointerLeave={onUp}>
-            {seriesScales.map(s => {
-              const d = smoothPath(s.data, s.toY);
-              if (!d) return null;
-              return <path key={s.id} d={d} fill="none" stroke={s.color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" opacity={activeIdx !== null ? 0.4 : 1} />;
-            })}
-            {activeIdx !== null && (() => {
-              const x = toX(activeIdx);
-              return (
-                <g>
-                  <line x1={x} y1={0} x2={x} y2={VH} stroke="#ffffff20" strokeWidth="1" />
-                  {activePoints.map(s => (
-                    <circle key={s.id} cx={x} cy={s.toY(s.v)} r="4" fill={s.color} />
-                  ))}
-                </g>
-              );
-            })()}
-          </svg>
-        </div>
+        <svg ref={svgRef} viewBox={`0 0 ${VW} ${VH}`} style={{ width: "100%", display: "block", touchAction: "none", userSelect: "none" }}
+          onPointerDown={onDown} onPointerMove={onMove} onPointerUp={onUp} onPointerLeave={onUp}>
+          {seriesScales.map(s => {
+            const d = smoothPath(s.data, s.toY);
+            if (!d) return null;
+            return <path key={s.id} d={d} fill="none" stroke={s.color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" opacity={activeIdx !== null ? 0.4 : 1} />;
+          })}
+          {activeIdx !== null && (() => {
+            const x = toX(activeIdx);
+            return (
+              <g>
+                <line x1={x} y1={0} x2={x} y2={VH} stroke="#ffffff20" strokeWidth="1" />
+                {activePoints.map(s => (
+                  <circle key={s.id} cx={x} cy={s.toY(s.v)} r="4" fill={s.color} />
+                ))}
+              </g>
+            );
+          })()}
+        </svg>
       );
     }
 
@@ -2147,6 +2143,7 @@
       const [dayBurnedSaving, setDayBurnedSaving] = useState(false);
       const [dayBurnedSaved, setDayBurnedSaved] = useState(false);
       const [activeStats, setActiveStats] = useState(new Set(["gewicht", "kcal"]));
+      const [chartActivePoints, setChartActivePoints] = useState([]);
       const xAxisScrollRef = React.useRef(null);
       const toggleStat = (id) => setActiveStats(prev => { const n = new Set(prev); n.has(id) ? n.delete(id) : n.add(id); return n; });
 
@@ -2706,23 +2703,34 @@
                 })}
               </div>
               {activeSeries.length > 0 ? (<>
+                {/* Chart + info overlay — SVG never scrolls, crosshair works across full width */}
+                <div style={{ position: "relative" }}>
+                  {chartActivePoints.length > 0 && (
+                    <div style={{ position: "absolute", top: 4, left: 4, zIndex: 10, display: "flex", gap: 8, flexWrap: "wrap", pointerEvents: "none", background: "rgba(0,0,0,0.45)", borderRadius: 6, padding: "3px 7px" }}>
+                      {chartActivePoints.map(s => (
+                        <span key={s.id} style={{ fontFamily: "Inter", fontSize: 11, fontWeight: 700, color: s.color }}>
+                          {s.label} {Number(s.v).toFixed(s.dec || 0)}{s.unit ? "\u202f" + s.unit : ""}
+                        </span>
+                      ))}
+                    </div>
+                  )}
+                  <MultiLineChart series={activeSeries} n={chartBuckets.length} H={84} onActiveChange={setChartActivePoints} />
+                </div>
+                {/* Only x-axis labels scroll */}
                 {(() => {
                   const fw = Math.max(420, chartBuckets.length * 60);
                   return (
-                    <div ref={xAxisScrollRef} className="no-scrollbar" style={{ overflowX: "auto", touchAction: "pan-x", marginRight: -14, paddingRight: 14 }}
+                    <div ref={xAxisScrollRef} className="no-scrollbar" style={{ overflowX: "auto", touchAction: "pan-x", marginRight: -14, paddingRight: 14, marginTop: 4 }}
                       onTouchStart={e => e.stopPropagation()} onTouchEnd={e => e.stopPropagation()}>
-                      <div style={{ width: `${fw}px` }}>
-                        <MultiLineChart series={activeSeries} n={chartBuckets.length} H={84} fixedWidth={fw} />
-                        <div style={{ position: "relative", height: 16, marginTop: 4 }}>
-                          {chartBuckets.map((b, i) => {
-                            const pct = chartBuckets.length > 1 ? i / (chartBuckets.length - 1) * 100 : 50;
-                            return (
-                              <div key={b.key} style={{ position: "absolute", left: `${pct}%`, transform: "translateX(-50%)", textAlign: "center", whiteSpace: "nowrap" }}>
-                                <span style={{ fontFamily: "Inter", fontSize: 9, color: C.muted }}>{bucketLabel(b, true)}</span>
-                              </div>
-                            );
-                          })}
-                        </div>
+                      <div style={{ position: "relative", height: 16, width: `${fw}px` }}>
+                        {chartBuckets.map((b, i) => {
+                          const pct = chartBuckets.length > 1 ? i / (chartBuckets.length - 1) * 100 : 50;
+                          return (
+                            <div key={b.key} style={{ position: "absolute", left: `${pct}%`, transform: "translateX(-50%)", textAlign: "center", whiteSpace: "nowrap" }}>
+                              <span style={{ fontFamily: "Inter", fontSize: 9, color: C.muted }}>{bucketLabel(b, true)}</span>
+                            </div>
+                          );
+                        })}
                       </div>
                     </div>
                   );
