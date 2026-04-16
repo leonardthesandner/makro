@@ -3430,22 +3430,28 @@
         }
       }, []);
 
+      // Listen for native Apple Sign In result (CustomEvent from Swift)
+      useEffect(() => {
+        const handler = async (e) => {
+          const { success, idToken, email, error } = e.detail || {};
+          if (!success) { if (error) setErr(error); return; }
+          setLoading(true); setErr(null);
+          try {
+            const data = await authApiCall("/api/auth/apple", "POST", {
+              id_token: idToken,
+              user: email ? { email } : null,
+            });
+            saveAuth(data); onAuth(data);
+          } catch (ex) { setErr(ex.message || "Apple-Anmeldung fehlgeschlagen"); }
+          setLoading(false);
+        };
+        window.addEventListener("apple-signin-result", handler);
+        return () => window.removeEventListener("apple-signin-result", handler);
+      }, []);
+
       const handleAppleSignIn = async () => {
         // iOS App → nativer Swift-Handler
         if (window.webkit?.messageHandlers?.apple_sign_in) {
-          window.onNativeAppleSignIn = async (success, idToken, email, error) => {
-            window.onNativeAppleSignIn = null;
-            if (!success) { if (error) setErr(error); return; }
-            setLoading(true); setErr(null);
-            try {
-              const data = await authApiCall("/api/auth/apple", "POST", {
-                id_token: idToken,
-                user: email ? { email } : null,
-              });
-              saveAuth(data); onAuth(data);
-            } catch (e) { setErr(e.message || "Apple-Anmeldung fehlgeschlagen"); }
-            setLoading(false);
-          };
           window.webkit.messageHandlers.apple_sign_in.postMessage({});
           return;
         }
