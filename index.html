@@ -270,6 +270,27 @@
     async function fetchSubscription()      { return apiCall("/api/subscription"); }
     async function initSubscription()       { return apiCall("/api/subscription/init", "POST"); }
     async function activateSubscription()   { return apiCall("/api/subscription/activate", "POST"); }
+    // ─── Pantry API ───────────────────────────────────────────────────────────
+    async function fetchPantry()                  { return apiCall("/api/pantry"); }
+    async function addPantryItem(item)            { return apiCall("/api/pantry", "POST", item); }
+    async function addPantryBulk(items)           { return apiCall("/api/pantry/bulk", "POST", { items }); }
+    async function updatePantryItem(id, data)     { return apiCall(`/api/pantry/${id}`, "PATCH", data); }
+    async function deletePantryItem(id)           { return apiCall(`/api/pantry/${id}`, "DELETE"); }
+    async function deductPantryItems(items)       { return apiCall("/api/pantry/deduct", "POST", { items }); }
+    async function getPantryRecipes(remaining, prompt) { return apiCall("/api/pantry/recipes", "POST", { remaining_macros: remaining, prompt }); }
+    async function scanReceiptImage(imageBlob) {
+      const fd = new FormData();
+      fd.append("image", imageBlob, "receipt.jpg");
+      const auth = getAuth();
+      const r = await fetch(`${API_BASE}/api/pantry/scan`, {
+        method: "POST",
+        headers: { Authorization: `Bearer ${auth?.token}` },
+        body: fd,
+      });
+      if (!r.ok) throw new Error((await r.json()).error || "Scan fehlgeschlagen");
+      return r.json();
+    }
+
     async function saveToArchive(recipe) {
       return apiCall("/api/archive", "POST", { recipe });
     }
@@ -3666,7 +3687,34 @@
       );
     }
 
-    function UserFoodsTab({ userFoods, onAdd, onUpdate, onDelete }) {
+    // ─── UserFoodsTab mit Vorrat-Sektion ────────────────────────────────────────
+    function UserFoodsTab({ userFoods, onAdd, onUpdate, onDelete, pantry, onPantryAdd, onPantryBulk, onPantryUpdate, onPantryDelete, onPantryRecipes, onScanReceipt, onAddRecipe }) {
+      const [section, setSection] = useState("foods");
+
+      const tabBtnStyle = (active) => ({
+        flex: 1, padding: "8px 0", fontFamily: "Syne", fontSize: 13, fontWeight: 700,
+        background: active ? C.accent : "transparent",
+        color: active ? "#fff" : C.muted,
+        border: `1px solid ${active ? C.accent : C.border}`,
+        borderRadius: 8, cursor: "pointer", letterSpacing: 0.3,
+      });
+
+      return (
+        <div style={{ display: "flex", flexDirection: "column", height: "100%" }}>
+          <div style={{ display: "flex", gap: 8, padding: "12px 16px 8px", flexShrink: 0 }}>
+            <button style={tabBtnStyle(section === "foods")}  onClick={() => setSection("foods")}>Eigene LM</button>
+            <button style={tabBtnStyle(section === "pantry")} onClick={() => setSection("pantry")}>🧊 Vorrat</button>
+          </div>
+          <div style={{ flex: 1, overflowY: "auto" }}>
+            {section === "foods"  && <FoodsSection userFoods={userFoods} onAdd={onAdd} onUpdate={onUpdate} onDelete={onDelete} />}
+            {section === "pantry" && <PantrySection pantry={pantry} onAdd={onPantryAdd} onBulk={onPantryBulk} onUpdate={onPantryUpdate} onDelete={onPantryDelete} onRecipes={onPantryRecipes} onScan={onScanReceipt} onAddRecipe={onAddRecipe} />}
+          </div>
+        </div>
+      );
+    }
+
+    // ─── FoodsSection (ehem. UserFoodsTab Inhalt) ────────────────────────────
+    function FoodsSection({ userFoods, onAdd, onUpdate, onDelete }) {
       const [showAdd, setShowAdd] = useState(false);
       const [addForm, setAddForm] = useState({ name: "", kcal_100: "", protein_100: "", carbs_100: "", fat_100: "" });
       const [editId, setEditId] = useState(null);
@@ -3678,13 +3726,11 @@
         setEditId(f.id);
         setEditForm({ name: f.name, kcal_100: String(parseFloat(f.kcal_100)), protein_100: String(parseFloat(f.protein_100)), carbs_100: String(parseFloat(f.carbs_100)), fat_100: String(parseFloat(f.fat_100)) });
       };
-
       const saveEdit = async () => {
         setSaving(true);
         await onUpdate(editId, { name: editForm.name, kcal_100: parseFloat(editForm.kcal_100)||0, protein_100: parseFloat(editForm.protein_100)||0, carbs_100: parseFloat(editForm.carbs_100)||0, fat_100: parseFloat(editForm.fat_100)||0 });
         setEditId(null); setSaving(false);
       };
-
       const saveAdd = async () => {
         if (!addForm.name.trim() || !addForm.kcal_100) return;
         setSaving(true);
@@ -3693,10 +3739,8 @@
         setShowAdd(false); setSaving(false);
       };
 
-      const sorted = [...userFoods].sort((a, b) => a.name.localeCompare(b.name, "de", { sensitivity: "base" }));
-      const filtered = search.trim()
-        ? sorted.filter(f => f.name.toLowerCase().includes(search.trim().toLowerCase()))
-        : sorted;
+      const sorted   = [...userFoods].sort((a, b) => a.name.localeCompare(b.name, "de", { sensitivity: "base" }));
+      const filtered = search.trim() ? sorted.filter(f => f.name.toLowerCase().includes(search.trim().toLowerCase())) : sorted;
 
       return (
         <div style={{ padding: 16, display: "flex", flexDirection: "column", gap: 12 }}>
@@ -3704,41 +3748,27 @@
             <SectionLabel>Eigene Lebensmittel ({userFoods.length})</SectionLabel>
             {!showAdd && <Btn onClick={() => { setShowAdd(true); setEditId(null); }} small variant="ghost">+ Hinzufügen</Btn>}
           </div>
-
           {userFoods.length > 0 && (
             <div style={{ position: "relative" }}>
-              <input
-                type="text"
-                placeholder="Suchen…"
-                value={search}
-                onChange={e => setSearch(e.target.value)}
-                style={{ background: C.input, border: `1px solid ${C.border}`, borderRadius: 8, padding: "9px 36px 9px 12px", color: C.text, fontFamily: "Syne", fontSize: 14, outline: "none", width: "100%" }}
-              />
-              {search && (
-                <button onClick={() => setSearch("")} style={{ position: "absolute", right: 10, top: "50%", transform: "translateY(-50%)", background: "none", border: "none", color: C.muted, fontSize: 16, cursor: "pointer", padding: 2 }}>✕</button>
-              )}
+              <input type="text" placeholder="Suchen…" value={search} onChange={e => setSearch(e.target.value)}
+                style={{ background: C.input, border: `1px solid ${C.border}`, borderRadius: 8, padding: "9px 36px 9px 12px", color: C.text, fontFamily: "Syne", fontSize: 14, outline: "none", width: "100%" }} />
+              {search && <button onClick={() => setSearch("")} style={{ position: "absolute", right: 10, top: "50%", transform: "translateY(-50%)", background: "none", border: "none", color: C.muted, fontSize: 16, cursor: "pointer", padding: 2 }}>✕</button>}
             </div>
           )}
-
           {showAdd && (
             <Card accent style={{ padding: 14 }}>
               <div style={{ fontFamily: "Syne", fontSize: 12, color: C.accent, marginBottom: 10 }}>Neues Lebensmittel</div>
               <FoodForm form={addForm} setForm={setAddForm} onSave={saveAdd} onCancel={() => setShowAdd(false)} saveLabel="Speichern ✓" saving={saving} />
             </Card>
           )}
-
           {userFoods.length === 0 && !showAdd && (
             <div style={{ textAlign: "center", padding: 40, color: C.muted, fontFamily: "Syne", fontSize: 14, lineHeight: 1.9 }}>
               Noch keine eigenen Lebensmittel.<br />Füge Produkte hinzu – sie werden<br />beim Tracken automatisch zuerst<br />verwendet.
             </div>
           )}
-
           {filtered.length === 0 && search.trim() && (
-            <div style={{ textAlign: "center", padding: 24, color: C.muted, fontFamily: "Syne", fontSize: 13 }}>
-              Kein Treffer für „{search}"
-            </div>
+            <div style={{ textAlign: "center", padding: 24, color: C.muted, fontFamily: "Syne", fontSize: 13 }}>Kein Treffer für „{search}"</div>
           )}
-
           {filtered.map(f => (
             <Card key={f.id} onClick={() => editId !== f.id && (startEdit(f), setShowAdd(false))} style={{ padding: "12px 14px", cursor: editId === f.id ? "default" : "pointer" }}>
               {editId === f.id ? (
@@ -3750,7 +3780,7 @@
                     <button onClick={ev => { ev.stopPropagation(); onDelete(f.id); }} style={{ background: "none", border: "none", color: "#f8717140", fontSize: 16, padding: 4 }}>✕</button>
                   </div>
                   <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 6 }}>
-                    {[["kcal", "kcal", C.kcal], ["protein_100", "Eiweiß", C.protein], ["carbs_100", "KH", C.carbs], ["fat_100", "Fett", C.fat]].map(([key, label, color]) => (
+                    {[["kcal","kcal",C.kcal],["protein_100","Eiweiß",C.protein],["carbs_100","KH",C.carbs],["fat_100","Fett",C.fat]].map(([key,label,color]) => (
                       <div key={key} style={{ textAlign: "center" }}>
                         <Mono size={14} color={color} bold>{Math.round(parseFloat(f[key === "kcal" ? "kcal_100" : key]) * 10) / 10}</Mono>
                         <div style={{ fontFamily: "Inter", fontSize: 9, color: C.muted }}>{label}</div>
@@ -3763,6 +3793,388 @@
             </Card>
           ))}
         </div>
+      );
+    }
+
+    // ─── PantrySection ───────────────────────────────────────────────────────
+    function PantrySection({ pantry, onAdd, onBulk, onUpdate, onDelete, onRecipes, onScan, onAddRecipe }) {
+      const [aiPrompt, setAiPrompt] = useState("");
+      const [aiLoading, setAiLoading] = useState(false);
+      const [showRecipes, setShowRecipes] = useState(false);
+      const [recipes, setRecipes] = useState([]);
+      const [showScan, setShowScan] = useState(false);
+      const [showAddForm, setShowAddForm] = useState(false);
+      const [addForm, setAddForm] = useState({ name: "", quantity: "1", unit: "Stück", category: "pantry" });
+      const [saving, setSaving] = useState(false);
+      const [editId, setEditId] = useState(null);
+      const [editForm, setEditForm] = useState({});
+
+      const fridge  = pantry.filter(i => i.category === "fridge");
+      const storage = pantry.filter(i => i.category === "pantry");
+
+      const handleAiSubmit = async () => {
+        setAiLoading(true);
+        try {
+          const result = await onRecipes(aiPrompt.trim() || null);
+          setRecipes(result.recipes || []);
+          setShowRecipes(true);
+          setAiPrompt("");
+        } catch (e) { alert(e.message); }
+        setAiLoading(false);
+      };
+
+      const saveAdd = async () => {
+        if (!addForm.name.trim()) return;
+        setSaving(true);
+        try {
+          await onAdd({ name: addForm.name.trim(), quantity: parseFloat(addForm.quantity) || 1, unit: addForm.unit || "Stück", category: addForm.category });
+          setAddForm({ name: "", quantity: "1", unit: "Stück", category: "pantry" });
+          setShowAddForm(false);
+        } catch (e) { alert(e.message); }
+        setSaving(false);
+      };
+
+      const startEdit = (item) => {
+        setEditId(item.id);
+        setEditForm({ name: item.name, quantity: String(parseFloat(item.quantity)), unit: item.unit, category: item.category });
+      };
+      const saveEdit = async () => {
+        await onUpdate(editId, { name: editForm.name, quantity: parseFloat(editForm.quantity) || 1, unit: editForm.unit, category: editForm.category });
+        setEditId(null);
+      };
+
+      const inputStyle = { background: C.input, border: `1px solid ${C.border}`, borderRadius: 8, padding: "8px 10px", color: C.text, fontFamily: "Syne", fontSize: 13, outline: "none" };
+      const UNITS = ["g", "kg", "ml", "L", "Stück", "Packung", "Dose", "Flasche", "Becher"];
+
+      const PantryItem = ({ item }) => (
+        <div style={{ display: "flex", alignItems: "center", gap: 8, padding: "10px 0", borderBottom: `1px solid ${C.border}` }}>
+          {editId === item.id ? (
+            <div style={{ flex: 1, display: "flex", flexDirection: "column", gap: 6 }}>
+              <input value={editForm.name} onChange={e => setEditForm(f => ({ ...f, name: e.target.value }))} style={{ ...inputStyle, width: "100%" }} />
+              <div style={{ display: "flex", gap: 6 }}>
+                <input type="number" value={editForm.quantity} onChange={e => setEditForm(f => ({ ...f, quantity: e.target.value }))} style={{ ...inputStyle, width: 70 }} />
+                <select value={editForm.unit} onChange={e => setEditForm(f => ({ ...f, unit: e.target.value }))} style={{ ...inputStyle, flex: 1 }}>
+                  {UNITS.map(u => <option key={u} value={u}>{u}</option>)}
+                </select>
+                <select value={editForm.category} onChange={e => setEditForm(f => ({ ...f, category: e.target.value }))} style={{ ...inputStyle, flex: 1 }}>
+                  <option value="fridge">🧊 Kühlschrank</option>
+                  <option value="pantry">📦 Vorratskammer</option>
+                </select>
+              </div>
+              <div style={{ display: "flex", gap: 6 }}>
+                <Btn small onClick={saveEdit}>✓ Speichern</Btn>
+                <Btn small variant="ghost" onClick={() => setEditId(null)}>Abbrechen</Btn>
+              </div>
+            </div>
+          ) : (
+            <>
+              <div style={{ flex: 1, cursor: "pointer" }} onClick={() => startEdit(item)}>
+                <div style={{ fontFamily: "Syne", fontSize: 14, fontWeight: 700, color: C.text }}>{item.name}</div>
+                <div style={{ fontFamily: "Inter", fontSize: 12, color: C.muted, marginTop: 2 }}>
+                  {parseFloat(item.quantity) % 1 === 0 ? parseInt(item.quantity) : parseFloat(item.quantity).toFixed(1)} {item.unit}
+                </div>
+              </div>
+              <button onClick={() => onUpdate(item.id, { category: item.category === "fridge" ? "pantry" : "fridge" })}
+                style={{ background: "none", border: `1px solid ${C.border}`, borderRadius: 6, padding: "4px 7px", color: C.muted, fontSize: 11, cursor: "pointer", fontFamily: "Syne" }}
+                title="Verschieben">
+                {item.category === "fridge" ? "→📦" : "→🧊"}
+              </button>
+              <button onClick={() => onDelete(item.id)} style={{ background: "none", border: "none", color: "#f8717140", fontSize: 18, cursor: "pointer", padding: 4 }}>✕</button>
+            </>
+          )}
+        </div>
+      );
+
+      return (
+        <div style={{ padding: 16, display: "flex", flexDirection: "column", gap: 14 }}>
+          {/* AI input */}
+          <Card style={{ padding: 12 }}>
+            <div style={{ fontFamily: "Syne", fontSize: 11, color: C.muted, textTransform: "uppercase", letterSpacing: 1.2, marginBottom: 8 }}>Rezeptvorschlag</div>
+            <div style={{ display: "flex", gap: 8 }}>
+              <input value={aiPrompt} onChange={e => setAiPrompt(e.target.value)}
+                onKeyDown={e => e.key === "Enter" && !aiLoading && handleAiSubmit()}
+                placeholder="z.B. Abendessen mit wenig Kohlenhydraten…"
+                style={{ ...inputStyle, flex: 1, fontSize: 13 }} />
+              <button onClick={handleAiSubmit} disabled={aiLoading || pantry.length === 0}
+                style={{ background: C.accent, border: "none", borderRadius: 8, padding: "8px 14px", color: "#fff", fontFamily: "Syne", fontSize: 13, fontWeight: 700, cursor: "pointer", opacity: pantry.length === 0 ? 0.4 : 1 }}>
+                {aiLoading ? "…" : "🍳"}
+              </button>
+            </div>
+            {pantry.length === 0 && <div style={{ fontFamily: "Inter", fontSize: 11, color: C.muted, marginTop: 6 }}>Füge zuerst Vorräte hinzu</div>}
+          </Card>
+
+          {/* Action buttons */}
+          <div style={{ display: "flex", gap: 8 }}>
+            <button onClick={() => setShowScan(true)}
+              style={{ flex: 1, background: C.input, border: `1px solid ${C.border}`, borderRadius: 10, padding: "10px 0", fontFamily: "Syne", fontSize: 12, fontWeight: 700, color: C.text, cursor: "pointer" }}>
+              📷 Bon scannen
+            </button>
+            <button onClick={() => setShowAddForm(v => !v)}
+              style={{ flex: 1, background: C.input, border: `1px solid ${C.border}`, borderRadius: 10, padding: "10px 0", fontFamily: "Syne", fontSize: 12, fontWeight: 700, color: C.text, cursor: "pointer" }}>
+              + Hinzufügen
+            </button>
+          </div>
+
+          {/* Manual add form */}
+          {showAddForm && (
+            <Card accent style={{ padding: 12 }}>
+              <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+                <input placeholder="Name" value={addForm.name} onChange={e => setAddForm(f => ({ ...f, name: e.target.value }))} style={{ ...inputStyle, width: "100%" }} />
+                <div style={{ display: "flex", gap: 6 }}>
+                  <input type="number" placeholder="Menge" value={addForm.quantity} onChange={e => setAddForm(f => ({ ...f, quantity: e.target.value }))} style={{ ...inputStyle, width: 80 }} />
+                  <select value={addForm.unit} onChange={e => setAddForm(f => ({ ...f, unit: e.target.value }))} style={{ ...inputStyle, flex: 1 }}>
+                    {UNITS.map(u => <option key={u} value={u}>{u}</option>)}
+                  </select>
+                </div>
+                <select value={addForm.category} onChange={e => setAddForm(f => ({ ...f, category: e.target.value }))} style={{ ...inputStyle, width: "100%" }}>
+                  <option value="fridge">🧊 Kühlschrank</option>
+                  <option value="pantry">📦 Vorratskammer</option>
+                </select>
+                <div style={{ display: "flex", gap: 6 }}>
+                  <Btn small onClick={saveAdd} disabled={saving}>✓ Speichern</Btn>
+                  <Btn small variant="ghost" onClick={() => setShowAddForm(false)}>Abbrechen</Btn>
+                </div>
+              </div>
+            </Card>
+          )}
+
+          {/* Fridge section */}
+          {(fridge.length > 0 || true) && (
+            <div>
+              <div style={{ fontFamily: "Syne", fontSize: 11, color: C.muted, textTransform: "uppercase", letterSpacing: 1.5, marginBottom: 4 }}>🧊 Kühlschrank ({fridge.length})</div>
+              {fridge.length === 0
+                ? <div style={{ fontFamily: "Inter", fontSize: 12, color: C.muted, padding: "8px 0" }}>Leer</div>
+                : fridge.map(item => <PantryItem key={item.id} item={item} />)
+              }
+            </div>
+          )}
+
+          {/* Pantry section */}
+          <div>
+            <div style={{ fontFamily: "Syne", fontSize: 11, color: C.muted, textTransform: "uppercase", letterSpacing: 1.5, marginBottom: 4, marginTop: 8 }}>📦 Vorratskammer ({storage.length})</div>
+            {storage.length === 0
+              ? <div style={{ fontFamily: "Inter", fontSize: 12, color: C.muted, padding: "8px 0" }}>Leer</div>
+              : storage.map(item => <PantryItem key={item.id} item={item} />)
+            }
+          </div>
+
+          {/* Scan Modal */}
+          {showScan && <ScanReceiptModal onClose={() => setShowScan(false)} onScan={onScan} onBulk={onBulk} />}
+
+          {/* Recipe Modal */}
+          {showRecipes && <PantryRecipeModal recipes={recipes} onClose={() => setShowRecipes(false)} onAddRecipe={onAddRecipe} />}
+        </div>
+      );
+    }
+
+    // ─── ScanReceiptModal ────────────────────────────────────────────────────
+    function ScanReceiptModal({ onClose, onScan, onBulk }) {
+      const [preview, setPreview] = useState(null);
+      const [imageBlob, setImageBlob] = useState(null);
+      const [scanning, setScanning] = useState(false);
+      const [scanned, setScanned] = useState(null);
+      const [selected, setSelected] = useState([]);
+      const [saving, setSaving] = useState(false);
+      const fileRef = React.useRef();
+
+      const handleFile = (e) => {
+        const file = e.target.files?.[0];
+        if (!file) return;
+        setImageBlob(file);
+        const reader = new FileReader();
+        reader.onload = ev => setPreview(ev.target.result);
+        reader.readAsDataURL(file);
+        setScanned(null);
+      };
+
+      const doScan = async () => {
+        if (!imageBlob) return;
+        setScanning(true);
+        try {
+          const items = await onScan(imageBlob);
+          setScanned(items);
+          setSelected(items.map((_, i) => i));
+        } catch (e) { alert(e.message); }
+        setScanning(false);
+      };
+
+      const doSave = async () => {
+        const toSave = scanned.filter((_, i) => selected.includes(i));
+        if (!toSave.length) return;
+        setSaving(true);
+        try {
+          await onBulk(toSave);
+          onClose();
+        } catch (e) { alert(e.message); }
+        setSaving(false);
+      };
+
+      const toggleSel = (i) => setSelected(s => s.includes(i) ? s.filter(x => x !== i) : [...s, i]);
+      const UNITS = ["g","kg","ml","L","Stück","Packung","Dose","Flasche","Becher"];
+
+      return ReactDOM.createPortal(
+        <div style={{ position: "fixed", inset: 0, zIndex: 999, display: "flex", flexDirection: "column", background: C.bg }}>
+          <div style={{ display: "flex", alignItems: "center", padding: "16px 16px 8px", borderBottom: `1px solid ${C.border}`, flexShrink: 0 }}>
+            <div style={{ fontFamily: "Syne", fontSize: 17, fontWeight: 800, color: C.text, flex: 1 }}>📷 Kassenbon scannen</div>
+            <button onClick={onClose} style={{ background: "none", border: "none", color: C.muted, fontSize: 22, cursor: "pointer" }}>✕</button>
+          </div>
+
+          <div style={{ flex: 1, overflowY: "auto", padding: 16, display: "flex", flexDirection: "column", gap: 14 }}>
+            {/* Upload area */}
+            <div onClick={() => fileRef.current?.click()}
+              style={{ border: `2px dashed ${C.border}`, borderRadius: 14, padding: 24, textAlign: "center", cursor: "pointer", background: C.input }}>
+              {preview
+                ? <img src={preview} alt="Bon" style={{ maxWidth: "100%", maxHeight: 280, borderRadius: 8, objectFit: "contain" }} />
+                : <div>
+                    <div style={{ fontSize: 36, marginBottom: 8 }}>📄</div>
+                    <div style={{ fontFamily: "Syne", fontSize: 14, color: C.muted }}>Foto aufnehmen oder Bild wählen</div>
+                  </div>
+              }
+              <input ref={fileRef} type="file" accept="image/*" capture="environment" onChange={handleFile} style={{ display: "none" }} />
+            </div>
+
+            {preview && !scanned && (
+              <button onClick={doScan} disabled={scanning}
+                style={{ width: "100%", background: C.accent, border: "none", borderRadius: 12, padding: 14, fontFamily: "Syne", fontSize: 15, fontWeight: 700, color: "#fff", cursor: "pointer" }}>
+                {scanning ? "Scanne…" : "🔍 Scannen"}
+              </button>
+            )}
+
+            {/* Scanned items */}
+            {scanned && (
+              <>
+                <div style={{ fontFamily: "Syne", fontSize: 13, fontWeight: 700, color: C.text }}>
+                  {scanned.length} Produkte erkannt – wähle was du hinzufügen möchtest:
+                </div>
+                {scanned.map((item, i) => (
+                  <div key={i} style={{ display: "flex", alignItems: "flex-start", gap: 10, padding: "10px 12px", background: C.input, borderRadius: 10, border: `1px solid ${selected.includes(i) ? C.accent : C.border}` }}>
+                    <input type="checkbox" checked={selected.includes(i)} onChange={() => toggleSel(i)}
+                      style={{ marginTop: 3, accentColor: C.accent, width: 16, height: 16, flexShrink: 0 }} />
+                    <div style={{ flex: 1 }}>
+                      <div style={{ fontFamily: "Syne", fontSize: 14, fontWeight: 700, color: C.text }}>{item.name}</div>
+                      <div style={{ display: "flex", gap: 6, marginTop: 6 }}>
+                        <input type="number" value={item.quantity} onChange={e => setScanned(s => s.map((x,j) => j===i ? {...x, quantity: parseFloat(e.target.value)||1} : x))}
+                          style={{ background: C.bg, border: `1px solid ${C.border}`, borderRadius: 6, padding: "4px 8px", color: C.text, fontFamily: "Syne", fontSize: 12, outline: "none", width: 60 }} />
+                        <select value={item.unit} onChange={e => setScanned(s => s.map((x,j) => j===i ? {...x, unit: e.target.value} : x))}
+                          style={{ background: C.bg, border: `1px solid ${C.border}`, borderRadius: 6, padding: "4px 8px", color: C.text, fontFamily: "Syne", fontSize: 12, outline: "none", flex: 1 }}>
+                          {UNITS.map(u => <option key={u} value={u}>{u}</option>)}
+                        </select>
+                        <select value={item.category} onChange={e => setScanned(s => s.map((x,j) => j===i ? {...x, category: e.target.value} : x))}
+                          style={{ background: C.bg, border: `1px solid ${C.border}`, borderRadius: 6, padding: "4px 8px", color: C.text, fontFamily: "Syne", fontSize: 12, outline: "none", flex: 1 }}>
+                          <option value="fridge">🧊 Kühlschrank</option>
+                          <option value="pantry">📦 Vorrat</option>
+                        </select>
+                      </div>
+                      {item.matched && <div style={{ fontFamily: "Inter", fontSize: 10, color: "#4ade80", marginTop: 4 }}>✓ Nährwerte gefunden</div>}
+                    </div>
+                  </div>
+                ))}
+                <button onClick={doSave} disabled={saving || selected.length === 0}
+                  style={{ width: "100%", background: C.accent, border: "none", borderRadius: 12, padding: 14, fontFamily: "Syne", fontSize: 15, fontWeight: 700, color: "#fff", cursor: "pointer", opacity: selected.length === 0 ? 0.4 : 1 }}>
+                  {saving ? "Speichern…" : `${selected.length} Produkte hinzufügen`}
+                </button>
+              </>
+            )}
+          </div>
+        </div>,
+        document.body
+      );
+    }
+
+    // ─── PantryRecipeModal ───────────────────────────────────────────────────
+    function PantryRecipeModal({ recipes, onClose, onAddRecipe }) {
+      const [expanded, setExpanded] = useState(null);
+      const [adding, setAdding] = useState(null);
+
+      const handleAddToMealprep = async (recipe, i) => {
+        setAdding(i);
+        try {
+          // Build recipe object compatible with Mealprep format
+          const totalWeight = recipe.ingredients.reduce((s, ing) => s + (ing.quantity || 0), 0);
+          await onAddRecipe({
+            name: recipe.name,
+            ingredients: recipe.ingredients.map(ing => `${ing.quantity}${ing.unit} ${ing.name}`).join("\n"),
+            items: recipe.ingredients.map(ing => ({
+              name_de: ing.name, weight_g: ing.quantity || 0,
+              kcal: 0, protein: 0, carbs: 0, fat: 0,
+            })),
+            total_weight: totalWeight || 100,
+            kcal_total: recipe.macros?.kcal || 0,
+            protein_total: recipe.macros?.protein || 0,
+            carbs_total: recipe.macros?.carbs || 0,
+            fat_total: recipe.macros?.fat || 0,
+            kcal_100: totalWeight ? Math.round((recipe.macros?.kcal || 0) / totalWeight * 100) : 0,
+            protein_100: totalWeight ? ((recipe.macros?.protein || 0) / totalWeight * 100).toFixed(1) : 0,
+            carbs_100: totalWeight ? ((recipe.macros?.carbs || 0) / totalWeight * 100).toFixed(1) : 0,
+            fat_100: totalWeight ? ((recipe.macros?.fat || 0) / totalWeight * 100).toFixed(1) : 0,
+          });
+          alert(`„${recipe.name}" zu Mealprep hinzugefügt ✓`);
+        } catch (e) { alert(e.message); }
+        setAdding(null);
+      };
+
+      return ReactDOM.createPortal(
+        <div style={{ position: "fixed", inset: 0, zIndex: 999, display: "flex", flexDirection: "column", background: C.bg }}>
+          <div style={{ display: "flex", alignItems: "center", padding: "16px 16px 8px", borderBottom: `1px solid ${C.border}`, flexShrink: 0 }}>
+            <div style={{ fontFamily: "Syne", fontSize: 17, fontWeight: 800, color: C.text, flex: 1 }}>🍳 Rezeptvorschläge</div>
+            <button onClick={onClose} style={{ background: "none", border: "none", color: C.muted, fontSize: 22, cursor: "pointer" }}>✕</button>
+          </div>
+
+          <div style={{ flex: 1, overflowY: "auto", padding: 16, display: "flex", flexDirection: "column", gap: 14 }}>
+            {recipes.length === 0 && (
+              <div style={{ textAlign: "center", padding: 40, color: C.muted, fontFamily: "Syne", fontSize: 14 }}>Keine Vorschläge gefunden.</div>
+            )}
+            {recipes.map((recipe, i) => (
+              <Card key={i} style={{ padding: 14 }}>
+                <div style={{ fontFamily: "Syne", fontSize: 16, fontWeight: 800, color: C.text, marginBottom: 4 }}>{recipe.name}</div>
+                <div style={{ fontFamily: "Inter", fontSize: 13, color: C.muted, marginBottom: 10, lineHeight: 1.5 }}>{recipe.description}</div>
+
+                {/* Macros */}
+                <div style={{ display: "grid", gridTemplateColumns: "repeat(4,1fr)", gap: 6, marginBottom: 10 }}>
+                  {[["kcal", C.kcal], ["protein", C.protein], ["carbs", C.carbs], ["fat", C.fat]].map(([k, color]) => (
+                    <div key={k} style={{ textAlign: "center", background: C.input, borderRadius: 8, padding: "6px 0" }}>
+                      <Mono size={14} color={color} bold>{Math.round(recipe.macros?.[k] || 0)}</Mono>
+                      <div style={{ fontFamily: "Inter", fontSize: 9, color: C.muted }}>{k === "kcal" ? "kcal" : k === "protein" ? "Eiweiß" : k === "carbs" ? "KH" : "Fett"}</div>
+                    </div>
+                  ))}
+                </div>
+
+                {/* Expandable details */}
+                <button onClick={() => setExpanded(expanded === i ? null : i)}
+                  style={{ background: "none", border: "none", color: C.muted, fontFamily: "Syne", fontSize: 12, cursor: "pointer", padding: 0, marginBottom: expanded === i ? 10 : 0 }}>
+                  {expanded === i ? "▲ Ausblenden" : "▼ Zutaten & Zubereitung"}
+                </button>
+
+                {expanded === i && (
+                  <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+                    <div>
+                      <div style={{ fontFamily: "Syne", fontSize: 11, color: C.muted, textTransform: "uppercase", letterSpacing: 1, marginBottom: 6 }}>Zutaten</div>
+                      {(recipe.ingredients || []).map((ing, j) => (
+                        <div key={j} style={{ fontFamily: "Inter", fontSize: 13, color: C.text, padding: "3px 0", borderBottom: `1px solid ${C.border}` }}>
+                          {ing.quantity}{ing.unit} {ing.name}
+                        </div>
+                      ))}
+                    </div>
+                    <div>
+                      <div style={{ fontFamily: "Syne", fontSize: 11, color: C.muted, textTransform: "uppercase", letterSpacing: 1, marginBottom: 6 }}>Zubereitung</div>
+                      {(recipe.steps || []).map((step, j) => (
+                        <div key={j} style={{ fontFamily: "Inter", fontSize: 13, color: C.text, padding: "4px 0", lineHeight: 1.5 }}>
+                          {j+1}. {step}
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                <button onClick={() => handleAddToMealprep(recipe, i)} disabled={adding === i}
+                  style={{ marginTop: 12, width: "100%", background: "transparent", border: `1px solid ${C.accent}`, borderRadius: 10, padding: "10px 0", fontFamily: "Syne", fontSize: 13, fontWeight: 700, color: C.accent, cursor: "pointer" }}>
+                  {adding === i ? "Wird hinzugefügt…" : "→ Zu Mealprep"}
+                </button>
+              </Card>
+            ))}
+          </div>
+        </div>,
+        document.body
       );
     }
 
@@ -3820,6 +4232,7 @@
       const [voiceLang, setVoiceLang] = useState(() => store.get("mk_voicelang") || "de");
       const [editingEntry, setEditingEntry] = useState(null);
       const [userFoods, setUserFoods] = useState([]);
+      const [pantry, setPantry] = useState([]);
       const [burnedToday, setBurnedToday] = useState(0);
       const [todayWeight, setTodayWeight] = useState(0);
       const [stravaToday, setStravaToday] = useState([]);
@@ -3906,6 +4319,11 @@
           .then(r => setUserFoods(r))
           .catch(() => {});
 
+        // Load pantry
+        fetchPantry()
+          .then(r => setPantry(r))
+          .catch(() => {});
+
         // Load settings/targets
         loadSettings()
           .then(data => {
@@ -3968,6 +4386,12 @@
           setEntries(p => [...p, saved]);
           cacheDiaryEntries(todayStr(), [...(store.get(DIARY_CACHE_KEY(todayStr())) || []), saved]);
           loadUserFoods().then(r => setUserFoods(r)).catch(() => {});
+          // Auto-deduct from pantry
+          if (pantry.length && entry?.items?.length) {
+            deductPantryItems(entry.items.map(i => ({ name: i.name_de || i.name, weight_g: i.weight_g, food_id: i.food_id })))
+              .then(({ deducted }) => { if (deducted?.length) fetchPantry().then(setPantry).catch(() => {}); })
+              .catch(() => {});
+          }
         } catch {
           // API-Fehler obwohl online → trotzdem offline speichern
           const tempEntry = { ...entry, id: -Date.now(), _pending: true };
@@ -4053,6 +4477,45 @@
         deleteUserFoodAPI(id).catch(() => {});
       };
 
+      // ── Pantry handlers ──────────────────────────────────────────────────────
+      const handlePantryAdd = async (item) => {
+        const saved = await addPantryItem(item);
+        setPantry(p => [...p, saved]);
+        return saved;
+      };
+      const handlePantryBulk = async (items) => {
+        const saved = await addPantryBulk(items);
+        setPantry(p => [...p, ...saved]);
+        return saved;
+      };
+      const handlePantryUpdate = async (id, data) => {
+        const saved = await updatePantryItem(id, data);
+        setPantry(p => p.map(i => i.id === saved.id ? saved : i));
+        return saved;
+      };
+      const handlePantryDelete = async (id) => {
+        setPantry(p => p.filter(i => i.id !== id));
+        deletePantryItem(id).catch(() => {});
+      };
+      const handlePantryRecipes = async (prompt) => {
+        const consumed = entries.reduce((a, e) => {
+          (e.entry?.items || []).forEach(i => {
+            a.kcal    += i.kcal    || 0;
+            a.protein += i.protein || 0;
+            a.carbs   += i.carbs   || 0;
+            a.fat     += i.fat     || 0;
+          });
+          return a;
+        }, { kcal: 0, protein: 0, carbs: 0, fat: 0 });
+        const remaining = {
+          kcal:    Math.max(0, (targets.kcal    || 2000) - consumed.kcal),
+          protein: Math.max(0, (targets.protein || 150)  - consumed.protein),
+          carbs:   Math.max(0, (targets.carbs   || 200)  - consumed.carbs),
+          fat:     Math.max(0, (targets.fat     || 70)   - consumed.fat),
+        };
+        return getPantryRecipes(remaining, prompt);
+      };
+
       // Settings
       const updateSettings = (t, p, vl) => {
         setTargets(t);
@@ -4131,7 +4594,7 @@
                 {tab === "today"     && <TodayTab entries={entries} targets={targets} onDelete={deleteEntry} onEdit={e => setEditingEntry(e)} burnedKcal={burnedToday} onSaveBurned={async (v) => { await saveBodyWeightAPI(todayStr(), null, v); setBurnedToday(v); }} todayWeight={todayWeight} onSaveWeight={async (v) => { await saveBodyWeightAPI(todayStr(), v, null); setTodayWeight(v); }} stravaActivities={stravaToday} onDeleteStrava={async (id) => { await deleteStravaActivityAPI(id); setStravaToday(p => p.filter(a => a.strava_id !== id)); }} />}
                 {tab === "mealprep"  && <BlurGate><MealprepTab recipes={recipes} onAdd={addRecipe} onEdit={editRecipe} onDelete={removeRecipe} onArchive={archiveRecipe} onToggleFavorite={toggleFavorite} archive={archive} voiceLang={voiceLang} userFoods={userFoods} /></BlurGate>}
                 {tab === "history"   && <BlurGate><HistoryTab targets={targets} loadRange={loadDiaryRange} loadDay={loadDiaryEntries} onDelete={deleteEntry} updateEntry={updateDiaryEntry} loadBodyWeights={loadBodyWeightRange} saveBodyWeight={saveBodyWeightAPI} onAdd={addEntryForDate} recipes={recipes} userFoods={userFoods} voiceLang={voiceLang} loadActivities={loadStravaActivities} onDeleteStrava={async (id) => { await deleteStravaActivityAPI(id); }} /></BlurGate>}
-                {tab === "userfoods" && <BlurGate><UserFoodsTab userFoods={userFoods} onAdd={addUserFood} onUpdate={updateUserFood} onDelete={deleteUserFood} /></BlurGate>}
+                {tab === "userfoods" && <BlurGate><UserFoodsTab userFoods={userFoods} onAdd={addUserFood} onUpdate={updateUserFood} onDelete={deleteUserFood} pantry={pantry} onPantryAdd={handlePantryAdd} onPantryBulk={handlePantryBulk} onPantryUpdate={handlePantryUpdate} onPantryDelete={handlePantryDelete} onPantryRecipes={handlePantryRecipes} onScanReceipt={scanReceiptImage} onAddRecipe={addRecipe} /></BlurGate>}
               </div>
             )}
             {/* Outgoing non-input tab */}
@@ -4142,7 +4605,7 @@
                 {outTab === "today"     && <TodayTab entries={entries} targets={targets} onDelete={deleteEntry} onEdit={e => setEditingEntry(e)} burnedKcal={burnedToday} onSaveBurned={async (v) => { await saveBodyWeightAPI(todayStr(), null, v); setBurnedToday(v); }} todayWeight={todayWeight} onSaveWeight={async (v) => { await saveBodyWeightAPI(todayStr(), v, null); setTodayWeight(v); }} stravaActivities={stravaToday} onDeleteStrava={async (id) => { await deleteStravaActivityAPI(id); setStravaToday(p => p.filter(a => a.strava_id !== id)); }} />}
                 {outTab === "mealprep"  && <BlurGate><MealprepTab recipes={recipes} onAdd={addRecipe} onEdit={editRecipe} onDelete={removeRecipe} onArchive={archiveRecipe} onToggleFavorite={toggleFavorite} archive={archive} voiceLang={voiceLang} userFoods={userFoods} /></BlurGate>}
                 {outTab === "history"   && <BlurGate><HistoryTab targets={targets} loadRange={loadDiaryRange} loadDay={loadDiaryEntries} onDelete={deleteEntry} updateEntry={updateDiaryEntry} loadBodyWeights={loadBodyWeightRange} saveBodyWeight={saveBodyWeightAPI} onAdd={addEntryForDate} recipes={recipes} userFoods={userFoods} voiceLang={voiceLang} loadActivities={loadStravaActivities} onDeleteStrava={async (id) => { await deleteStravaActivityAPI(id); }} /></BlurGate>}
-                {outTab === "userfoods" && <BlurGate><UserFoodsTab userFoods={userFoods} onAdd={addUserFood} onUpdate={updateUserFood} onDelete={deleteUserFood} /></BlurGate>}
+                {outTab === "userfoods" && <BlurGate><UserFoodsTab userFoods={userFoods} onAdd={addUserFood} onUpdate={updateUserFood} onDelete={deleteUserFood} pantry={pantry} onPantryAdd={handlePantryAdd} onPantryBulk={handlePantryBulk} onPantryUpdate={handlePantryUpdate} onPantryDelete={handlePantryDelete} onPantryRecipes={handlePantryRecipes} onScanReceipt={scanReceiptImage} onAddRecipe={addRecipe} /></BlurGate>}
               </div>
             )}
           </div>
