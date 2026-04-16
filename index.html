@@ -3695,7 +3695,7 @@
         <div style={{ display: "flex", flexDirection: "column", height: "100%" }}>
           <div style={{ display: "flex", gap: 0, background: C.card, borderRadius: 10, padding: 3, border: `1px solid ${C.border}`, margin: "12px 16px 8px", flexShrink: 0 }}>
             {[["pantry", "Vorrat"], ["foods", "Eigene Datenbank"]].map(([id, label]) => (
-              <button key={id} onClick={() => setSection(id)} style={{ flex: 1, padding: "7px 0", borderRadius: 8, border: "none", background: section === id ? C.accent : "transparent", color: section === id ? C.text : C.muted, fontFamily: "Syne", fontSize: 11, fontWeight: 700, cursor: "pointer", textTransform: "uppercase", letterSpacing: 0.5 }}>
+              <button key={id} onClick={() => setSection(id)} style={{ flex: 1, padding: "7px 0", borderRadius: 8, border: "none", background: section === id ? C.accent : "transparent", color: section === id ? "#000" : C.muted, fontFamily: "Syne", fontSize: 11, fontWeight: 700, cursor: "pointer", textTransform: "uppercase", letterSpacing: 0.5 }}>
                 {label}
               </button>
             ))}
