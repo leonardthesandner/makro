@@ -3370,18 +3370,41 @@
       const [resetDone, setResetDone] = useState(false);
 
       const inputStyle = { background: C.input, border: `1px solid ${C.border}`, borderRadius: 8, padding: "12px 14px", color: C.text, fontFamily: "Syne", fontSize: 15, outline: "none", width: "100%" };
-      const googleBtnRef = React.useRef(null);
-
       const goLogin = () => { setMode("login"); setErr(null); setNewPassword(""); setNewPassword2(""); };
 
-      const handleGoogleCredential = async (response) => {
+      const handleGoogleCredential = async (idToken) => {
         setLoading(true); setErr(null);
         try {
-          const data = await authApiCall("/api/auth/google", "POST", { credential: response.credential });
+          const data = await authApiCall("/api/auth/google", "POST", { credential: idToken });
           saveAuth(data); onAuth(data);
         } catch (e) { setErr(e.message || "Google-Anmeldung fehlgeschlagen"); }
         setLoading(false);
       };
+
+      // Redirect-based Google OAuth (works on web + WKWebView)
+      const handleGoogleRedirect = () => {
+        const nonce = Math.random().toString(36).slice(2) + Math.random().toString(36).slice(2);
+        sessionStorage.setItem("google_nonce", nonce);
+        const params = new URLSearchParams({
+          client_id: "116173364440-rn30l78smpa4jcbf5mh53i2hnmv63d8h.apps.googleusercontent.com",
+          redirect_uri: "https://makro-tracking.com",
+          response_type: "id_token",
+          scope: "email profile",
+          nonce,
+          prompt: "select_account",
+        });
+        window.location.href = "https://accounts.google.com/o/oauth2/v2/auth?" + params.toString();
+      };
+
+      // Handle OAuth callback: check URL hash for id_token on mount
+      useEffect(() => {
+        const hash = new URLSearchParams(window.location.hash.replace("#", ""));
+        const idToken = hash.get("id_token");
+        if (idToken) {
+          window.history.replaceState({}, "", window.location.pathname);
+          handleGoogleCredential(idToken);
+        }
+      }, []);
 
       const handleAppleSignIn = async () => {
         try {
@@ -3405,23 +3428,6 @@
         setLoading(false);
       };
 
-      useEffect(() => {
-        const init = () => {
-          if (!window.google?.accounts?.id) return;
-          window.google.accounts.id.initialize({
-            client_id: "116173364440-rn30l78smpa4jcbf5mh53i2hnmv63d8h.apps.googleusercontent.com",
-            callback: handleGoogleCredential,
-          });
-          if (googleBtnRef.current) {
-            window.google.accounts.id.renderButton(googleBtnRef.current, {
-              theme: "outline", size: "large", type: "icon", shape: "rectangular",
-            });
-          }
-        };
-        // SDK may load after component mounts
-        if (window.google?.accounts?.id) { init(); }
-        else { const t = setInterval(() => { if (window.google?.accounts?.id) { init(); clearInterval(t); } }, 200); return () => clearInterval(t); }
-      }, [mode]);
 
       const submit = async () => {
         if (!email.trim() || !password) return;
@@ -3552,8 +3558,7 @@
         </div>
         <div style={{ width: "100%", display: "flex", flexDirection: "column", gap: 12 }}>
           {/* Social Buttons */}
-          <div ref={googleBtnRef} style={{ position: "absolute", opacity: 0, pointerEvents: "none", width: 44, height: 44, overflow: "hidden" }} />
-          <button onClick={() => googleBtnRef.current?.querySelector("div[role=button], iframe")?.click()} style={{ width: "100%", height: 50, background: "#fff", border: "none", borderRadius: 50, display: "flex", alignItems: "center", justifyContent: "center", gap: 10, cursor: "pointer", fontFamily: "Inter", fontSize: 15, fontWeight: 500, color: "#1a1a1a" }}>
+          <button onClick={handleGoogleRedirect} style={{ width: "100%", height: 50, background: "#fff", border: "none", borderRadius: 50, display: "flex", alignItems: "center", justifyContent: "center", gap: 10, cursor: "pointer", fontFamily: "Inter", fontSize: 15, fontWeight: 500, color: "#1a1a1a" }}>
             <svg width="20" height="20" viewBox="0 0 48 48"><path fill="#4285F4" d="M46.98 24.55c0-1.57-.15-3.09-.38-4.55H24v9.02h12.94c-.58 2.96-2.26 5.48-4.78 7.18l7.73 6c4.51-4.18 7.09-10.36 7.09-17.65z"/><path fill="#34A853" d="M24 48c6.48 0 11.93-2.13 15.89-5.81l-7.73-6c-2.15 1.45-4.92 2.3-8.16 2.3-6.26 0-11.57-4.22-13.47-9.91l-7.98 6.19C6.51 42.62 14.62 48 24 48z"/><path fill="#FBBC05" d="M10.53 28.59c-.48-1.45-.76-2.99-.76-4.59s.27-3.14.76-4.59l-7.98-6.19C.92 16.46 0 20.12 0 24c0 3.88.92 7.54 2.56 10.78l7.97-6.19z"/><path fill="#EA4335" d="M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.72 17.74 9.5 24 9.5z"/></svg>
             Mit Google anmelden
           </button>
