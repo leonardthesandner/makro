@@ -3781,106 +3781,9 @@
       return { isPro, isTrial, daysLeft, hasAccess: isPro || isTrial };
     }
 
-    // ─── PaywallModal ─────────────────────────────────────────────────────────
-    function PaywallModal({ feature, onClose, onSubscribe, onRestore, purchasing }) {
-      const { daysLeft, isPro } = calcSub();
-      const trialEnded = !isPro && daysLeft === 0;
-
-      const proFeatures = [
-        { icon: "◈", label: "Verlauf & Ernährungsanalyse" },
-        { icon: "⬡", label: "Rezepte erstellen & speichern" },
-        { icon: "◫", label: "Eigene Lebensmittel" },
-        { icon: "⏱️", label: "Intervallfasten-Ring" },
-        { icon: "∞", label: "Unbegrenzte Einträge pro Tag" },
-        { icon: "🚴", label: "Strava-Synchronisation" },
-      ];
-
-      return ReactDOM.createPortal(
-        <div style={{ position: "fixed", inset: 0, zIndex: 999, display: "flex", flexDirection: "column", background: C.bg }}>
-          {/* Header gradient */}
-          <div style={{ background: "linear-gradient(160deg, #f97316 0%, #dc2626 100%)", padding: "48px 28px 36px", position: "relative" }}>
-            <button onClick={onClose} style={{ position: "absolute", top: 16, right: 16, background: "none", border: "none", color: "#fff9", fontSize: 22, cursor: "pointer", padding: 8 }}>✕</button>
-            <div style={{ fontFamily: "Syne", fontSize: 32, fontWeight: 800, color: "#fff", letterSpacing: -1 }}>makro<span style={{ opacity: 0.85 }}>.</span></div>
-            <div style={{ fontFamily: "Syne", fontSize: 13, fontWeight: 700, color: "#ffffffbb", letterSpacing: 2, textTransform: "uppercase", marginTop: 2 }}>Pro</div>
-            <div style={{ fontFamily: "Inter", fontSize: 16, color: "#fff", marginTop: 20, lineHeight: 1.5, maxWidth: 280 }}>
-              {trialEnded
-                ? "Deine 3 Tage Gratis-Test sind abgelaufen."
-                : feature
-                  ? `"${feature}" ist ein Pro-Feature.`
-                  : "Schalte alle Features frei."}
-            </div>
-          </div>
-
-          {/* Features */}
-          <div style={{ flex: 1, overflowY: "auto", padding: "24px 24px 0" }}>
-            <div style={{ fontFamily: "Syne", fontSize: 11, color: C.muted, textTransform: "uppercase", letterSpacing: 1.5, marginBottom: 14 }}>Alles inklusive mit Pro</div>
-            {proFeatures.map(f => (
-              <div key={f.label} style={{ display: "flex", alignItems: "center", gap: 14, padding: "11px 0", borderBottom: `1px solid ${C.border}` }}>
-                <span style={{ fontSize: 16, width: 24, textAlign: "center" }}>{f.icon}</span>
-                <span style={{ fontFamily: "Inter", fontSize: 14, color: C.text }}>{f.label}</span>
-                <span style={{ marginLeft: "auto", color: "#f97316", fontSize: 14 }}>✓</span>
-              </div>
-            ))}
-
-            {/* Price */}
-            <div style={{ marginTop: 24, background: "#f9731610", border: "1px solid #f9731630", borderRadius: 14, padding: "18px 20px", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-              <div>
-                <div style={{ fontFamily: "Syne", fontSize: 13, color: C.muted }}>Monatlich kündbar</div>
-                <div style={{ fontFamily: "Inter", fontSize: 11, color: C.muted, marginTop: 2 }}>3 Tage kostenlos testen</div>
-              </div>
-              <div style={{ textAlign: "right" }}>
-                <div style={{ fontFamily: "Syne", fontSize: 22, fontWeight: 800, color: "#f97316" }}>2,49 €</div>
-                <div style={{ fontFamily: "Inter", fontSize: 11, color: C.muted }}>pro Monat</div>
-              </div>
-            </div>
-          </div>
-
-          {/* CTA */}
-          <div style={{ padding: "20px 24px 32px", paddingBottom: "max(32px, env(safe-area-inset-bottom))" }}>
-            <button onClick={onSubscribe} disabled={purchasing} style={{ width: "100%", background: purchasing ? "#555" : "linear-gradient(90deg, #f97316, #dc2626)", border: "none", borderRadius: 14, padding: "16px", fontFamily: "Syne", fontSize: 16, fontWeight: 700, color: "#fff", cursor: purchasing ? "default" : "pointer", letterSpacing: 0.3, opacity: purchasing ? 0.7 : 1 }}>
-              {purchasing ? "Wird verarbeitet…" : "Jetzt 3 Tage kostenlos testen"}
-            </button>
-            <div onClick={onClose} style={{ textAlign: "center", marginTop: 14, fontFamily: "Inter", fontSize: 13, color: C.muted, cursor: "pointer" }}>
-              Vielleicht später
-            </div>
-            {onRestore && window.webkit?.messageHandlers?.restore_purchases && (
-              <div onClick={onRestore} style={{ textAlign: "center", marginTop: 8, fontFamily: "Inter", fontSize: 12, color: C.muted, cursor: "pointer", opacity: 0.6 }}>
-                Käufe wiederherstellen
-              </div>
-            )}
-          </div>
-        </div>,
-        document.body
-      );
-    }
-
-    // ─── BlurGate — geblurrter Inhalt mit Upgrade-Overlay ────────────────────
-    function BlurGate({ locked, feature, onUnlock, children }) {
-      if (!locked) return children;
-      return (
-        <div style={{ position: "relative", height: "100%", overflow: "hidden" }}>
-          {/* Geblurrter Inhalt */}
-          <div style={{ filter: "blur(5px)", pointerEvents: "none", userSelect: "none", height: "100%", overflow: "hidden", opacity: 0.7 }}>
-            {children}
-          </div>
-          {/* Overlay */}
-          <div style={{ position: "absolute", inset: 0, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", background: "linear-gradient(to bottom, transparent 0%, rgba(12,12,12,0.7) 30%, rgba(12,12,12,0.92) 100%)", padding: 32, gap: 12 }}>
-            <div style={{ fontSize: 36, marginBottom: 4 }}>🔒</div>
-            <div style={{ fontFamily: "Syne", fontSize: 20, fontWeight: 800, color: "#fff", textAlign: "center", letterSpacing: -0.5 }}>
-              makro<span style={{ color: "#f97316" }}>.</span> Pro
-            </div>
-            <div style={{ fontFamily: "Inter", fontSize: 14, color: "#aaa", textAlign: "center", lineHeight: 1.6, maxWidth: 260 }}>
-              {feature} ist Teil von Pro — teste 3 Tage kostenlos.
-            </div>
-            <button onClick={onUnlock} style={{ marginTop: 10, background: "linear-gradient(90deg, #f97316, #dc2626)", border: "none", borderRadius: 14, padding: "14px 36px", fontFamily: "Syne", fontSize: 15, fontWeight: 700, color: "#fff", cursor: "pointer", letterSpacing: 0.2 }}>
-              Jetzt freischalten
-            </button>
-            <div onClick={onUnlock} style={{ fontFamily: "Inter", fontSize: 12, color: "#555", cursor: "pointer", marginTop: 2 }}>
-              3 Tage kostenlos · danach 2,49 €/Monat
-            </div>
-          </div>
-        </div>
-      );
+    // ─── BlurGate — kein Lock mehr, alle Features frei ───────────────────────
+    function BlurGate({ children }) {
+      return children;
     }
 
     const TABS = [
@@ -3921,72 +3824,6 @@
       const [todayWeight, setTodayWeight] = useState(0);
       const [stravaToday, setStravaToday] = useState([]);
       const [sub, setSub] = useState(() => calcSub());
-      const [paywall, setPaywall] = useState(null); // null | feature string
-      const openPaywall = (feature = null) => setPaywall(feature || "");
-      const closePaywall = () => setPaywall(null);
-      // ── RevenueCat native purchase bridge ──────────────────────────────────
-      const [purchasing, setPurchasing] = React.useState(false);
-
-      // Called by Swift after purchase / restore attempt
-      React.useEffect(() => {
-        window.onPurchaseResult = (success, message) => {
-          setPurchasing(false);
-          if (success) {
-            store.set("mk_is_pro", true);
-            setSub(calcSub());
-            closePaywall();
-          } else if (message !== "cancelled") {
-            alert("Kauf fehlgeschlagen: " + message);
-          }
-        };
-        window.onRestoreResult = (success, message) => {
-          setPurchasing(false);
-          if (success) {
-            store.set("mk_is_pro", true);
-            setSub(calcSub());
-            closePaywall();
-            alert("Käufe erfolgreich wiederhergestellt!");
-          } else {
-            alert("Keine aktiven Käufe gefunden.");
-          }
-        };
-        window.onProStatusChecked = (isPro) => {
-          if (isPro && !store.get("mk_is_pro")) {
-            store.set("mk_is_pro", true);
-            setSub(calcSub());
-          }
-        };
-        // Sync pro status on load
-        if (window.webkit?.messageHandlers?.check_pro_status) {
-          window.webkit.messageHandlers.check_pro_status.postMessage({});
-        }
-        return () => {
-          delete window.onPurchaseResult;
-          delete window.onRestoreResult;
-          delete window.onProStatusChecked;
-        };
-      }, []);
-
-      const handleSubscribe = async () => {
-        // iOS native RevenueCat purchase
-        if (window.webkit?.messageHandlers?.purchase_pro) {
-          setPurchasing(true);
-          window.webkit.messageHandlers.purchase_pro.postMessage({});
-          return;
-        }
-        // Web / Android fallback
-        try {
-          const s = await activateSubscription();
-          if (s) { setSub(s); closePaywall(); }
-        } catch { alert("Fehler beim Aktivieren, bitte erneut versuchen."); }
-      };
-
-      const handleRestorePurchases = () => {
-        if (window.webkit?.messageHandlers?.restore_purchases) {
-          setPurchasing(true);
-          window.webkit.messageHandlers.restore_purchases.postMessage({});
-        }
-      };
 
       // ─── Online/Offline detection + Auto-Sync ────────────────────────────────
       useEffect(() => {
@@ -4115,8 +3952,6 @@
       };
 
       const addEntry = async (entry) => {
-        if (!sub.hasAccess && entries.length >= 5) { openPaywall("Unbegrenzte Einträge"); return; }
-
         if (!isOnline) {
           // Offline: speichere lokal mit temporärer ID
           const tempEntry = { ...entry, id: -Date.now(), _pending: true };
@@ -4274,9 +4109,6 @@
                 <div onClick={() => setTab("input")} style={{ fontFamily: "Syne", fontSize: 22, fontWeight: 800, letterSpacing: -1, color: C.text, cursor: "pointer" }}>
                   makro<span style={{ color: C.accent }}>.</span>
                 </div>
-                {sub.isTrial && <span onClick={() => openPaywall()} style={{ fontFamily: "Inter", fontSize: 10, fontWeight: 600, background: "#f9731618", color: "#f97316", border: "1px solid #f9731630", borderRadius: 6, padding: "2px 7px", cursor: "pointer" }}>TEST · {sub.daysLeft}T</span>}
-                {!sub.hasAccess && <span onClick={() => openPaywall()} style={{ fontFamily: "Inter", fontSize: 10, fontWeight: 600, background: "#f8717118", color: C.danger, border: "1px solid #f8717130", borderRadius: 6, padding: "2px 7px", cursor: "pointer" }}>FREE</span>}
-                {sub.isPro && <span style={{ fontFamily: "Inter", fontSize: 10, fontWeight: 600, background: "#f9731618", color: "#f97316", border: "1px solid #f9731630", borderRadius: 6, padding: "2px 7px" }}>PRO</span>}
               </div>
               <Mono size={10} color={C.muted}>{new Date().toLocaleDateString("de-DE", { weekday: "long", day: "numeric", month: "long" })}</Mono>
             </div>
@@ -4297,9 +4129,9 @@
               <div key={"in-" + tab} style={{ position: "absolute", inset: 0, overflowY: "auto", overflowX: "hidden", WebkitOverflowScrolling: "touch", zIndex: 1 }}
                 className={outTab ? `slide-from-${slideDir}` : ""}>
                 {tab === "today"     && <TodayTab entries={entries} targets={targets} onDelete={deleteEntry} onEdit={e => setEditingEntry(e)} burnedKcal={burnedToday} onSaveBurned={async (v) => { await saveBodyWeightAPI(todayStr(), null, v); setBurnedToday(v); }} todayWeight={todayWeight} onSaveWeight={async (v) => { await saveBodyWeightAPI(todayStr(), v, null); setTodayWeight(v); }} stravaActivities={stravaToday} onDeleteStrava={async (id) => { await deleteStravaActivityAPI(id); setStravaToday(p => p.filter(a => a.strava_id !== id)); }} />}
-                {tab === "mealprep"  && <BlurGate locked={!sub.hasAccess} feature="Rezepte" onUnlock={() => openPaywall("Rezepte")}><MealprepTab recipes={recipes} onAdd={addRecipe} onEdit={editRecipe} onDelete={removeRecipe} onArchive={archiveRecipe} onToggleFavorite={toggleFavorite} archive={archive} voiceLang={voiceLang} userFoods={userFoods} /></BlurGate>}
-                {tab === "history"   && <BlurGate locked={!sub.hasAccess} feature="Verlauf" onUnlock={() => openPaywall("Verlauf")}><HistoryTab targets={targets} loadRange={loadDiaryRange} loadDay={loadDiaryEntries} onDelete={deleteEntry} updateEntry={updateDiaryEntry} loadBodyWeights={loadBodyWeightRange} saveBodyWeight={saveBodyWeightAPI} onAdd={addEntryForDate} recipes={recipes} userFoods={userFoods} voiceLang={voiceLang} loadActivities={loadStravaActivities} onDeleteStrava={async (id) => { await deleteStravaActivityAPI(id); }} /></BlurGate>}
-                {tab === "userfoods" && <BlurGate locked={!sub.hasAccess} feature="Eigene Lebensmittel" onUnlock={() => openPaywall("Eigene Lebensmittel")}><UserFoodsTab userFoods={userFoods} onAdd={addUserFood} onUpdate={updateUserFood} onDelete={deleteUserFood} /></BlurGate>}
+                {tab === "mealprep"  && <BlurGate><MealprepTab recipes={recipes} onAdd={addRecipe} onEdit={editRecipe} onDelete={removeRecipe} onArchive={archiveRecipe} onToggleFavorite={toggleFavorite} archive={archive} voiceLang={voiceLang} userFoods={userFoods} /></BlurGate>}
+                {tab === "history"   && <BlurGate><HistoryTab targets={targets} loadRange={loadDiaryRange} loadDay={loadDiaryEntries} onDelete={deleteEntry} updateEntry={updateDiaryEntry} loadBodyWeights={loadBodyWeightRange} saveBodyWeight={saveBodyWeightAPI} onAdd={addEntryForDate} recipes={recipes} userFoods={userFoods} voiceLang={voiceLang} loadActivities={loadStravaActivities} onDeleteStrava={async (id) => { await deleteStravaActivityAPI(id); }} /></BlurGate>}
+                {tab === "userfoods" && <BlurGate><UserFoodsTab userFoods={userFoods} onAdd={addUserFood} onUpdate={updateUserFood} onDelete={deleteUserFood} /></BlurGate>}
               </div>
             )}
             {/* Outgoing non-input tab */}
@@ -4308,9 +4140,9 @@
                 className={`slide-to-${slideDir === "right" ? "left" : "right"}`}
                 onAnimationEnd={onAnimEnd}>
                 {outTab === "today"     && <TodayTab entries={entries} targets={targets} onDelete={deleteEntry} onEdit={e => setEditingEntry(e)} burnedKcal={burnedToday} onSaveBurned={async (v) => { await saveBodyWeightAPI(todayStr(), null, v); setBurnedToday(v); }} todayWeight={todayWeight} onSaveWeight={async (v) => { await saveBodyWeightAPI(todayStr(), v, null); setTodayWeight(v); }} stravaActivities={stravaToday} onDeleteStrava={async (id) => { await deleteStravaActivityAPI(id); setStravaToday(p => p.filter(a => a.strava_id !== id)); }} />}
-                {outTab === "mealprep"  && <BlurGate locked={!sub.hasAccess} feature="Rezepte" onUnlock={() => openPaywall("Rezepte")}><MealprepTab recipes={recipes} onAdd={addRecipe} onEdit={editRecipe} onDelete={removeRecipe} onArchive={archiveRecipe} onToggleFavorite={toggleFavorite} archive={archive} voiceLang={voiceLang} userFoods={userFoods} /></BlurGate>}
-                {outTab === "history"   && <BlurGate locked={!sub.hasAccess} feature="Verlauf" onUnlock={() => openPaywall("Verlauf")}><HistoryTab targets={targets} loadRange={loadDiaryRange} loadDay={loadDiaryEntries} onDelete={deleteEntry} updateEntry={updateDiaryEntry} loadBodyWeights={loadBodyWeightRange} saveBodyWeight={saveBodyWeightAPI} onAdd={addEntryForDate} recipes={recipes} userFoods={userFoods} voiceLang={voiceLang} loadActivities={loadStravaActivities} onDeleteStrava={async (id) => { await deleteStravaActivityAPI(id); }} /></BlurGate>}
-                {outTab === "userfoods" && <BlurGate locked={!sub.hasAccess} feature="Eigene Lebensmittel" onUnlock={() => openPaywall("Eigene Lebensmittel")}><UserFoodsTab userFoods={userFoods} onAdd={addUserFood} onUpdate={updateUserFood} onDelete={deleteUserFood} /></BlurGate>}
+                {outTab === "mealprep"  && <BlurGate><MealprepTab recipes={recipes} onAdd={addRecipe} onEdit={editRecipe} onDelete={removeRecipe} onArchive={archiveRecipe} onToggleFavorite={toggleFavorite} archive={archive} voiceLang={voiceLang} userFoods={userFoods} /></BlurGate>}
+                {outTab === "history"   && <BlurGate><HistoryTab targets={targets} loadRange={loadDiaryRange} loadDay={loadDiaryEntries} onDelete={deleteEntry} updateEntry={updateDiaryEntry} loadBodyWeights={loadBodyWeightRange} saveBodyWeight={saveBodyWeightAPI} onAdd={addEntryForDate} recipes={recipes} userFoods={userFoods} voiceLang={voiceLang} loadActivities={loadStravaActivities} onDeleteStrava={async (id) => { await deleteStravaActivityAPI(id); }} /></BlurGate>}
+                {outTab === "userfoods" && <BlurGate><UserFoodsTab userFoods={userFoods} onAdd={addUserFood} onUpdate={updateUserFood} onDelete={deleteUserFood} /></BlurGate>}
               </div>
             )}
           </div>
@@ -4329,7 +4161,6 @@
           )}
           {settings && <SettingsModal targets={targets} profile={profile} voiceLang={voiceLang} onSave={(t, p, vl) => updateSettings(t, p, vl)} onClose={() => setSettings(false)} onDeleteAccount={handleDeleteAccount} theme={theme} onThemeChange={(t) => { store.set("mk_theme", t); setTheme(t); }} />}
           {editingEntry && <EditEntryModal entry={editingEntry} onSave={editEntry} onClose={() => setEditingEntry(null)} />}
-          {paywall !== null && <PaywallModal feature={paywall} onClose={closePaywall} onSubscribe={handleSubscribe} onRestore={handleRestorePurchases} purchasing={purchasing} />}
           {!isOnline && ReactDOM.createPortal(
             <div style={{ position: "fixed", top: 0, left: 0, right: 0, zIndex: 500, background: "#1a1a1a", borderBottom: "1px solid #333", padding: "6px 16px", display: "flex", alignItems: "center", justifyContent: "center", gap: 8 }}>
               <span style={{ fontSize: 13 }}>📵</span>
