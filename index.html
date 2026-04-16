@@ -81,6 +81,28 @@
     const todayStr = () => new Date().toISOString().split("T")[0];
     const dayKey = (d) => `mk_day_${d}`;
 
+    // ─── Offline Queue ─────────────────────────────────────────────────────────
+    const OFFLINE_QUEUE_KEY = "mk_offline_queue";
+    const DIARY_CACHE_KEY   = (date) => `mk_diary_cache_${date}`;
+
+    function getOfflineQueue()          { return store.get(OFFLINE_QUEUE_KEY) || []; }
+    function saveOfflineQueue(q)        { store.set(OFFLINE_QUEUE_KEY, q); }
+    function addToOfflineQueue(item)    { const q = getOfflineQueue(); q.push(item); saveOfflineQueue(q); }
+    function removeFromOfflineQueue(id) { saveOfflineQueue(getOfflineQueue().filter(i => i.queueId !== id)); }
+
+    function cacheDiaryEntries(date, entries) {
+      store.set(DIARY_CACHE_KEY(date), entries);
+    }
+    function getCachedDiaryEntries(date) {
+      const cached  = store.get(DIARY_CACHE_KEY(date)) || [];
+      const pending = getOfflineQueue()
+        .filter(i => i.type === "add" && i.date === date)
+        .map(i => i.entry);
+      // merge: cached (without already-pending duplicates) + pending
+      const pendingIds = new Set(pending.map(e => e.id));
+      return [...cached.filter(e => !pendingIds.has(e.id)), ...pending];
+    }
+
     const store = {
       get: (k) => { try { const v = localStorage.getItem(k); return v ? JSON.parse(v) : null; } catch { return null; } },
       set: (k, v) => { try { localStorage.setItem(k, JSON.stringify(v)); } catch {} },
@@ -1323,7 +1345,10 @@
                     <Card key={e.id} onClick={() => onEdit(e)} style={{ padding: "12px 14px", cursor: "pointer" }}>
                       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 8 }}>
                         <div style={{ flex: 1, marginRight: 8 }}>
-                          <div style={{ fontFamily: "Syne", fontSize: 13, color: C.text, marginBottom: 3, lineHeight: 1.4 }}>{entryLabel(e)}</div>
+                          <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                            <div style={{ fontFamily: "Syne", fontSize: 13, color: C.text, marginBottom: 3, lineHeight: 1.4 }}>{entryLabel(e)}</div>
+                            {e._pending && <span title="Wird synchronisiert..." style={{ fontSize: 10, color: C.muted, opacity: 0.7 }}>⏳</span>}
+                          </div>
                           <Mono size={11} color={C.muted}>{new Date(e.timestamp).toLocaleTimeString("de-DE", { hour: "2-digit", minute: "2-digit" })} Uhr</Mono>
                         </div>
                         <button onClick={ev => { ev.stopPropagation(); onDelete(e.id); }} style={{ background: "none", border: "none", color: "#f8717140", fontSize: 18, padding: 4 }}>✕</button>
@@ -3868,6 +3893,7 @@
       Object.assign(MC, { kcal: C.kcal, protein: C.protein, carbs: C.carbs, fat: C.fat });
       useEffect(() => { document.body.style.background = C.bg; document.body.style.color = C.text; }, [theme]);
       const [auth, setAuth] = useState(() => getAuth());
+      const [isOnline, setIsOnline] = useState(() => navigator.onLine);
       const [tab, setTab] = useState("input");
       const [targets, setTargets] = useState(() => store.get("mk_targets") || DEFAULT_TARGETS);
       const [entries, setEntries] = useState([]);
@@ -3957,6 +3983,35 @@
         }
       };
 
+      // ─── Online/Offline detection + Auto-Sync ────────────────────────────────
+      useEffect(() => {
+        const onOnline  = () => setIsOnline(true);
+        const onOffline = () => setIsOnline(false);
+        window.addEventListener("online",  onOnline);
+        window.addEventListener("offline", onOffline);
+        return () => { window.removeEventListener("online", onOnline); window.removeEventListener("offline", onOffline); };
+      }, []);
+
+      // Auto-sync offline queue when coming back online
+      useEffect(() => {
+        if (!isOnline || !auth) return;
+        const queue = getOfflineQueue();
+        if (queue.length === 0) return;
+        (async () => {
+          for (const item of queue) {
+            try {
+              if (item.type === "add") {
+                const saved = await saveDiaryEntry(item.date, item.entry);
+                // replace temp entry with real server entry in today's view
+                setEntries(prev => prev.map(e => e.id === item.entry.id ? saved : e));
+                cacheDiaryEntries(item.date, (store.get(DIARY_CACHE_KEY(item.date)) || []).map(e => e.id === item.entry.id ? saved : e));
+              }
+              removeFromOfflineQueue(item.queueId);
+            } catch { /* leave in queue, retry next time */ }
+          }
+        })();
+      }, [isOnline, auth]);
+
       // Load all data on auth
       useEffect(() => {
         if (!auth) return;
@@ -3966,10 +4021,20 @@
           .then(s => { if (s) setSub(s); })
           .catch(() => {});
 
-        // Load today's entries
+        // Load today's entries – show cache immediately, then update from server
+        const cached = getCachedDiaryEntries(todayStr());
+        if (cached.length > 0) setEntries(cached);
         loadDiaryEntries(todayStr())
-          .then(r => setEntries(r))
-          .catch(() => {});
+          .then(r => {
+            cacheDiaryEntries(todayStr(), r);
+            // keep pending entries that aren't yet on server
+            const pending = getOfflineQueue().filter(i => i.type === "add" && i.date === todayStr()).map(i => i.entry);
+            setEntries([...r, ...pending]);
+          })
+          .catch(() => {
+            // offline: use cached + pending
+            setEntries(getCachedDiaryEntries(todayStr()));
+          });
 
         // Load today's burned kcal + weight
         loadBodyWeightRange(todayStr(), todayStr())
@@ -4046,13 +4111,29 @@
 
       const addEntry = async (entry) => {
         if (!sub.hasAccess && entries.length >= 5) { openPaywall("Unbegrenzte Einträge"); return; }
+
+        if (!isOnline) {
+          // Offline: speichere lokal mit temporärer ID
+          const tempEntry = { ...entry, id: -Date.now(), _pending: true };
+          const queueId = `q_${Date.now()}_${Math.random().toString(36).slice(2)}`;
+          addToOfflineQueue({ queueId, type: "add", date: todayStr(), entry: tempEntry });
+          setEntries(p => [...p, tempEntry]);
+          cacheDiaryEntries(todayStr(), [...(store.get(DIARY_CACHE_KEY(todayStr())) || []), tempEntry]);
+          setTab("today");
+          return;
+        }
+
         try {
           const saved = await saveDiaryEntry(todayStr(), entry);
           setEntries(p => [...p, saved]);
-          // Persönliche DB im Hintergrund aktualisieren
+          cacheDiaryEntries(todayStr(), [...(store.get(DIARY_CACHE_KEY(todayStr())) || []), saved]);
           loadUserFoods().then(r => setUserFoods(r)).catch(() => {});
         } catch {
-          setEntries(p => [...p, entry]);
+          // API-Fehler obwohl online → trotzdem offline speichern
+          const tempEntry = { ...entry, id: -Date.now(), _pending: true };
+          const queueId = `q_${Date.now()}_${Math.random().toString(36).slice(2)}`;
+          addToOfflineQueue({ queueId, type: "add", date: todayStr(), entry: tempEntry });
+          setEntries(p => [...p, tempEntry]);
         }
         setTab("today");
       };
@@ -4244,6 +4325,12 @@
           {settings && <SettingsModal targets={targets} profile={profile} voiceLang={voiceLang} onSave={(t, p, vl) => updateSettings(t, p, vl)} onClose={() => setSettings(false)} onDeleteAccount={handleDeleteAccount} theme={theme} onThemeChange={(t) => { store.set("mk_theme", t); setTheme(t); }} />}
           {editingEntry && <EditEntryModal entry={editingEntry} onSave={editEntry} onClose={() => setEditingEntry(null)} />}
           {paywall !== null && <PaywallModal feature={paywall} onClose={closePaywall} onSubscribe={handleSubscribe} onRestore={handleRestorePurchases} purchasing={purchasing} />}
+          {!isOnline && ReactDOM.createPortal(
+            <div style={{ position: "fixed", top: 0, left: 0, right: 0, zIndex: 500, background: "#1a1a1a", borderBottom: "1px solid #333", padding: "6px 16px", display: "flex", alignItems: "center", justifyContent: "center", gap: 8 }}>
+              <span style={{ fontSize: 13 }}>📵</span>
+              <span style={{ fontFamily: "Inter", fontSize: 12, color: "#aaa" }}>Offline – Einträge werden gespeichert und später synchronisiert</span>
+            </div>, document.body
+          )}
         </div>
       );
     }
