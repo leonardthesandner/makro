@@ -282,7 +282,7 @@
       const fd = new FormData();
       fd.append("image", imageBlob, "receipt.jpg");
       const auth = getAuth();
-      const r = await fetch(`${API_BASE}/api/pantry/scan`, {
+      const r = await fetch(`${BACKEND_URL}/api/pantry/scan`, {
         method: "POST",
         headers: { Authorization: `Bearer ${auth?.token}` },
         body: fd,
