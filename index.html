@@ -3695,7 +3695,7 @@
         <div style={{ display: "flex", flexDirection: "column", height: "100%" }}>
           <div style={{ display: "flex", gap: 0, background: C.card, borderRadius: 10, padding: 3, border: `1px solid ${C.border}`, margin: "12px 16px 8px", flexShrink: 0 }}>
             {[["pantry", "Vorrat"], ["foods", "Eigene Datenbank"]].map(([id, label]) => (
-              <button key={id} onClick={() => setSection(id)} style={{ flex: 1, padding: "7px 0", borderRadius: 8, border: "none", background: section === id ? C.accent : "transparent", color: section === id ? "#fff" : C.muted, fontFamily: "Syne", fontSize: 11, fontWeight: 700, cursor: "pointer", textTransform: "uppercase", letterSpacing: 0.5 }}>
+              <button key={id} onClick={() => setSection(id)} style={{ flex: 1, padding: "7px 0", borderRadius: 8, border: "none", background: section === id ? C.accent : "transparent", color: section === id ? C.text : C.muted, fontFamily: "Syne", fontSize: 11, fontWeight: 700, cursor: "pointer", textTransform: "uppercase", letterSpacing: 0.5 }}>
                 {label}
               </button>
             ))}
@@ -4003,6 +4003,20 @@
       const [saving, setSaving] = useState(false);
       const fileRef = React.useRef();
 
+      const resizeImage = (file, maxPx = 1024, quality = 0.82) => new Promise((resolve) => {
+        const img = new Image();
+        img.onload = () => {
+          const scale = Math.min(1, maxPx / Math.max(img.width, img.height));
+          const w = Math.round(img.width * scale);
+          const h = Math.round(img.height * scale);
+          const canvas = document.createElement("canvas");
+          canvas.width = w; canvas.height = h;
+          canvas.getContext("2d").drawImage(img, 0, 0, w, h);
+          canvas.toBlob(resolve, "image/jpeg", quality);
+        };
+        img.src = URL.createObjectURL(file);
+      });
+
       const handleFile = (e) => {
         const file = e.target.files?.[0];
         if (!file) return;
@@ -4017,7 +4031,8 @@
         if (!imageBlob) return;
         setScanning(true);
         try {
-          const items = await onScan(imageBlob);
+          const compressed = await resizeImage(imageBlob);
+          const items = await onScan(compressed);
           setScanned(items);
           setSelected(items.map((_, i) => i));
         } catch (e) { alert(e.message); }
