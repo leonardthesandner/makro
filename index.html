@@ -3846,44 +3846,70 @@
       const inputStyle = { background: C.input, border: `1px solid ${C.border}`, borderRadius: 8, padding: "8px 10px", color: C.text, fontFamily: "Syne", fontSize: 13, outline: "none" };
       const UNITS = ["g", "kg", "ml", "L", "Stück", "Packung", "Dose", "Flasche", "Becher"];
 
-      const PantryItem = ({ item }) => (
-        <div style={{ display: "flex", alignItems: "center", gap: 8, padding: "10px 0", borderBottom: `1px solid ${C.border}` }}>
-          {editId === item.id ? (
-            <div style={{ flex: 1, display: "flex", flexDirection: "column", gap: 6 }}>
+      const PantryItem = ({ item }) => {
+        const [expanded, setExpanded] = useState(false);
+        const qty = parseFloat(item.quantity) % 1 === 0 ? parseInt(item.quantity) : parseFloat(item.quantity).toFixed(1);
+        const hasMacros = item.kcal_100 != null;
+
+        if (editId === item.id) return (
+          <Card style={{ padding: 12, marginBottom: 8 }}>
+            <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
               <input value={editForm.name} onChange={e => setEditForm(f => ({ ...f, name: e.target.value }))} style={{ ...inputStyle, width: "100%" }} />
               <div style={{ display: "flex", gap: 6 }}>
                 <input type="number" value={editForm.quantity} onChange={e => setEditForm(f => ({ ...f, quantity: e.target.value }))} style={{ ...inputStyle, width: 70 }} />
                 <select value={editForm.unit} onChange={e => setEditForm(f => ({ ...f, unit: e.target.value }))} style={{ ...inputStyle, flex: 1 }}>
                   {UNITS.map(u => <option key={u} value={u}>{u}</option>)}
                 </select>
-                <select value={editForm.category} onChange={e => setEditForm(f => ({ ...f, category: e.target.value }))} style={{ ...inputStyle, flex: 1 }}>
-                  <option value="fridge">🧊 Kühlschrank</option>
-                  <option value="pantry">📦 Vorratskammer</option>
-                </select>
               </div>
+              <select value={editForm.category} onChange={e => setEditForm(f => ({ ...f, category: e.target.value }))} style={{ ...inputStyle, width: "100%" }}>
+                <option value="fridge">🧊 Kühlschrank</option>
+                <option value="pantry">📦 Vorratskammer</option>
+              </select>
               <div style={{ display: "flex", gap: 6 }}>
                 <Btn small onClick={saveEdit}>✓ Speichern</Btn>
                 <Btn small variant="ghost" onClick={() => setEditId(null)}>Abbrechen</Btn>
               </div>
             </div>
-          ) : (
-            <>
-              <div style={{ flex: 1, cursor: "pointer" }} onClick={() => startEdit(item)}>
-                <div style={{ fontFamily: "Syne", fontSize: 14, fontWeight: 700, color: C.text }}>{item.name}</div>
-                <div style={{ fontFamily: "Inter", fontSize: 12, color: C.muted, marginTop: 2 }}>
-                  {parseFloat(item.quantity) % 1 === 0 ? parseInt(item.quantity) : parseFloat(item.quantity).toFixed(1)} {item.unit}
-                </div>
+          </Card>
+        );
+
+        return (
+          <Card onClick={() => setExpanded(v => !v)} style={{ padding: "12px 14px", marginBottom: 8, cursor: "pointer" }}>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: expanded && hasMacros ? 10 : 0 }}>
+              <div style={{ flex: 1 }}>
+                <div style={{ fontFamily: "Syne", fontSize: 15, fontWeight: 700, color: C.text }}>{item.name}</div>
+                <div style={{ fontFamily: "Inter", fontSize: 11, color: C.muted, marginTop: 2 }}>{qty} {item.unit}</div>
               </div>
-              <button onClick={() => onUpdate(item.id, { category: item.category === "fridge" ? "pantry" : "fridge" })}
-                style={{ background: "none", border: `1px solid ${C.border}`, borderRadius: 6, padding: "4px 7px", color: C.muted, fontSize: 11, cursor: "pointer", fontFamily: "Syne" }}
-                title="Verschieben">
-                {item.category === "fridge" ? "→📦" : "→🧊"}
-              </button>
-              <button onClick={() => onDelete(item.id)} style={{ background: "none", border: "none", color: "#f8717140", fontSize: 18, cursor: "pointer", padding: 4 }}>✕</button>
-            </>
-          )}
-        </div>
-      );
+              <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
+                <button onClick={e => { e.stopPropagation(); onUpdate(item.id, { category: item.category === "fridge" ? "pantry" : "fridge" }); }}
+                  style={{ background: "none", border: `1px solid ${C.border}`, borderRadius: 6, padding: "3px 7px", color: C.muted, fontSize: 11, cursor: "pointer", fontFamily: "Syne" }}>
+                  {item.category === "fridge" ? "→📦" : "→🧊"}
+                </button>
+                <button onClick={e => { e.stopPropagation(); startEdit(item); }}
+                  style={{ background: "none", border: `1px solid ${C.border}`, borderRadius: 6, padding: "3px 7px", color: C.muted, fontSize: 11, cursor: "pointer", fontFamily: "Syne" }}>✎</button>
+                <button onClick={e => { e.stopPropagation(); onDelete(item.id); }}
+                  style={{ background: "none", border: "none", color: "#f8717140", fontSize: 18, cursor: "pointer", padding: "0 2px" }}>✕</button>
+              </div>
+            </div>
+            {expanded && hasMacros && (
+              <div>
+                <div style={{ display: "grid", gridTemplateColumns: "repeat(4,1fr)", gap: 6, marginTop: 4 }}>
+                  {[["kcal_100","kcal",C.kcal],["protein_100","Eiweiß",C.protein],["carbs_100","KH",C.carbs],["fat_100","Fett",C.fat]].map(([key,label,color]) => (
+                    <div key={key} style={{ textAlign: "center" }}>
+                      <Mono size={14} color={color} bold>{Math.round(parseFloat(item[key]) * 10) / 10}</Mono>
+                      <div style={{ fontFamily: "Inter", fontSize: 9, color: C.muted }}>{label}</div>
+                    </div>
+                  ))}
+                </div>
+                <div style={{ fontFamily: "Syne", fontSize: 10, color: C.muted, marginTop: 5 }}>pro 100g</div>
+              </div>
+            )}
+            {expanded && !hasMacros && (
+              <div style={{ fontFamily: "Inter", fontSize: 12, color: C.muted, marginTop: 6 }}>Keine Nährwerte verfügbar</div>
+            )}
+          </Card>
+        );
+      };
 
       return (
         <div style={{ padding: 16, display: "flex", flexDirection: "column", gap: 14 }}>
