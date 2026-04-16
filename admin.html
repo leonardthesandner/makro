@@ -360,6 +360,20 @@
           if (btn) btn.disabled = false;
           return null;
         }
+        if (r.status === 429) {
+          // Server-seitiges Rate Limit erreicht – IP blockiert
+          errEl.textContent = `Zu viele Versuche. IP vom Server gesperrt – bitte 15 Minuten warten.`;
+          errEl.style.display = "block";
+          localStorage.setItem(LOCKOUT_KEY, Date.now() + 15 * 60 * 1000);
+          if (btn) btn.disabled = false;
+          return null;
+        }
+        if (!r.ok) {
+          errEl.textContent = `Serverfehler (${r.status}).`;
+          errEl.style.display = "block";
+          if (btn) btn.disabled = false;
+          return null;
+        }
         return r.json();
       })
       .then(data => {
@@ -374,7 +388,11 @@
         loadChecks();
         if (btn) btn.disabled = false;
       })
-      .catch(() => { if (btn) btn.disabled = false; });
+      .catch(() => {
+        errEl.textContent = `Verbindungsfehler.`;
+        errEl.style.display = "block";
+        if (btn) btn.disabled = false;
+      });
     }, delay); // end setTimeout
   }
 
