@@ -3407,6 +3407,25 @@
       }, []);
 
       const handleAppleSignIn = async () => {
+        // iOS App → nativer Swift-Handler
+        if (window.webkit?.messageHandlers?.apple_sign_in) {
+          window.onNativeAppleSignIn = async (success, idToken, email, error) => {
+            window.onNativeAppleSignIn = null;
+            if (!success) { if (error) setErr(error); return; }
+            setLoading(true); setErr(null);
+            try {
+              const data = await authApiCall("/api/auth/apple", "POST", {
+                id_token: idToken,
+                user: email ? { email } : null,
+              });
+              saveAuth(data); onAuth(data);
+            } catch (e) { setErr(e.message || "Apple-Anmeldung fehlgeschlagen"); }
+            setLoading(false);
+          };
+          window.webkit.messageHandlers.apple_sign_in.postMessage({});
+          return;
+        }
+        // Web-Fallback: Apple JS SDK
         try {
           if (!window.AppleID?.auth) return setErr("Apple Sign-In nicht verfügbar");
           window.AppleID.auth.init({
