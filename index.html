@@ -3728,7 +3728,7 @@
     }
 
     // ─── PaywallModal ─────────────────────────────────────────────────────────
-    function PaywallModal({ feature, onClose, onSubscribe }) {
+    function PaywallModal({ feature, onClose, onSubscribe, onRestore, purchasing }) {
       const { daysLeft, isPro } = calcSub();
       const trialEnded = !isPro && daysLeft === 0;
 
@@ -3783,12 +3783,17 @@
 
           {/* CTA */}
           <div style={{ padding: "20px 24px 32px", paddingBottom: "max(32px, env(safe-area-inset-bottom))" }}>
-            <button onClick={onSubscribe} style={{ width: "100%", background: "linear-gradient(90deg, #f97316, #dc2626)", border: "none", borderRadius: 14, padding: "16px", fontFamily: "Syne", fontSize: 16, fontWeight: 700, color: "#fff", cursor: "pointer", letterSpacing: 0.3 }}>
-              Jetzt 3 Tage kostenlos testen
+            <button onClick={onSubscribe} disabled={purchasing} style={{ width: "100%", background: purchasing ? "#555" : "linear-gradient(90deg, #f97316, #dc2626)", border: "none", borderRadius: 14, padding: "16px", fontFamily: "Syne", fontSize: 16, fontWeight: 700, color: "#fff", cursor: purchasing ? "default" : "pointer", letterSpacing: 0.3, opacity: purchasing ? 0.7 : 1 }}>
+              {purchasing ? "Wird verarbeitet…" : "Jetzt 3 Tage kostenlos testen"}
             </button>
             <div onClick={onClose} style={{ textAlign: "center", marginTop: 14, fontFamily: "Inter", fontSize: 13, color: C.muted, cursor: "pointer" }}>
               Vielleicht später
             </div>
+            {onRestore && window.webkit?.messageHandlers?.restore_purchases && (
+              <div onClick={onRestore} style={{ textAlign: "center", marginTop: 8, fontFamily: "Inter", fontSize: 12, color: C.muted, cursor: "pointer", opacity: 0.6 }}>
+                Käufe wiederherstellen
+              </div>
+            )}
           </div>
         </div>,
         document.body
@@ -3864,12 +3869,68 @@
       const [paywall, setPaywall] = useState(null); // null | feature string
       const openPaywall = (feature = null) => setPaywall(feature || "");
       const closePaywall = () => setPaywall(null);
+      // ── RevenueCat native purchase bridge ──────────────────────────────────
+      const [purchasing, setPurchasing] = React.useState(false);
+
+      // Called by Swift after purchase / restore attempt
+      React.useEffect(() => {
+        window.onPurchaseResult = (success, message) => {
+          setPurchasing(false);
+          if (success) {
+            store.set("mk_is_pro", true);
+            setSub(calcSub());
+            closePaywall();
+          } else if (message !== "cancelled") {
+            alert("Kauf fehlgeschlagen: " + message);
+          }
+        };
+        window.onRestoreResult = (success, message) => {
+          setPurchasing(false);
+          if (success) {
+            store.set("mk_is_pro", true);
+            setSub(calcSub());
+            closePaywall();
+            alert("Käufe erfolgreich wiederhergestellt!");
+          } else {
+            alert("Keine aktiven Käufe gefunden.");
+          }
+        };
+        window.onProStatusChecked = (isPro) => {
+          if (isPro && !store.get("mk_is_pro")) {
+            store.set("mk_is_pro", true);
+            setSub(calcSub());
+          }
+        };
+        // Sync pro status on load
+        if (window.webkit?.messageHandlers?.check_pro_status) {
+          window.webkit.messageHandlers.check_pro_status.postMessage({});
+        }
+        return () => {
+          delete window.onPurchaseResult;
+          delete window.onRestoreResult;
+          delete window.onProStatusChecked;
+        };
+      }, []);
+
       const handleSubscribe = async () => {
-        // TODO: Replace with RevenueCat purchase call when Play Console is ready
+        // iOS native RevenueCat purchase
+        if (window.webkit?.messageHandlers?.purchase_pro) {
+          setPurchasing(true);
+          window.webkit.messageHandlers.purchase_pro.postMessage({});
+          return;
+        }
+        // Web / Android fallback
         try {
           const s = await activateSubscription();
           if (s) { setSub(s); closePaywall(); }
         } catch { alert("Fehler beim Aktivieren, bitte erneut versuchen."); }
+      };
+
+      const handleRestorePurchases = () => {
+        if (window.webkit?.messageHandlers?.restore_purchases) {
+          setPurchasing(true);
+          window.webkit.messageHandlers.restore_purchases.postMessage({});
+        }
       };
 
       // Load all data on auth
@@ -3927,6 +3988,10 @@
 
       const handleAuth = async (data) => {
         setAuth(data);
+        // Notify native RevenueCat SDK of this user so purchases are linked
+        if (data?.user?.id && window.webkit?.messageHandlers?.set_revenuecat_user) {
+          window.webkit.messageHandlers.set_revenuecat_user.postMessage(String(data.user.id));
+        }
         try {
           const s = await fetchSubscription();
           if (s) setSub(s);
@@ -4154,7 +4219,7 @@
           )}
           {settings && <SettingsModal targets={targets} profile={profile} voiceLang={voiceLang} onSave={(t, p, vl) => updateSettings(t, p, vl)} onClose={() => setSettings(false)} onDeleteAccount={handleDeleteAccount} theme={theme} onThemeChange={(t) => { store.set("mk_theme", t); setTheme(t); }} />}
           {editingEntry && <EditEntryModal entry={editingEntry} onSave={editEntry} onClose={() => setEditingEntry(null)} />}
-          {paywall !== null && <PaywallModal feature={paywall} onClose={closePaywall} onSubscribe={handleSubscribe} />}
+          {paywall !== null && <PaywallModal feature={paywall} onClose={closePaywall} onSubscribe={handleSubscribe} onRestore={handleRestorePurchases} purchasing={purchasing} />}
         </div>
       );
     }
