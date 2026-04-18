@@ -1764,7 +1764,7 @@
                   <Card key={i} style={{ padding: "10px 12px" }}>
                     <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
                       <span style={{ fontFamily: "Syne", fontSize: 13, fontWeight: 700, color: C.text }}>{item.name_de || item.name}</span>
-                      <Mono size={11} color={C.muted}>{item.weight_g}g</Mono>
+                      <Mono size={11} color={C.muted}>{Math.round(parseFloat(item.weight_g) * 10) / 10}g</Mono>
                     </div>
                     <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr 1fr", gap: 6 }}>
                       {MACROS.map(m => (
@@ -1860,7 +1860,7 @@
                     <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
                       <span style={{ fontFamily: "Syne", fontSize: 13, fontWeight: 700, color: C.text }}>{item.name_de || item.name}</span>
                       <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                        <Mono size={11} color={C.muted}>{item.weight_g}g</Mono>
+                        <Mono size={11} color={C.muted}>{Math.round(parseFloat(item.weight_g) * 10) / 10}g</Mono>
                         <button onClick={() => setEditingRecipe(p => ({ ...p, items: p.items.filter((_,idx) => idx !== i) }))}
                           style={{ background: "none", border: "none", color: "#f8717150", fontSize: 15, padding: "2px 2px", cursor: "pointer", lineHeight: 1 }}>✕</button>
                       </div>
@@ -1905,7 +1905,7 @@
                             <div key={i} style={{ marginBottom: 8 }}>
                               <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 4 }}>
                                 <span style={{ fontFamily: "Syne", fontSize: 13, fontWeight: 700, color: C.text }}>{item.name_de || item.name}</span>
-                                <Mono size={11} color={C.muted}>{item.weight_g}g</Mono>
+                                <Mono size={11} color={C.muted}>{Math.round(parseFloat(item.weight_g) * 10) / 10}g</Mono>
                               </div>
                               <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr 1fr", gap: 6 }}>
                                 {MACROS.map(m => (
@@ -2008,7 +2008,7 @@
                       <button onClick={() => onToggleFavorite(r.id, !r.is_favorite)} style={{ background: "none", border: "none", color: r.is_favorite ? "#f59e0b" : C.border, fontSize: 16, padding: 0, cursor: "pointer", lineHeight: 1, flexShrink: 0 }}>{r.is_favorite ? "★" : "☆"}</button>
                     </div>
                     <div style={{ fontFamily: "Syne", fontSize: 10, color: C.muted, marginTop: 2 }}>
-                      Gesamtgewicht: {r.total_weight}g{r.portion_g ? ` · Portion: ${r.portion_g}g` : ""}
+                      Gesamtgewicht: {Math.round(parseFloat(r.total_weight) * 10) / 10}g{r.portion_g ? ` · Portion: ${Math.round(parseFloat(r.portion_g) * 10) / 10}g` : ""}
                     </div>
                   </div>
                   <button onClick={() => onDelete(r.id)} style={{ background: "none", border: "none", color: "#f8717140", fontSize: 16, padding: 4 }}>✕</button>
@@ -2028,7 +2028,7 @@
                       {MACROS.map(m => (
                         <div key={m} style={{ textAlign: "center" }}>
                           <Mono size={13} color={MC[m]} bold>{Math.round(parseFloat(r[`${m}_100`]) * f * (m === "kcal" ? 1 : 10) / (m === "kcal" ? 1 : 10))}</Mono>
-                          <div style={{ fontFamily: "Inter", fontSize: 9, color: C.muted }}>/{r.portion_g}g</div>
+                          <div style={{ fontFamily: "Inter", fontSize: 9, color: C.muted }}>/{Math.round(parseFloat(r.portion_g) * 10) / 10}g</div>
                         </div>
                       ))}
                     </div>
@@ -2060,7 +2060,7 @@
                 <div style={{ marginBottom: 6 }}>
                   <span style={{ fontFamily: "Syne", fontSize: 15, fontWeight: 700, color: C.text }}>{r.name}</span>
                   <div style={{ fontFamily: "Syne", fontSize: 10, color: C.muted, marginTop: 2 }}>
-                    {new Date(r.archived_at).toLocaleDateString("de-DE", { day: "numeric", month: "short", year: "numeric" })} · {r.total_weight}g
+                    {new Date(r.archived_at).toLocaleDateString("de-DE", { day: "numeric", month: "short", year: "numeric" })} · {Math.round(parseFloat(r.total_weight) * 10) / 10}g
                   </div>
                 </div>
                 <div style={{ fontFamily: "Syne", fontSize: 10, color: C.muted, marginBottom: 12 }}>
