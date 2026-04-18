@@ -308,13 +308,19 @@
         const names = e.items.map(it => it.name_de || it.name || "").filter(Boolean);
         if (names.length > 0) return names.join(", ");
       }
-      return e.raw_input || "";
+      // RN-saved entries have name_de/name directly on e
+      return e.raw_input || e.name_de || e.name || "";
+    }
+
+    function entryMacro(e, m) {
+      // Web-app entries: e.totals.kcal / RN-app entries: e.kcal
+      return (e.totals && e.totals[m] != null) ? e.totals[m] : (e[m] ?? 0);
     }
 
     function sumEntries(entries) {
       return entries.reduce((a, e) => ({
-        kcal: a.kcal + e.totals.kcal, protein: a.protein + e.totals.protein,
-        carbs: a.carbs + e.totals.carbs, fat: a.fat + e.totals.fat,
+        kcal: a.kcal + entryMacro(e, "kcal"), protein: a.protein + entryMacro(e, "protein"),
+        carbs: a.carbs + entryMacro(e, "carbs"), fat: a.fat + entryMacro(e, "fat"),
       }), { kcal: 0, protein: 0, carbs: 0, fat: 0 });
     }
 
@@ -1376,7 +1382,7 @@
                       <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 6 }}>
                         {MACROS.map(m => (
                           <div key={m} style={{ textAlign: "center" }}>
-                            <Mono size={13} color={MC[m]} bold>{Math.round(e.totals[m])}</Mono>
+                            <Mono size={13} color={MC[m]} bold>{Math.round(entryMacro(e, m))}</Mono>
                             <div style={{ fontFamily: "Inter", fontSize: 9, color: C.muted }}>{UNITS[m]}</div>
                           </div>
                         ))}
@@ -2706,7 +2712,7 @@
                               <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 6 }}>
                                 {MACROS.map(m => (
                                   <div key={m} style={{ textAlign: "center" }}>
-                                    <Mono size={13} color={MC[m]} bold>{Math.round(e.totals[m])}</Mono>
+                                    <Mono size={13} color={MC[m]} bold>{Math.round(entryMacro(e, m))}</Mono>
                                     <div style={{ fontFamily: "Inter", fontSize: 9, color: C.muted }}>{UNITS[m]}</div>
                                   </div>
                                 ))}
