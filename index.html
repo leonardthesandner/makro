@@ -151,24 +151,26 @@
       font-size: 10px; letter-spacing: 1.5px; text-transform: uppercase;
       color: var(--muted); margin-bottom: 8px;
     }
-    .pack-row { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
+    .pack-row {
+      display: flex; flex-direction: row; gap: 8px;
+    }
     .pack-btn {
-      background: var(--soft); border: 1px solid var(--border);
-      border-radius: 10px; padding: 10px 6px;
+      flex: 1; min-width: 0;
+      background: var(--soft); border: 1px solid #333;
+      border-radius: 10px; padding: 10px 4px;
       display: flex; flex-direction: column; align-items: center; gap: 2px;
       cursor: pointer; transition: border-color 0.15s, background 0.15s;
       user-select: none;
     }
-    .pack-btn.selected { background: var(--soft); }
     .pack-qty {
       font-family: 'Syne', sans-serif; font-weight: 800;
-      font-size: 17px;
+      font-size: 15px; color: #f0f0f0;
     }
     .pack-price {
-      font-size: 11px; color: var(--muted); font-weight: 500;
+      font-size: 11px; color: #888; font-weight: 500;
     }
     .pack-per {
-      font-size: 10px; color: var(--muted);
+      font-size: 10px; color: #555;
     }
 
     /* ── BUY BUTTON ── */
@@ -177,16 +179,21 @@
       font-family: 'Syne', sans-serif; font-weight: 700;
       font-size: 14px; letter-spacing: 0.3px;
       padding: 14px; border-radius: 12px;
-      border: none; cursor: pointer;
+      border: 1px solid #333; cursor: pointer;
       display: flex; align-items: center; justify-content: center; gap: 8px;
       transition: opacity 0.2s, transform 0.1s;
     }
-    .buy-btn:hover { opacity: 0.9; }
-    .buy-btn:active { transform: scale(0.98); }
-    .buy-btn:disabled { opacity: 0.45; cursor: not-allowed; }
+    .buy-btn:hover:not(:disabled) { opacity: 0.85; }
+    .buy-btn:active:not(:disabled) { transform: scale(0.98); }
+    .buy-btn:disabled {
+      background: var(--soft) !important;
+      color: #555 !important;
+      border-color: #2a2a2a;
+      cursor: not-allowed;
+    }
     .buy-btn .spinner {
       width: 16px; height: 16px;
-      border: 2px solid rgba(0,0,0,0.2);
+      border: 2px solid rgba(0,0,0,0.25);
       border-top-color: #000;
       border-radius: 50%;
       animation: spin 0.6s linear infinite;
