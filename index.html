@@ -9,6 +9,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Syne:wght@400;600;700;800;900&display=swap" rel="stylesheet" />
+  <script src="https://unpkg.com/three@0.158.0/build/three.min.js"></script>
   <style>
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
     :root {
@@ -248,11 +249,7 @@
     .card-body { flex: 1; }
     .card:hover { border-color: #333; }
     .card-header { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; }
-    .card-icon {
-      width: 48px; height: 48px; border-radius: 14px;
-      display: flex; align-items: center; justify-content: center;
-      font-size: 22px; flex-shrink: 0;
-    }
+    .gel-canvas { display: block; flex-shrink: 0; }
     .card-badge {
       font-family: 'Syne', sans-serif; font-weight: 700;
       font-size: 10px; letter-spacing: 1.5px; text-transform: uppercase;
@@ -407,7 +404,7 @@
       <!-- BLUE -->
       <div class="card" id="card-blue">
         <div class="card-header">
-          <div class="card-icon" style="background:#0f2a3a;">⚡</div>
+          <canvas class="gel-canvas" id="gel-canvas-blue" width="90" height="220"></canvas>
           <span class="card-badge" style="color:var(--blue);border-color:#1e4a6a;">Coffein</span>
         </div>
         <div class="card-body">
@@ -449,7 +446,7 @@
       <!-- ORANGE -->
       <div class="card" id="card-orange">
         <div class="card-header">
-          <div class="card-icon" style="background:#3a1e08;">+</div>
+          <canvas class="gel-canvas" id="gel-canvas-orange" width="90" height="220"></canvas>
           <span class="card-badge" style="color:var(--orange);border-color:#6a3010;">High Carb</span>
         </div>
         <div class="card-body">
@@ -491,7 +488,7 @@
       <!-- PURPLE -->
       <div class="card" id="card-purple">
         <div class="card-header">
-          <div class="card-icon" style="background:#1f1030;">~</div>
+          <canvas class="gel-canvas" id="gel-canvas-purple" width="90" height="220"></canvas>
           <span class="card-badge" style="color:var(--purple);border-color:#3a2060;">Koffeinfrei</span>
         </div>
         <div class="card-body">
@@ -583,6 +580,146 @@
       </button>
     </div>
   </div>
+
+  <!-- 3D GELS -->
+  <script>
+  (function initGels() {
+    if (typeof THREE === 'undefined') return;
+
+    const CFG = [
+      { id: 'blue',   hex: 0x38bdf8 },
+      { id: 'orange', hex: 0xfb923c },
+      { id: 'purple', hex: 0xa78bfa },
+    ];
+
+    /* ── shared gel shape (rounded rect, flat oval cross-section) ── */
+    function gelShape() {
+      const w = 0.70, h = 2.02, r = 0.13;
+      const s = new THREE.Shape();
+      s.moveTo(-w/2+r, -h/2);
+      s.lineTo( w/2-r, -h/2); s.quadraticCurveTo( w/2,-h/2, w/2,-h/2+r);
+      s.lineTo( w/2,   h/2-r); s.quadraticCurveTo( w/2, h/2, w/2-r, h/2);
+      s.lineTo(-w/2+r,  h/2); s.quadraticCurveTo(-w/2, h/2,-w/2, h/2-r);
+      s.lineTo(-w/2,  -h/2+r); s.quadraticCurveTo(-w/2,-h/2,-w/2+r,-h/2);
+      return s;
+    }
+    const sharedGeo = new THREE.ExtrudeGeometry(gelShape(), {
+      depth: 0.03,
+      bevelEnabled: true,
+      bevelThickness: 0.18,   /* large bevel → oval cross-section */
+      bevelSize: 0.10,
+      bevelSegments: 28,
+    });
+    sharedGeo.center();
+
+    /* ── per-gel init ── */
+    CFG.forEach(({ id, hex }) => {
+      const canvas = document.getElementById('gel-canvas-' + id);
+      if (!canvas) return;
+
+      const W = 90, H = 220;
+      const renderer = new THREE.WebGLRenderer({ canvas, alpha: true, antialias: true });
+      renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+      renderer.setSize(W, H);
+      renderer.setClearColor(0x000000, 0);
+      renderer.shadowMap.enabled = false;
+
+      const scene  = new THREE.Scene();
+      const camera = new THREE.PerspectiveCamera(48, W / H, 0.1, 100);
+      camera.position.z = 2.8;
+
+      /* lights */
+      scene.add(new THREE.AmbientLight(0xffffff, 0.40));
+      const key = new THREE.DirectionalLight(0xffffff, 2.0);
+      key.position.set(2, 3, 4); scene.add(key);
+      const fill = new THREE.DirectionalLight(0xffffff, 0.20);
+      fill.position.set(-3, 0, 1); scene.add(fill);
+      const rim = new THREE.PointLight(hex, 1.5, 10);
+      rim.position.set(0, -2.5, -1.5); scene.add(rim);
+
+      /* materials */
+      const bodyMat = new THREE.MeshPhysicalMaterial({
+        color: 0x0f0f0f, roughness: 0.88, metalness: 0.04,
+        clearcoat: 0.18, clearcoatRoughness: 0.65,
+      });
+      const bevelMat = new THREE.MeshPhysicalMaterial({
+        color: hex, roughness: 0.50, metalness: 0.10,
+        emissive: hex, emissiveIntensity: 0.25,
+      });
+
+      /* gel mesh */
+      const gel = new THREE.Mesh(sharedGeo, [bodyMat, bevelMat]);
+      scene.add(gel);
+
+      /* seal tab at top */
+      const sealG = new THREE.BoxGeometry(0.44, 0.09, 0.34);
+      const sealM = new THREE.MeshPhysicalMaterial({ color: 0x1c1c1c, roughness: 0.92 });
+      const seal  = new THREE.Mesh(sealG, sealM);
+      seal.position.y = 1.05; gel.add(seal);
+
+      /* accent stripe below seal */
+      const strG = new THREE.BoxGeometry(0.68, 0.052, 0.37);
+      const strM = new THREE.MeshPhysicalMaterial({
+        color: hex, roughness: 0.40,
+        emissive: hex, emissiveIntensity: 0.45,
+      });
+      const stripe = new THREE.Mesh(strG, strM);
+      stripe.position.y = 0.94; gel.add(stripe);
+
+      /* state */
+      gel.rotation.set(0.06, 0.4, 0);
+      let tRX = 0.06, tRY = 0.4, cRX = 0.06, cRY = 0.4;
+      let phase = Math.random() * Math.PI * 2;
+      let spinning = false, spinP = 0, triggered = false;
+
+      /* scroll-reveal: spin on first enter */
+      const card = canvas.closest('.card');
+      if (card) {
+        new IntersectionObserver(entries => {
+          if (entries[0].isIntersecting && !triggered) {
+            triggered = true; spinning = true; spinP = 0;
+          }
+        }, { threshold: 0.3 }).observe(card);
+
+        card.addEventListener('mousemove', e => {
+          if (spinning) return;
+          const r = card.getBoundingClientRect();
+          tRY = ((e.clientX - r.left) / r.width  - 0.5) *  1.1;
+          tRX = ((e.clientY - r.top)  / r.height - 0.5) * -0.55;
+        });
+        card.addEventListener('mouseleave', () => { tRY = 0.4; tRX = 0.06; });
+      }
+
+      /* render loop */
+      let prev = 0;
+      (function tick(now) {
+        requestAnimationFrame(tick);
+        const dt = Math.min((now - prev) / 1000, 0.05);
+        prev = now;
+        phase += dt;
+
+        if (spinning) {
+          spinP = Math.min(spinP + dt / 1.5, 1);
+          /* ease-in-out cubic */
+          const e = spinP < 0.5
+            ? 4 * spinP * spinP * spinP
+            : 1 - Math.pow(-2 * spinP + 2, 3) / 2;
+          gel.rotation.y = Math.PI * 2 * e + 0.4 * (1 - e);
+          gel.rotation.x = 0.06;
+          if (spinP >= 1) { spinning = false; gel.rotation.y = 0.4; }
+        } else {
+          cRX += (tRX - cRX) * 0.06;
+          cRY += (tRY - cRY) * 0.06;
+          gel.rotation.x = cRX + Math.sin(phase * 0.55) * 0.018;
+          gel.rotation.y = cRY + Math.sin(phase * 0.42) * 0.032;
+          gel.position.y  = Math.sin(phase * 0.70) * 0.030;
+        }
+
+        renderer.render(scene, camera);
+      })(0);
+    });
+  })();
+  </script>
 
   <!-- ERROR TOAST -->
   <div id="toast"></div>
