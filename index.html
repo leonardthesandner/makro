@@ -241,31 +241,32 @@
       background: var(--card);
       border: 1px solid var(--border);
       border-radius: 20px;
-      padding: 28px;
+      padding: 24px;
       display: flex; flex-direction: column; gap: 20px;
       transition: border-color 0.25s;
     }
     .card-body { flex: 1; }
     .card:hover { border-color: #333; }
-    .card-header { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; }
-    .card-icon {
-      width: 48px; height: 48px;
-      border-radius: 14px;
-      display: flex; align-items: center; justify-content: center;
-      font-size: 22px; flex-shrink: 0;
+    .gel-visual {
+      display: flex; justify-content: center; align-items: center;
+      padding: 12px 0 4px;
+    }
+    .card-name-row {
+      display: flex; align-items: center; justify-content: space-between;
+      margin-bottom: 8px;
     }
     .card-badge {
       font-family: 'Syne', sans-serif; font-weight: 700;
       font-size: 10px; letter-spacing: 1.5px; text-transform: uppercase;
-      padding: 5px 10px; border-radius: 6px; border: 1px solid;
+      padding: 4px 9px; border-radius: 6px; border: 1px solid;
+      flex-shrink: 0;
     }
     .card-name {
       font-family: 'Syne', sans-serif; font-weight: 800;
-      font-size: 22px; letter-spacing: -0.3px;
-      margin-bottom: 6px;
+      font-size: 20px; letter-spacing: -0.3px;
     }
-    .card-desc { font-size: 13px; color: var(--muted); line-height: 1.55; }
-    .card-tags { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 2px; }
+    .card-desc { font-size: 13px; color: var(--muted); line-height: 1.55; margin-bottom: 10px; }
+    .card-tags { display: flex; gap: 6px; flex-wrap: wrap; }
     .tag {
       font-size: 11px; font-weight: 500;
       padding: 4px 10px; border-radius: 5px;
@@ -408,14 +409,37 @@
 
       <!-- BLUE -->
       <div class="card" id="card-blue">
-        <div class="card-header">
-          <div class="card-icon" style="background:#0f2a3a;">⚡</div>
-          <span class="card-badge" style="color:var(--blue);border-color:#1e4a6a;">Coffein</span>
+        <div class="gel-visual">
+          <svg viewBox="0 0 72 210" width="72" height="210" xmlns="http://www.w3.org/2000/svg">
+            <!-- seal tab -->
+            <rect x="18" y="0" width="36" height="16" rx="3" fill="#1a1a1a"/>
+            <!-- body -->
+            <rect x="2" y="10" width="68" height="196" rx="11" fill="#111111"/>
+            <!-- subtle left highlight -->
+            <rect x="3" y="22" width="2" height="175" rx="1" fill="#ffffff08"/>
+            <!-- top accent stripe -->
+            <rect x="2" y="10" width="68" height="3" rx="2" fill="#38bdf8"/>
+            <!-- brand -->
+            <text x="36" y="38" text-anchor="middle" font-family="Syne,sans-serif" font-weight="900" font-size="10" fill="#ffffff30" letter-spacing="1">MAKRO.</text>
+            <!-- icon -->
+            <text x="36" y="80" text-anchor="middle" font-family="sans-serif" font-size="30" fill="#38bdf8">⚡</text>
+            <!-- name -->
+            <text x="36" y="112" text-anchor="middle" font-family="Syne,sans-serif" font-weight="900" font-size="20" fill="#38bdf8" letter-spacing="-0.5">BLUE</text>
+            <!-- divider -->
+            <line x1="14" y1="122" x2="58" y2="122" stroke="#38bdf820" stroke-width="1"/>
+            <!-- stats -->
+            <text x="36" y="142" text-anchor="middle" font-family="Syne,sans-serif" font-weight="700" font-size="8.5" fill="#38bdf8cc" letter-spacing="1.5">75MG COFFEIN</text>
+            <text x="36" y="157" text-anchor="middle" font-family="Syne,sans-serif" font-weight="600" font-size="8" fill="#ffffff35" letter-spacing="1.2">30G CARBS</text>
+            <text x="36" y="171" text-anchor="middle" font-family="Syne,sans-serif" font-weight="600" font-size="8" fill="#ffffff35" letter-spacing="1.2">ELEKTROLYTE</text>
+          </svg>
         </div>
         <div class="card-body">
-          <div class="card-name" style="color:var(--blue);">makro. blue</div>
+          <div class="card-name-row">
+            <div class="card-name" style="color:var(--blue);">makro. blue</div>
+            <span class="card-badge" style="color:var(--blue);border-color:#1e4a6a;">Coffein</span>
+          </div>
           <div class="card-desc">Mit 75 mg Coffein und Elektrolyten für maximalen Fokus und schnelle Energie.</div>
-          <div class="card-tags" style="margin-top:10px;">
+          <div class="card-tags">
             <span class="tag">75 mg Coffein</span>
             <span class="tag">Elektrolyte</span>
             <span class="tag">30g Carbs</span>
@@ -450,14 +474,28 @@
 
       <!-- ORANGE -->
       <div class="card" id="card-orange">
-        <div class="card-header">
-          <div class="card-icon" style="background:#3a1e08;">+</div>
-          <span class="card-badge" style="color:var(--orange);border-color:#6a3010;">High Carb</span>
+        <div class="gel-visual">
+          <svg viewBox="0 0 72 210" width="72" height="210" xmlns="http://www.w3.org/2000/svg">
+            <rect x="18" y="0" width="36" height="16" rx="3" fill="#1a1a1a"/>
+            <rect x="2" y="10" width="68" height="196" rx="11" fill="#111111"/>
+            <rect x="3" y="22" width="2" height="175" rx="1" fill="#ffffff08"/>
+            <rect x="2" y="10" width="68" height="3" rx="2" fill="#fb923c"/>
+            <text x="36" y="38" text-anchor="middle" font-family="Syne,sans-serif" font-weight="900" font-size="10" fill="#ffffff30" letter-spacing="1">MAKRO.</text>
+            <text x="36" y="80" text-anchor="middle" font-family="sans-serif" font-size="28" fill="#fb923c">+</text>
+            <text x="36" y="112" text-anchor="middle" font-family="Syne,sans-serif" font-weight="900" font-size="16" fill="#fb923c" letter-spacing="-0.5">ORANGE</text>
+            <line x1="14" y1="122" x2="58" y2="122" stroke="#fb923c20" stroke-width="1"/>
+            <text x="36" y="142" text-anchor="middle" font-family="Syne,sans-serif" font-weight="700" font-size="8.5" fill="#fb923ccc" letter-spacing="1.5">60G CARBS</text>
+            <text x="36" y="157" text-anchor="middle" font-family="Syne,sans-serif" font-weight="600" font-size="8" fill="#ffffff35" letter-spacing="1.2">2:1 RATIO</text>
+            <text x="36" y="171" text-anchor="middle" font-family="Syne,sans-serif" font-weight="600" font-size="8" fill="#ffffff35" letter-spacing="1.2">ISOTONISCH</text>
+          </svg>
         </div>
         <div class="card-body">
-          <div class="card-name" style="color:var(--orange);">makro. orange</div>
+          <div class="card-name-row">
+            <div class="card-name" style="color:var(--orange);">makro. orange</div>
+            <span class="card-badge" style="color:var(--orange);border-color:#6a3010;">High Carb</span>
+          </div>
           <div class="card-desc">60g Kohlenhydrate pro Gel für längste Belastungen und maximale Energieverfügbarkeit.</div>
-          <div class="card-tags" style="margin-top:10px;">
+          <div class="card-tags">
             <span class="tag">60g Carbs</span>
             <span class="tag">2:1 Glucose/Fructose</span>
             <span class="tag">Isotonisch</span>
@@ -492,14 +530,28 @@
 
       <!-- PURPLE -->
       <div class="card" id="card-purple">
-        <div class="card-header">
-          <div class="card-icon" style="background:#1f1030;">~</div>
-          <span class="card-badge" style="color:var(--purple);border-color:#3a2060;">Koffeinfrei</span>
+        <div class="gel-visual">
+          <svg viewBox="0 0 72 210" width="72" height="210" xmlns="http://www.w3.org/2000/svg">
+            <rect x="18" y="0" width="36" height="16" rx="3" fill="#1a1a1a"/>
+            <rect x="2" y="10" width="68" height="196" rx="11" fill="#111111"/>
+            <rect x="3" y="22" width="2" height="175" rx="1" fill="#ffffff08"/>
+            <rect x="2" y="10" width="68" height="3" rx="2" fill="#a78bfa"/>
+            <text x="36" y="38" text-anchor="middle" font-family="Syne,sans-serif" font-weight="900" font-size="10" fill="#ffffff30" letter-spacing="1">MAKRO.</text>
+            <text x="36" y="80" text-anchor="middle" font-family="sans-serif" font-size="32" fill="#a78bfa">~</text>
+            <text x="36" y="112" text-anchor="middle" font-family="Syne,sans-serif" font-weight="900" font-size="14" fill="#a78bfa" letter-spacing="-0.5">PURPLE</text>
+            <line x1="14" y1="122" x2="58" y2="122" stroke="#a78bfa20" stroke-width="1"/>
+            <text x="36" y="142" text-anchor="middle" font-family="Syne,sans-serif" font-weight="700" font-size="8.5" fill="#a78bfacc" letter-spacing="1.5">40G CARBS</text>
+            <text x="36" y="157" text-anchor="middle" font-family="Syne,sans-serif" font-weight="600" font-size="8" fill="#ffffff35" letter-spacing="1.2">KOFFEINFREI</text>
+            <text x="36" y="171" text-anchor="middle" font-family="Syne,sans-serif" font-weight="600" font-size="8" fill="#ffffff35" letter-spacing="1.2">LEICHT VERTRÄGLICH</text>
+          </svg>
         </div>
         <div class="card-body">
-          <div class="card-name" style="color:var(--purple);">makro. purple</div>
+          <div class="card-name-row">
+            <div class="card-name" style="color:var(--purple);">makro. purple</div>
+            <span class="card-badge" style="color:var(--purple);border-color:#3a2060;">Koffeinfrei</span>
+          </div>
           <div class="card-desc">40g Kohlenhydrate, ohne Coffein. Ideal für Abendeinheiten oder koffeinempfindliche Athleten.</div>
-          <div class="card-tags" style="margin-top:10px;">
+          <div class="card-tags">
             <span class="tag">40g Carbs</span>
             <span class="tag">Koffeinfrei</span>
             <span class="tag">Leicht verträglich</span>
