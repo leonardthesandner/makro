@@ -587,33 +587,152 @@
     if (typeof THREE === 'undefined') return;
 
     const CFG = [
-      { id: 'blue',   hex: 0x38bdf8 },
-      { id: 'orange', hex: 0xfb923c },
-      { id: 'purple', hex: 0xa78bfa },
+      { id:'blue',   hex:0x38bdf8, css:'#38bdf8', name:'makro. blue',   stat:'75mg Coffein'     },
+      { id:'orange', hex:0xfb923c, css:'#fb923c', name:'makro. orange', stat:'60g Kohlenhydrate' },
+      { id:'purple', hex:0xa78bfa, css:'#a78bfa', name:'makro. purple', stat:'40g Carbs'         },
     ];
 
-    /* ── shared gel shape (rounded rect, flat oval cross-section) ── */
-    function gelShape() {
-      const w = 0.70, h = 2.02, r = 0.13;
+    /* ── body shape: tall rounded rect, wider bottom corners ── */
+    function makeBodyShape() {
+      const w=0.62, h=1.56, rB=0.10, rT=0.03;
       const s = new THREE.Shape();
-      s.moveTo(-w/2+r, -h/2);
-      s.lineTo( w/2-r, -h/2); s.quadraticCurveTo( w/2,-h/2, w/2,-h/2+r);
-      s.lineTo( w/2,   h/2-r); s.quadraticCurveTo( w/2, h/2, w/2-r, h/2);
-      s.lineTo(-w/2+r,  h/2); s.quadraticCurveTo(-w/2, h/2,-w/2, h/2-r);
-      s.lineTo(-w/2,  -h/2+r); s.quadraticCurveTo(-w/2,-h/2,-w/2+r,-h/2);
+      s.moveTo(-w/2+rB, -h/2);
+      s.lineTo( w/2-rB, -h/2); s.quadraticCurveTo( w/2,-h/2, w/2,-h/2+rB);
+      s.lineTo( w/2,    h/2-rT); s.quadraticCurveTo( w/2, h/2, w/2-rT, h/2);
+      s.lineTo(-w/2+rT,  h/2); s.quadraticCurveTo(-w/2, h/2,-w/2, h/2-rT);
+      s.lineTo(-w/2,   -h/2+rB); s.quadraticCurveTo(-w/2,-h/2,-w/2+rB,-h/2);
       return s;
     }
-    const sharedGeo = new THREE.ExtrudeGeometry(gelShape(), {
-      depth: 0.03,
-      bevelEnabled: true,
-      bevelThickness: 0.18,   /* large bevel → oval cross-section */
-      bevelSize: 0.10,
-      bevelSegments: 28,
-    });
-    sharedGeo.center();
 
-    /* ── per-gel init ── */
-    CFG.forEach(({ id, hex }) => {
+    /* ── cap shape: trapezoid that flares outward toward the top ── */
+    function makeCapShape() {
+      const wB=0.50, wT=0.82, h=0.36;
+      const s = new THREE.Shape();
+      s.moveTo(-wB/2, 0); s.lineTo(wB/2, 0);
+      s.lineTo(wT/2, h); s.lineTo(-wT/2, h);
+      s.closePath(); return s;
+    }
+
+    const EXT = { depth:0.04, bevelEnabled:true, bevelThickness:0.10, bevelSize:0.06, bevelSegments:18 };
+
+    /* ── canvas label texture for body front face ── */
+    function makeLabelTex(css, name, stat) {
+      const cv = document.createElement('canvas'); cv.width=512; cv.height=1024;
+      const c = cv.getContext('2d');
+      /* dark background */
+      c.fillStyle='#0d0d0d'; c.fillRect(0,0,512,1024);
+      /* thin accent line */
+      c.strokeStyle = css; c.lineWidth = 6;
+      c.beginPath(); c.moveTo(40,120); c.lineTo(472,120); c.stroke();
+      /* product name */
+      c.font = '800 58px Syne,system-ui,sans-serif';
+      c.fillStyle = css; c.textAlign = 'left';
+      c.fillText(name, 40, 820);
+      /* stat line */
+      c.font = '500 30px Inter,system-ui,sans-serif';
+      c.fillStyle = 'rgba(255,255,255,0.38)';
+      c.fillText(stat, 40, 868);
+      /* subtle dot grid watermark */
+      c.fillStyle = 'rgba(255,255,255,0.03)';
+      for (let y=160;y<770;y+=28) for (let x=40;x<480;x+=28) {
+        c.beginPath(); c.arc(x,y,2,0,Math.PI*2); c.fill();
+      }
+      return new THREE.CanvasTexture(cv);
+    }
+
+    /* ── cap texture: solid color with horizontal ribs ── */
+    function makeCapTex(css) {
+      const cv = document.createElement('canvas'); cv.width=256; cv.height=256;
+      const c = cv.getContext('2d');
+      c.fillStyle = css; c.fillRect(0,0,256,256);
+      /* horizontal rib lines */
+      c.strokeStyle = 'rgba(0,0,0,0.25)'; c.lineWidth = 3;
+      for (let y=14; y<256; y+=18) {
+        c.beginPath(); c.moveTo(0,y); c.lineTo(256,y); c.stroke();
+      }
+      /* highlight at top */
+      c.strokeStyle = 'rgba(255,255,255,0.18)'; c.lineWidth = 2;
+      for (let y=17; y<256; y+=18) {
+        c.beginPath(); c.moveTo(0,y); c.lineTo(256,y); c.stroke();
+      }
+      return new THREE.CanvasTexture(cv);
+    }
+
+    /* ── seal texture: alternating stripes at bottom ── */
+    function makeSealTex(css) {
+      const cv = document.createElement('canvas'); cv.width=256; cv.height=64;
+      const c = cv.getContext('2d');
+      const sw = 18;
+      for (let x=0; x<256; x+=sw*2) {
+        c.fillStyle = '#1a1a1a'; c.fillRect(x, 0, sw, 64);
+        c.fillStyle = css + '55'; c.fillRect(x+sw, 0, sw, 64);
+      }
+      return new THREE.CanvasTexture(cv);
+    }
+
+    /* ── assemble one gel group ── */
+    function buildGel(hex, css, name, stat) {
+      const group = new THREE.Group();
+      const BY = -0.16;   /* body Y offset */
+
+      /* body */
+      const bodyGeo = new THREE.ExtrudeGeometry(makeBodyShape(), EXT);
+      bodyGeo.center();
+      const labelTex = makeLabelTex(css, name, stat);
+      const bodyFaceMat = new THREE.MeshPhysicalMaterial({
+        map: labelTex,
+        roughness: 0.82, metalness: 0.04,
+        clearcoat: 0.14, clearcoatRoughness: 0.70,
+      });
+      const bodySideMat = new THREE.MeshPhysicalMaterial({
+        color: 0x111111, roughness: 0.88, metalness: 0.04,
+      });
+      const body = new THREE.Mesh(bodyGeo, [bodyFaceMat, bodySideMat]);
+      body.position.y = BY;
+      group.add(body);
+
+      /* cap */
+      const capGeo = new THREE.ExtrudeGeometry(makeCapShape(), EXT);
+      /* capGeo origin is at y=0 (bottom of trapezoid) */
+      const capTex = makeCapTex(css);
+      const capFaceMat = new THREE.MeshPhysicalMaterial({
+        map: capTex, roughness: 0.55, metalness: 0.08,
+        emissive: hex, emissiveIntensity: 0.06,
+      });
+      const capSideMat = new THREE.MeshPhysicalMaterial({
+        color: hex, roughness: 0.50, metalness: 0.08,
+        emissive: hex, emissiveIntensity: 0.12,
+      });
+      const cap = new THREE.Mesh(capGeo, [capFaceMat, capSideMat]);
+      /* cap bottom at body top; capShape is symmetric, x=0 centres it */
+      cap.position.set(0, BY + 0.78, -0.02);
+      group.add(cap);
+
+      /* nozzle sphere */
+      const nozzleGeo = new THREE.SphereGeometry(0.076, 20, 16);
+      const nozzleMat = new THREE.MeshPhysicalMaterial({
+        color: 0x181818, roughness: 0.60, metalness: 0.20,
+      });
+      const nozzle = new THREE.Mesh(nozzleGeo, nozzleMat);
+      nozzle.scale.set(1.0, 0.88, 0.74);
+      /* nozzle sits on top of cap: BY + 0.78 + 0.36 (cap height) + radius */
+      nozzle.position.y = BY + 0.78 + 0.36 + 0.068;
+      group.add(nozzle);
+
+      /* bottom seal bar */
+      const sealGeo = new THREE.BoxGeometry(0.60, 0.072, 0.28);
+      const sealTex = makeSealTex(css);
+      const sealMat = new THREE.MeshPhysicalMaterial({ map: sealTex, roughness: 0.90 });
+      const seal = new THREE.Mesh(sealGeo, sealMat);
+      seal.position.y = BY - 0.78 - 0.036;
+      group.add(seal);
+
+      return group;
+    }
+
+    /* ── per-canvas renderer setup (after fonts ready) ── */
+    function setupCanvas(cfg) {
+      const { id, hex, css, name, stat } = cfg;
       const canvas = document.getElementById('gel-canvas-' + id);
       if (!canvas) return;
 
@@ -622,55 +741,27 @@
       renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
       renderer.setSize(W, H);
       renderer.setClearColor(0x000000, 0);
-      renderer.shadowMap.enabled = false;
 
       const scene  = new THREE.Scene();
-      const camera = new THREE.PerspectiveCamera(48, W / H, 0.1, 100);
-      camera.position.z = 2.8;
+      const camera = new THREE.PerspectiveCamera(46, W / H, 0.1, 100);
+      camera.position.z = 3.1;
 
       /* lights */
-      scene.add(new THREE.AmbientLight(0xffffff, 0.40));
-      const key = new THREE.DirectionalLight(0xffffff, 2.0);
+      scene.add(new THREE.AmbientLight(0xffffff, 0.45));
+      const key = new THREE.DirectionalLight(0xffffff, 2.2);
       key.position.set(2, 3, 4); scene.add(key);
-      const fill = new THREE.DirectionalLight(0xffffff, 0.20);
+      const fill = new THREE.DirectionalLight(0xffffff, 0.25);
       fill.position.set(-3, 0, 1); scene.add(fill);
-      const rim = new THREE.PointLight(hex, 1.5, 10);
+      const rim = new THREE.PointLight(hex, 1.6, 10);
       rim.position.set(0, -2.5, -1.5); scene.add(rim);
 
-      /* materials */
-      const bodyMat = new THREE.MeshPhysicalMaterial({
-        color: 0x0f0f0f, roughness: 0.88, metalness: 0.04,
-        clearcoat: 0.18, clearcoatRoughness: 0.65,
-      });
-      const bevelMat = new THREE.MeshPhysicalMaterial({
-        color: hex, roughness: 0.50, metalness: 0.10,
-        emissive: hex, emissiveIntensity: 0.25,
-      });
-
-      /* gel mesh */
-      const gel = new THREE.Mesh(sharedGeo, [bodyMat, bevelMat]);
+      const gel = buildGel(hex, css, name, stat);
       scene.add(gel);
 
-      /* seal tab at top */
-      const sealG = new THREE.BoxGeometry(0.44, 0.09, 0.34);
-      const sealM = new THREE.MeshPhysicalMaterial({ color: 0x1c1c1c, roughness: 0.92 });
-      const seal  = new THREE.Mesh(sealG, sealM);
-      seal.position.y = 1.05; gel.add(seal);
-
-      /* accent stripe below seal */
-      const strG = new THREE.BoxGeometry(0.68, 0.052, 0.37);
-      const strM = new THREE.MeshPhysicalMaterial({
-        color: hex, roughness: 0.40,
-        emissive: hex, emissiveIntensity: 0.45,
-      });
-      const stripe = new THREE.Mesh(strG, strM);
-      stripe.position.y = 0.94; gel.add(stripe);
-
       /* state */
-      const SPIN_RAD = Math.PI * 2;            /* 360° */
+      const SPIN_RAD = Math.PI * 2;
       let baseRY = 0.4, baseRX = 0.06;
       let hoverDY = 0, hoverDX = 0, curDY = 0, curDX = 0;
-      let phase = Math.random() * Math.PI * 2;
       let spinning = false, spinP = 0, triggered = false;
       gel.rotation.set(baseRX, baseRY, 0);
 
@@ -698,18 +789,16 @@
         requestAnimationFrame(tick);
         const dt = Math.min((now - prev) / 1000, 0.05);
         prev = now;
-        phase += dt;
 
         if (spinning) {
           spinP = Math.min(spinP + dt / 1.5, 1);
           const e = spinP < 0.5
             ? 4 * spinP * spinP * spinP
             : 1 - Math.pow(-2 * spinP + 2, 3) / 2;
-          /* rotate from baseRY by SPIN_RAD — no reset on finish */
           gel.rotation.y = baseRY + SPIN_RAD * e;
           gel.rotation.x = baseRX;
           if (spinP >= 1) {
-            baseRY += SPIN_RAD;   /* advance base so idle picks up seamlessly */
+            baseRY += SPIN_RAD;
             curDY = 0; hoverDY = 0;
             curDX = 0; hoverDX = 0;
             spinning = false;
@@ -723,6 +812,11 @@
 
         renderer.render(scene, camera);
       })(0);
+    }
+
+    /* wait for fonts so canvas text renders with Syne/Inter */
+    document.fonts.ready.then(function() {
+      CFG.forEach(setupCanvas);
     });
   })();
   </script>
