@@ -717,9 +717,8 @@
         } else {
           curDY += (hoverDY - curDY) * 0.06;
           curDX += (hoverDX - curDX) * 0.06;
-          gel.rotation.y = baseRY + curDY + Math.sin(phase * 0.42) * 0.032;
-          gel.rotation.x = baseRX + curDX + Math.sin(phase * 0.55) * 0.018;
-          gel.position.y  = Math.sin(phase * 0.70) * 0.030;
+          gel.rotation.y = baseRY + curDY;
+          gel.rotation.x = baseRX + curDX;
         }
 
         renderer.render(scene, camera);
