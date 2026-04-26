@@ -667,12 +667,14 @@
       stripe.position.y = 0.94; gel.add(stripe);
 
       /* state */
-      gel.rotation.set(0.06, 0.4, 0);
-      let tRX = 0.06, tRY = 0.4, cRX = 0.06, cRY = 0.4;
+      const SPIN_RAD = 375 * Math.PI / 180;   /* 375° */
+      let baseRY = 0.4, baseRX = 0.06;
+      let hoverDY = 0, hoverDX = 0, curDY = 0, curDX = 0;
       let phase = Math.random() * Math.PI * 2;
       let spinning = false, spinP = 0, triggered = false;
+      gel.rotation.set(baseRX, baseRY, 0);
 
-      /* scroll-reveal: spin on first enter */
+      /* scroll-reveal */
       const card = canvas.closest('.card');
       if (card) {
         new IntersectionObserver(entries => {
@@ -684,10 +686,10 @@
         card.addEventListener('mousemove', e => {
           if (spinning) return;
           const r = card.getBoundingClientRect();
-          tRY = ((e.clientX - r.left) / r.width  - 0.5) *  1.1;
-          tRX = ((e.clientY - r.top)  / r.height - 0.5) * -0.55;
+          hoverDY =  ((e.clientX - r.left) / r.width  - 0.5) *  1.0;
+          hoverDX = -((e.clientY - r.top)  / r.height - 0.5) *  0.5;
         });
-        card.addEventListener('mouseleave', () => { tRY = 0.4; tRX = 0.06; });
+        card.addEventListener('mouseleave', () => { hoverDY = 0; hoverDX = 0; });
       }
 
       /* render loop */
@@ -700,18 +702,23 @@
 
         if (spinning) {
           spinP = Math.min(spinP + dt / 1.5, 1);
-          /* ease-in-out cubic */
           const e = spinP < 0.5
             ? 4 * spinP * spinP * spinP
             : 1 - Math.pow(-2 * spinP + 2, 3) / 2;
-          gel.rotation.y = Math.PI * 2 * e + 0.4 * (1 - e);
-          gel.rotation.x = 0.06;
-          if (spinP >= 1) { spinning = false; gel.rotation.y = 0.4; }
+          /* rotate from baseRY by SPIN_RAD — no reset on finish */
+          gel.rotation.y = baseRY + SPIN_RAD * e;
+          gel.rotation.x = baseRX;
+          if (spinP >= 1) {
+            baseRY += SPIN_RAD;   /* advance base so idle picks up seamlessly */
+            curDY = 0; hoverDY = 0;
+            curDX = 0; hoverDX = 0;
+            spinning = false;
+          }
         } else {
-          cRX += (tRX - cRX) * 0.06;
-          cRY += (tRY - cRY) * 0.06;
-          gel.rotation.x = cRX + Math.sin(phase * 0.55) * 0.018;
-          gel.rotation.y = cRY + Math.sin(phase * 0.42) * 0.032;
+          curDY += (hoverDY - curDY) * 0.06;
+          curDX += (hoverDX - curDX) * 0.06;
+          gel.rotation.y = baseRY + curDY + Math.sin(phase * 0.42) * 0.032;
+          gel.rotation.x = baseRX + curDX + Math.sin(phase * 0.55) * 0.018;
           gel.position.y  = Math.sin(phase * 0.70) * 0.030;
         }
 
